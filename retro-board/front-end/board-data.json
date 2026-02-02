@@ -1,0 +1,191 @@
+{
+  "board": {
+    "id": "board-1",
+    "name": "Sprint 1 Retro",
+    "description": "Retrospective for Sprint 1: Onboarding and Project Setup",
+    "createdAt": "2026-01-25T10:00:00Z",
+    "updatedAt": "2026-01-30T14:30:00Z",
+    "owner": {
+      "id": "user-1",
+      "username": "alice",
+      "email": "alice@example.com"
+    },
+    "members": [
+      {
+        "id": "user-1",
+        "username": "alice",
+        "role": "owner"
+      },
+      {
+        "id": "user-2",
+        "username": "bob",
+        "role": "member"
+      },
+      {
+        "id": "user-3",
+        "username": "charlie",
+        "role": "viewer"
+      }
+    ],
+    "columns": [
+      {
+        "id": "col-1",
+        "name": "What went well",
+        "position": 1,
+        "cards": [
+          {
+            "id": "card-1",
+            "content": "Team collaboration was excellent!",
+            "author": {
+              "id": "user-1",
+              "username": "alice"
+            },
+            "createdAt": "2026-01-25T10:15:00Z",
+            "votes": [
+              {
+                "userId": "user-1",
+                "timestamp": "2026-01-25T10:20:00Z"
+              },
+              {
+                "userId": "user-2",
+                "timestamp": "2026-01-25T10:22:00Z"
+              }
+            ],
+            "comments": [
+              {
+                "id": "comment-1",
+                "content": "I agree, daily standups were very productive.",
+                "author": {
+                  "id": "user-2",
+                  "username": "bob"
+                },
+                "createdAt": "2026-01-25T10:30:00Z"
+              }
+            ],
+            "assignees": [],
+            "tags": ["collaboration", "teamwork"]
+          },
+          {
+            "id": "card-2",
+            "content": "Project setup was completed on time",
+            "author": {
+              "id": "user-2",
+              "username": "bob"
+            },
+            "createdAt": "2026-01-25T10:20:00Z",
+            "votes": [
+              {
+                "userId": "user-1",
+                "timestamp": "2026-01-25T10:25:00Z"
+              }
+            ],
+            "comments": [],
+            "assignees": [],
+            "tags": ["setup", "timely"]
+          }
+        ]
+      },
+      {
+        "id": "col-2",
+        "name": "What can be improved",
+        "position": 2,
+        "cards": [
+          {
+            "id": "card-3",
+            "content": "Documentation could be more detailed",
+            "author": {
+              "id": "user-3",
+              "username": "charlie"
+            },
+            "createdAt": "2026-01-25T10:25:00Z",
+            "votes": [
+              {
+                "userId": "user-1",
+                "timestamp": "2026-01-25T10:30:00Z"
+              },
+              {
+                "userId": "user-2",
+                "timestamp": "2026-01-25T10:32:00Z"
+              },
+              {
+                "userId": "user-3",
+                "timestamp": "2026-01-25T10:33:00Z"
+              }
+            ],
+            "comments": [
+              {
+                "id": "comment-2",
+                "content": "We should create a wiki for common tasks",
+                "author": {
+                  "id": "user-1",
+                  "username": "alice"
+                },
+                "createdAt": "2026-01-25T10:35:00Z"
+              }
+            ],
+            "assignees": [
+              {
+                "id": "user-2",
+                "username": "bob"
+              }
+            ],
+            "tags": ["documentation"]
+          }
+        ]
+      },
+      {
+        "id": "col-3",
+        "name": "Action items",
+        "position": 3,
+        "cards": [
+          {
+            "id": "card-4",
+            "content": "Create detailed setup documentation",
+            "author": {
+              "id": "user-1",
+              "username": "alice"
+            },
+            "createdAt": "2026-01-25T10:30:00Z",
+            "votes": [],
+            "comments": [],
+            "assignees": [
+              {
+                "id": "user-2",
+                "username": "bob"
+              }
+            ],
+            "tags": ["documentation", "action-item"],
+            "dueDate": "2026-02-02T17:00:00Z",
+            "status": "in-progress"
+          },
+          {
+            "id": "card-5",
+            "content": "Set up regular team check-ins",
+            "author": {
+              "id": "user-2",
+              "username": "bob"
+            },
+            "createdAt": "2026-01-25T10:35:00Z",
+            "votes": [],
+            "comments": [],
+            "assignees": [
+              {
+                "id": "user-1",
+                "username": "alice"
+              }
+            ],
+            "tags": ["teamwork", "action-item"],
+            "dueDate": "2026-01-28T10:00:00Z",
+            "status": "completed"
+          }
+        ]
+      }
+    ],
+    "settings": {
+      "allowComments": true,
+      "allowVoting": true,
+      "allowAssignees": true,
+      "defaultColumns": ["What went well", "What can be improved", "Action items"]
+    }
+  }
+}

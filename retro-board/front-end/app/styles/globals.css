@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-100 text-gray-800;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-medium;
+  }
+}
+
+@layer utilities {
+  .content-auto {
+    content-visibility: auto;
+  }
+  .transition-smooth {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  .shadow-card {
+    @apply shadow-md hover:shadow-lg transition-smooth;
+  }
+  .border-radius {
+    @apply rounded-lg;
+  }
+  .btn-primary {
+    @apply bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-smooth;
+  }
+  .btn-secondary {
+    @apply bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-smooth;
+  }
+  .btn-accent {
+    @apply bg-yellow-500 text-gray-800 px-4 py-2 rounded-lg hover:bg-yellow-600 transition-smooth;
+  }
+  .btn-outline {
+    @apply border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200 transition-smooth;
+  }
+  .input-field {
+    @apply border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+  .card-container {
+    @apply bg-white rounded-lg p-4 shadow-card;
+  }
+  .board-container {
+    @apply bg-white rounded-lg p-6 shadow-md;
+  }
+  .sidebar-item {
+    @apply flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-200 transition-smooth cursor-pointer;
+  }
+  .sidebar-item-active {
+    @apply bg-blue-100 text-blue-500 font-medium;
+  }
+}
