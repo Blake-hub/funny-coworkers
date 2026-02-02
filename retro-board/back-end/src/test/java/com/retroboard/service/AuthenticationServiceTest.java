@@ -60,9 +60,10 @@ class AuthenticationServiceTest {
         TokenResponse tokenResponse = authenticationService.register(registerRequest);
 
         // Assert
-        assertNotNull(tokenResponse);
-        assertEquals("testToken", tokenResponse.getToken());
-        verify(userRepository, times(1)).save(any(User.class));
+    assertNotNull(tokenResponse);
+    assertEquals("testToken", tokenResponse.getToken());
+    assertEquals("testuser", tokenResponse.getUsername());
+    verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test

@@ -6,7 +6,7 @@ import * as authApiModule from '../../services/api';
 const mockRegister = jest.spyOn(authApiModule.authApi, 'register');
 // Mock window.location.href
 delete window.location;
-window.location = { href: '' } as Location;
+window.location = { href: '' };
 
 jest.mock('../../services/api', () => ({
   authApi: {

@@ -15,7 +15,7 @@ describe('API Service', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockData),
-      } as Response);
+      });
 
       const result = await fetchApi('/test');
       expect(result).toEqual(mockData);
@@ -26,7 +26,7 @@ describe('API Service', () => {
         ok: false,
         status: 409,
         json: () => Promise.resolve({ message: 'Username already exists' }),
-      } as Response);
+      });
 
       await expect(fetchApi('/test')).rejects.toThrow('Username already exists');
     });
@@ -36,7 +36,7 @@ describe('API Service', () => {
         ok: false,
         status: 409,
         json: () => Promise.resolve({}),
-      } as Response);
+      });
 
       await expect(fetchApi('/test')).rejects.toThrow('Username or email already exists');
     });
@@ -46,7 +46,7 @@ describe('API Service', () => {
         ok: false,
         status: 401,
         json: () => Promise.resolve({}),
-      } as Response);
+      });
 
       await expect(fetchApi('/test')).rejects.toThrow('Invalid credentials');
     });
@@ -56,7 +56,7 @@ describe('API Service', () => {
         ok: false,
         status: 400,
         json: () => Promise.resolve({}),
-      } as Response);
+      });
 
       await expect(fetchApi('/test')).rejects.toThrow('Invalid input data');
     });
@@ -67,7 +67,7 @@ describe('API Service', () => {
         status: 500,
         statusText: 'Internal Server Error',
         json: () => Promise.resolve({}),
-      } as Response);
+      });
 
       await expect(fetchApi('/test')).rejects.toThrow('API error: 500 Internal Server Error');
     });
@@ -80,7 +80,7 @@ describe('API Service', () => {
         mockFetch.mockResolvedValue({
           ok: true,
           json: () => Promise.resolve(mockResponse),
-        } as Response);
+        });
 
         const userData = {
           username: 'testuser',
@@ -107,7 +107,7 @@ describe('API Service', () => {
         mockFetch.mockResolvedValue({
           ok: true,
           json: () => Promise.resolve(mockResponse),
-        } as Response);
+        });
 
         const credentials = {
           username: 'testuser',

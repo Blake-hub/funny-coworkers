@@ -42,7 +42,7 @@ public class AuthenticationService {
         // Generate JWT token
         String token = jwtUtil.generateToken(loginRequest.getUsername());
         
-        return new TokenResponse(token);
+        return new TokenResponse(token, loginRequest.getUsername());
     }
     
     public TokenResponse register(RegisterRequest registerRequest) {
@@ -65,8 +65,8 @@ public class AuthenticationService {
         userRepository.save(user);
         
         // Generate JWT token
-        String token = jwtUtil.generateToken(user.getUsername());
-        
-        return new TokenResponse(token);
+    String token = jwtUtil.generateToken(user.getUsername());
+    
+    return new TokenResponse(token, user.getUsername());
     }
 }

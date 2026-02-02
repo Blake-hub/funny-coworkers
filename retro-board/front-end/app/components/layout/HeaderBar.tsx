@@ -7,16 +7,21 @@ export default function HeaderBar() {
   const router = useRouter();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState('');
 
   useEffect(() => {
     // Check if user is authenticated
     const token = localStorage.getItem('token');
+    const storedUsername = localStorage.getItem('username');
     setIsAuthenticated(!!token);
+    setUsername(storedUsername || '');
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('username');
     setIsAuthenticated(false);
+    setUsername('');
     router.push('/login');
   };
 
@@ -56,9 +61,9 @@ export default function HeaderBar() {
                 className="flex items-center gap-2 p-2 rounded-full hover:bg-neutral-200 transition-smooth"
               >
                 <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-white font-medium">
-                  US
+                  {username ? username.charAt(0).toUpperCase() + username.charAt(1).toUpperCase() : 'US'}
                 </div>
-                <span className="text-sm font-medium">User Name</span>
+                <span className="text-sm font-medium">{username || 'User Name'}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>

@@ -6,7 +6,7 @@ import * as authApiModule from '../../services/api';
 const mockLogin = jest.spyOn(authApiModule.authApi, 'login');
 // Mock window.location.href
 delete window.location;
-window.location = { href: '' } as Location;
+window.location = { href: '' };
 // Mock localStorage
 Object.defineProperty(window, 'localStorage', {
   value: {
@@ -28,7 +28,7 @@ describe('LoginForm', () => {
   beforeEach(() => {
     mockLogin.mockClear();
     window.location.href = '';
-    (localStorage.setItem as jest.Mock).mockClear();
+    localStorage.setItem.mockClear();
   });
 
   it('should render the form correctly', () => {
