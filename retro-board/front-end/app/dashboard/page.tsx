@@ -33,7 +33,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 flex flex-col">
+    <div className="min-h-screen bg-neutral-100 dark:bg-gray-900 flex flex-col">
       <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
       <div className="flex flex-1 overflow-hidden">
         {isMobileSidebarOpen && (

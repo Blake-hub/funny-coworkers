@@ -107,7 +107,7 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
         {boards.map((board) => (
           <div
             key={board.id}
-            className="board-container cursor-pointer hover:shadow-lg active:scale-95 active:shadow-sm transition-smooth"
+            className="board-container cursor-pointer hover:shadow-lg active:scale-95 active:shadow-sm transition-smooth dark:bg-gray-800"
             onClick={() => handleViewBoard(board.id)}
           >
             <div className="flex items-center justify-between mb-4">

@@ -90,13 +90,13 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
       {/* Sidebar */}
       <aside 
         className={`
-          bg-white border-r border-neutral-200 transition-all duration-300 ease-in-out 
+          bg-white border-r border-neutral-200 dark:bg-gray-900 dark:border-gray-800 transition-all duration-300 ease-in-out 
           ${isCollapsed ? 'w-20' : 'w-64'}
           ${isMobile ? 'fixed inset-y-0 left-0 z-40 lg:relative lg:static' : ''}
           ${isMobile ? '' : 'hidden lg:block'}
         `}
       >
-        <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
+        <div className="p-4 border-b border-neutral-200 dark:border-gray-800 flex items-center justify-between">
           {isMobile ? (
             <button
               onClick={onMobileToggle}
@@ -151,7 +151,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
           ))}
         </nav>
         {!isCollapsed && (
-          <div className="p-4 border-t border-neutral-200">
+          <div className="p-4 border-t border-neutral-200 dark:border-gray-800">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-neutral-400">Recent Boards</h3>
               <button className="text-primary hover:text-primary/80 text-sm">
@@ -216,7 +216,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
           </div>
         )}
         {isCollapsed && (
-          <div className="p-4 border-t border-neutral-200 flex justify-center">
+          <div className="p-4 border-t border-neutral-200 dark:border-gray-800 flex justify-center">
             <button 
               className="btn-primary rounded-full p-3"
               onClick={() => {

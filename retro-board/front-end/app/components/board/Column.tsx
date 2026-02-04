@@ -152,7 +152,7 @@ export default function Column({
   };
 
   return (
-    <div className="min-w-[300px] bg-neutral-200 rounded-lg p-4 flex flex-col">
+    <div className="min-w-[300px] bg-neutral-200 dark:bg-gray-800 rounded-lg p-4 flex flex-col">
       <div className="flex items-start justify-between mb-4">
         {isEditing ? (
           <div className="flex-1 pr-4">
@@ -214,13 +214,13 @@ export default function Column({
                   </span>
                 </button>
                 {isSortDropdownOpen && (
-                  <div className="absolute right-0 mt-1 bg-white rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
+                  <div className="absolute right-0 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
                     <button
                       onClick={() => {
                         handleSortChange('votes');
                         setIsSortDropdownOpen(false);
                       }}
-                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'votes' ? 'bg-primary/10 text-primary' : 'text-neutral-700 hover:bg-neutral-100'}`}
+                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'votes' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
                     >
                       Votes {sortCriteria === 'votes' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
@@ -229,7 +229,7 @@ export default function Column({
                         handleSortChange('creator');
                         setIsSortDropdownOpen(false);
                       }}
-                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'creator' ? 'bg-primary/10 text-primary' : 'text-neutral-700 hover:bg-neutral-100'}`}
+                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'creator' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
                     >
                       Creator {sortCriteria === 'creator' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
@@ -238,7 +238,7 @@ export default function Column({
                         handleSortChange('createdAt');
                         setIsSortDropdownOpen(false);
                       }}
-                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'createdAt' ? 'bg-primary/10 text-primary' : 'text-neutral-700 hover:bg-neutral-100'}`}
+                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'createdAt' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
                     >
                       Date {sortCriteria === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
@@ -387,7 +387,7 @@ export default function Column({
         )}
       </div>
       {isAddingCard ? (
-        <div className="bg-white rounded-lg p-3 space-y-2">
+        <div className="bg-white dark:bg-gray-700 rounded-lg p-3 space-y-2">
           <input
             type="text"
             placeholder="Card title"

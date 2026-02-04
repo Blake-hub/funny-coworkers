@@ -29,7 +29,7 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg shadow-xl w-full max-w-md">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-medium">Create New Board</h2>
@@ -44,14 +44,14 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
           </div>
           
           {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md text-sm">
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label htmlFor="name" className="block text-sm font-medium text-neutral-700 mb-1">
+              <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Board Name
               </label>
               <input
@@ -59,20 +59,20 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-full px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 placeholder="Enter board name"
               />
             </div>
 
             <div className="mb-6">
-              <label htmlFor="description" className="block text-sm font-medium text-neutral-700 mb-1">
+              <label htmlFor="description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Description (Optional)
               </label>
               <textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-full px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 placeholder="Add a description for your board"
                 rows={3}
               />
@@ -82,7 +82,7 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-50"
+                className="flex-1 px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-neutral-700 hover:bg-neutral-50 dark:hover:bg-gray-600"
               >
                 Cancel
               </button>

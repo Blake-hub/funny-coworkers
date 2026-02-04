@@ -41,7 +41,7 @@ function CreateTeamModal({ isOpen, onClose, onCreate }: CreateTeamModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full">
+      <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
         <h3 className="text-lg font-medium mb-4">Create New Team</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -76,7 +76,7 @@ interface TeamCardProps {
 
 function TeamCard({ team, onSelect }: TeamCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-smooth">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-smooth">
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-lg font-medium">{team.name}</h3>
         <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full">
@@ -161,7 +161,7 @@ export default function Teams() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 flex flex-col">
+    <div className="min-h-screen bg-neutral-100 dark:bg-gray-900 flex flex-col">
       <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
       <div className="flex flex-1 overflow-hidden">
         {isMobileSidebarOpen && (
@@ -217,7 +217,7 @@ export default function Teams() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white rounded-lg shadow-sm p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
                   <h3 className="text-lg font-medium mb-4">Team Members</h3>
                   <div className="space-y-3">
                     {selectedTeam.members.map((member) => (
@@ -243,7 +243,7 @@ export default function Teams() {
                   </div>
                 </div>
                 
-                <div className="bg-white rounded-lg shadow-sm p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
                   <h3 className="text-lg font-medium mb-4">Team Boards</h3>
                   <div className="space-y-3">
                     <div className="p-4 border border-dashed border-neutral-200 rounded-lg text-center">

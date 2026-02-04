@@ -209,7 +209,7 @@ export default function BoardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 flex flex-col">
+    <div className="min-h-screen bg-neutral-100 dark:bg-gray-900 flex flex-col">
       <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
       <div className="flex flex-1 overflow-hidden">
         {isMobileSidebarOpen && (
@@ -266,7 +266,7 @@ export default function BoardPage() {
                 const newColumnTitle = `Column ${columns.length + 1}`;
                 handleAddColumn(newColumnTitle, '');
               }}
-              className="min-w-[300px] bg-white/50 border-2 border-dashed border-neutral-300 rounded-lg p-4 flex items-center justify-center hover:bg-white hover:border-primary transition-all duration-200"
+              className="min-w-[300px] bg-white/50 dark:bg-gray-700/50 border-2 border-dashed border-neutral-300 dark:border-gray-600 rounded-lg p-4 flex items-center justify-center hover:bg-white dark:hover:bg-gray-700 hover:border-primary transition-all duration-200"
               title="Add Column"
             >
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all duration-200">
