@@ -85,6 +85,7 @@ export default function BoardPage() {
       ],
     },
   ]);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const handleAddCard = (columnId: number, card: Card) => {
     setColumns((prevColumns) =>
@@ -203,11 +204,23 @@ export default function BoardPage() {
     });
   };
 
+  const handleMobileSidebarToggle = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
-      <HeaderBar />
+      <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        {isMobileSidebarOpen && (
+          <Sidebar 
+            isMobile={true}
+            onMobileToggle={handleMobileSidebarToggle}
+          />
+        )}
+        <Sidebar 
+          isMobile={false}
+        />
         <main className="flex-1 p-6 overflow-y-auto">
           <div className="mb-6">
             <div className="flex items-center gap-4 mb-2">

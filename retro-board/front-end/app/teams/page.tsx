@@ -125,6 +125,7 @@ export default function Teams() {
       createdAt: '2026-01-25',
     },
   ]);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -155,11 +156,25 @@ export default function Teams() {
     setSelectedTeam(null);
   };
 
+  const handleMobileSidebarToggle = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
-      <HeaderBar />
+      <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar onCreateBoard={() => {}} />
+        {isMobileSidebarOpen && (
+          <Sidebar 
+            onCreateBoard={() => {}}
+            isMobile={true}
+            onMobileToggle={handleMobileSidebarToggle}
+          />
+        )}
+        <Sidebar 
+          onCreateBoard={() => {}}
+          isMobile={false}
+        />
         <main className="flex-1 p-6 overflow-y-auto">
           {!selectedTeam ? (
             <>

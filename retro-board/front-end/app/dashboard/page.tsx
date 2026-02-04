@@ -10,6 +10,7 @@ import CreateBoardModal from '../components/board/CreateBoardModal';
 export default function Dashboard() {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -27,11 +28,25 @@ export default function Dashboard() {
     setIsModalOpen(false);
   };
 
+  const handleMobileSidebarToggle = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
-      <HeaderBar />
+      <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar onCreateBoard={handleOpenCreateModal} />
+        {isMobileSidebarOpen && (
+          <Sidebar 
+            onCreateBoard={handleOpenCreateModal}
+            isMobile={true}
+            onMobileToggle={handleMobileSidebarToggle}
+          />
+        )}
+        <Sidebar 
+          onCreateBoard={handleOpenCreateModal}
+          isMobile={false}
+        />
         <main className="flex-1 p-6 overflow-y-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-medium mb-2">My Boards</h1>
