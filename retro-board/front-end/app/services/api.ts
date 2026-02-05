@@ -1,6 +1,7 @@
 // API service with centralized configuration
 
-const API_BASE_URL = 'http://localhost:8081';
+// Use relative URL for API requests
+const API_BASE_URL = process.env.NODE_ENV === 'test' ? 'http://localhost:8081' : 'http://10.0.24.110:8081';
 
 interface RegisterData {
   username: string;
@@ -39,25 +40,35 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     
     if (!response.ok) {
       // Try to get error details from response
+      let errorMessage = null;
       try {
         const errorData = await response.json();
         if (errorData.message) {
-          throw new Error(errorData.message);
+          errorMessage = errorData.message;
         }
       } catch (e) {
         // If no JSON error data, use status text
       }
       
+      // Check if this request has an Authorization header (not login/register)
+      const hasAuthHeader = config.headers && (config.headers as any)['Authorization'];
+      
       // Handle specific HTTP status codes
       if (response.status === 400) {
-        throw new Error('Invalid input data');
+        throw new Error(errorMessage || 'Invalid input data');
       } else if (response.status === 401) {
-        throw new Error('Invalid credentials');
+        // Only redirect if this is not a login/register request
+        if (hasAuthHeader) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('username');
+          window.location.href = '/login';
+        }
+        throw new Error(errorMessage || 'Invalid credentials');
       } else if (response.status === 409) {
-        throw new Error('Username or email already exists');
+        throw new Error(errorMessage || 'Username or email already exists');
       }
       
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      throw new Error(errorMessage || `API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();

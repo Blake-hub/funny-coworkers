@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import HeaderBar from '../../components/layout/HeaderBar';
 import Sidebar from '../../components/layout/Sidebar';
 import Column from '../../components/board/Column';
@@ -22,6 +23,7 @@ interface ColumnType {
 }
 
 export default function BoardPage() {
+  const router = useRouter();
   const [columns, setColumns] = useState<ColumnType[]>([
     {
       id: 1,
@@ -86,6 +88,14 @@ export default function BoardPage() {
     },
   ]);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+    }
+  }, [router]);
 
   const handleAddCard = (columnId: number, card: Card) => {
     setColumns((prevColumns) =>

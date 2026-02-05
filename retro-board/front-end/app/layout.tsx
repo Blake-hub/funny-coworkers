@@ -18,16 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            // Check for saved theme preference or use system preference
-            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-              document.documentElement.classList.add('dark');
-            } else {
-              document.documentElement.classList.remove('dark');
-            }
-          `
-        }} />
+        {/* Theme initialization moved to ThemeProvider client-side */}
       </head>
       <body className={inter.className}>
         <ThemeProvider>
