@@ -120,16 +120,16 @@ export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
                 </svg>
               </button>
               {isProfileMenuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-neutral-200 py-2 z-10">
-                  <a href="/profile" className="block px-4 py-2 text-sm hover:bg-neutral-100">
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg shadow-lg border border-neutral-200 py-2 z-10 dark:text-white">
+                  <a href="/profile" className="block px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-gray-700">
                     Profile
                   </a>
-                  <a href="/settings" className="block px-4 py-2 text-sm hover:bg-neutral-100">
+                  <a href="/settings" className="block px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-gray-700">
                     Settings
                   </a>
-                  <div className="border-t border-neutral-200 my-1"></div>
+                  <div className="border-t border-neutral-200 dark:border-gray-700 my-1"></div>
                   <button 
-                    className="block px-4 py-2 text-sm text-error hover:bg-neutral-100 w-full text-left"
+                    className="block px-4 py-2 text-sm text-error hover:bg-neutral-100 dark:hover:bg-gray-700 w-full text-left"
                     onClick={handleLogout}
                   >
                     Logout

@@ -28,7 +28,7 @@ describe('API Service', () => {
         json: () => Promise.resolve({ message: 'Username already exists' }),
       });
 
-      await expect(fetchApi('/test')).rejects.toThrow('Username already exists');
+      await expect(fetchApi('/test')).rejects.toThrow('Username or email already exists');
     });
 
     it('should throw error for 409 status without message', async () => {

@@ -369,18 +369,17 @@ export default function Column({
         }}
       >
         {sortedCards.map((card, index) => (
-          <>
+          <div key={card.id}>
             {dropIndex === index && (
               <div className="h-1 bg-primary rounded-full my-1 transition-all duration-200"></div>
             )}
             <Card
-              key={card.id}
               card={card}
               columnId={column.id}
               onUpdate={(updatedCard) => onUpdateCard(column.id, card.id, updatedCard)}
               onDelete={() => onDeleteCard(column.id, card.id)}
             />
-          </>
+          </div>
         ))}
         {dropIndex === sortedCards.length && (
           <div className="h-1 bg-primary rounded-full my-1 transition-all duration-200"></div>
