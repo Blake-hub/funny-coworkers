@@ -39,10 +39,14 @@ public class AuthenticationService {
             )
         );
         
+        // Get user from database to get ID
+        User user = userRepository.findByUsername(loginRequest.getUsername())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
         // Generate JWT token
         String token = jwtUtil.generateToken(loginRequest.getUsername());
         
-        return new TokenResponse(token, loginRequest.getUsername());
+        return new TokenResponse(token, user.getUsername(), user.getId());
     }
     
     public TokenResponse register(RegisterRequest registerRequest) {
@@ -65,8 +69,8 @@ public class AuthenticationService {
         userRepository.save(user);
         
         // Generate JWT token
-    String token = jwtUtil.generateToken(user.getUsername());
-    
-    return new TokenResponse(token, user.getUsername());
+        String token = jwtUtil.generateToken(user.getUsername());
+        
+        return new TokenResponse(token, user.getUsername(), user.getId());
     }
 }

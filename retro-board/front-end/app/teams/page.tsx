@@ -4,19 +4,31 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import HeaderBar from '../components/layout/HeaderBar';
 import Sidebar from '../components/layout/Sidebar';
+import { teamApi } from '../services/api';
 
 interface Team {
   id: number;
   name: string;
-  owner: string;
-  members: TeamMember[];
+  owner: {
+    id: number;
+    username: string;
+    email: string;
+  };
+  members?: TeamMember[];
   createdAt: string;
 }
 
 interface TeamMember {
   id: number;
-  name: string;
+  teamId: number;
+  userId: number;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+  };
   role: 'owner' | 'member';
+  joinedAt: string;
 }
 
 interface CreateTeamModalProps {
@@ -80,11 +92,11 @@ function TeamCard({ team, onSelect }: TeamCardProps) {
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-lg font-medium">{team.name}</h3>
         <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full">
-          {team.members.length} members
+          {team.members ? team.members.length : 1} members
         </span>
       </div>
       <p className="text-sm text-neutral-400 mb-4">
-        Owner: {team.owner}
+        Owner: {team.owner?.username || 'Unknown'}
       </p>
       <div className="flex items-center justify-between">
         <span className="text-xs text-neutral-400">
@@ -102,29 +114,9 @@ export default function Teams() {
   const router = useRouter();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [teams, setTeams] = useState<Team[]>([
-    {
-      id: 1,
-      name: 'Engineering Team',
-      owner: 'Current User',
-      members: [
-        { id: 1, name: 'Current User', role: 'owner' },
-        { id: 2, name: 'John Doe', role: 'member' },
-        { id: 3, name: 'Jane Smith', role: 'member' },
-      ],
-      createdAt: '2026-01-20',
-    },
-    {
-      id: 2,
-      name: 'Design Team',
-      owner: 'Current User',
-      members: [
-        { id: 1, name: 'Current User', role: 'owner' },
-        { id: 4, name: 'Alice Johnson', role: 'member' },
-      ],
-      createdAt: '2026-01-25',
-    },
-  ]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -135,17 +127,60 @@ export default function Teams() {
     }
   }, [router]);
 
-  const handleCreateTeam = (teamName: string) => {
-    const newTeam: Team = {
-      id: Date.now(),
-      name: teamName,
-      owner: 'Current User',
-      members: [
-        { id: 1, name: 'Current User', role: 'owner' },
-      ],
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setTeams([...teams, newTeam]);
+  useEffect(() => {
+    // Fetch teams from backend
+    fetchTeams();
+  }, []);
+
+  const fetchTeams = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const teamsData = await teamApi.getAllTeams();
+      // Transform the data to match our interface
+      const transformedTeams = teamsData.map((team: any) => ({
+        id: team.id,
+        name: team.name,
+        owner: team.owner,
+        createdAt: team.createdAt ? new Date(team.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      }));
+      setTeams(transformedTeams);
+    } catch (err) {
+      console.error('Error fetching teams:', err);
+      setError('Failed to load teams. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateTeam = async (teamName: string) => {
+    try {
+      const username = localStorage.getItem('username');
+      const userId = localStorage.getItem('userId');
+      
+      if (!userId) {
+        setError('User ID not found. Please log in again.');
+        return;
+      }
+      
+      // Create team with current user as owner
+      const newTeam = await teamApi.createTeam({
+        name: teamName,
+        ownerId: parseInt(userId, 10),
+      });
+      
+      // Add the new team to the list
+      const transformedTeam = {
+        id: newTeam.id,
+        name: newTeam.name,
+        owner: newTeam.owner,
+        createdAt: newTeam.createdAt ? new Date(newTeam.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      };
+      setTeams([...teams, transformedTeam]);
+    } catch (err) {
+      console.error('Error creating team:', err);
+      setError('Failed to create team. Please try again.');
+    }
   };
 
   const handleSelectTeam = (team: Team) => {
@@ -191,15 +226,42 @@ export default function Teams() {
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {teams.map((team) => (
-                  <TeamCard 
-                    key={team.id} 
-                    team={team} 
-                    onSelect={handleSelectTeam} 
-                  />
-                ))}
-              </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+              ) : error ? (
+                <div className="bg-error/10 text-error p-4 rounded-lg mb-6">
+                  {error}
+                  <button 
+                    className="mt-2 text-sm font-medium underline"
+                    onClick={fetchTeams}
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : teams.length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
+                  <h3 className="text-lg font-medium mb-2">No teams yet</h3>
+                  <p className="text-neutral-400 mb-4">Create your first team to get started</p>
+                  <button 
+                    className="btn-primary"
+                    onClick={() => setIsCreateModalOpen(true)}
+                  >
+                    + Create New Team
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {teams.map((team) => (
+                    <TeamCard 
+                      key={team.id} 
+                      team={team} 
+                      onSelect={handleSelectTeam} 
+                    />
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <div className="team-detail">
@@ -220,14 +282,14 @@ export default function Teams() {
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
                   <h3 className="text-lg font-medium mb-4">Team Members</h3>
                   <div className="space-y-3">
-                    {selectedTeam.members.map((member) => (
+                    {(selectedTeam.members || []).map((member) => (
                       <div key={member.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-neutral-50">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-medium">
-                            {member.name.charAt(0)}
+                            {member.user?.username.charAt(0) || 'U'}
                           </div>
                           <div>
-                            <h4 className="font-medium">{member.name}</h4>
+                            <h4 className="font-medium">{member.user?.username || 'Unknown'}</h4>
                             <p className="text-xs text-neutral-400">
                               {member.role === 'owner' ? 'Owner' : 'Member'}
                             </p>

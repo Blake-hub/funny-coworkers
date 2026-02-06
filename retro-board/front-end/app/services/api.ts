@@ -17,22 +17,21 @@ interface LoginData {
 interface AuthResponse {
   token: string;
   username: string;
+  userId?: number;
 }
 
 // Generic fetch function with error handling
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const defaultOptions: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+  const defaultHeaders = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
   };
 
-  const config = {
-    ...defaultOptions,
+  const config: RequestInit = {
     ...options,
+    headers: defaultHeaders,
   };
 
   try {
@@ -106,6 +105,50 @@ export const userApi = {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
+    });
+  },
+};
+
+// Team-related API calls
+export const teamApi = {
+  // Get all teams
+  getAllTeams: async (): Promise<any[]> => {
+    return fetchApi<any[]>('/api/teams', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  // Create a new team
+  createTeam: async (teamData: { name: string; ownerId: number }): Promise<any> => {
+    return fetchApi<any>('/api/teams', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(teamData),
+    });
+  },
+
+  // Delete a team
+  deleteTeam: async (teamId: number): Promise<void> => {
+    return fetchApi<void>(`/api/teams/${teamId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  // Update a team
+  updateTeam: async (teamId: number, teamData: any): Promise<any> => {
+    return fetchApi<any>(`/api/teams/${teamId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(teamData),
     });
   },
 };

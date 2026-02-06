@@ -18,9 +18,12 @@ export default function LoginForm() {
     try {
       const data = await authApi.login({ username, password });
       
-      // Store token and username in localStorage
+      // Store token, username, and userId in localStorage
       localStorage.setItem('token', data.token);
       localStorage.setItem('username', data.username || username);
+      if (data.userId) {
+        localStorage.setItem('userId', data.userId.toString());
+      }
       
       // Redirect to dashboard on success
       window.location.href = '/dashboard';
