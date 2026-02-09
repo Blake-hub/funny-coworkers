@@ -1,6 +1,7 @@
 package com.retroboard.controller;
 
 import com.retroboard.entity.Team;
+import com.retroboard.entity.TeamMember;
 import com.retroboard.service.TeamService;
 import com.retroboard.dto.CreateTeamRequest;
 import com.retroboard.dto.UpdateTeamRequest;
@@ -50,5 +51,12 @@ public class TeamController {
     public ResponseEntity<Team> getTeamById(@PathVariable Long id) {
         Team team = teamService.getTeamById(id);
         return new ResponseEntity<>(team, HttpStatus.OK);
+    }
+    
+    // Get team members by team id
+    @GetMapping("/{id}/members")
+    public ResponseEntity<List<TeamMember>> getTeamMembers(@PathVariable Long id) {
+        List<TeamMember> members = teamService.getTeamMembers(id);
+        return new ResponseEntity<>(members, HttpStatus.OK);
     }
 }

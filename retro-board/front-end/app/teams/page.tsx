@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import HeaderBar from '../components/layout/HeaderBar';
 import Sidebar from '../components/layout/Sidebar';
-import { teamApi } from '../services/api';
+import { teamApi, userApi } from '../services/api';
 
 interface Team {
   id: number;
@@ -29,6 +29,105 @@ interface TeamMember {
   };
   role: 'owner' | 'member';
   joinedAt: string;
+}
+
+interface AddMemberModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAddMembers: () => void;
+  searchQuery: string;
+  onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  searchResults: any[];
+  isSearching: boolean;
+  selectedUsers: number[];
+  onToggleUserSelection: (userId: number) => void;
+}
+
+function AddMemberModal({ 
+  isOpen, 
+  onClose, 
+  onAddMembers, 
+  searchQuery, 
+  onSearchChange, 
+  searchResults, 
+  isSearching, 
+  selectedUsers, 
+  onToggleUserSelection 
+}: AddMemberModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
+        <h3 className="text-lg font-medium mb-4">Add Team Members</h3>
+        
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Search Users</label>
+          <input
+            type="text"
+            className="input-field w-full"
+            value={searchQuery}
+            onChange={onSearchChange}
+            placeholder="Enter username or email"
+          />
+          <p className="text-xs text-neutral-400 mt-1">Type at least 2 characters to search</p>
+        </div>
+
+        {isSearching ? (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : searchResults.length > 0 ? (
+          <div className="border rounded-lg max-h-60 overflow-y-auto mb-4">
+            {searchResults.map((user) => (
+              <div 
+                key={user.id}
+                className={`flex items-center justify-between p-3 hover:bg-neutral-100 dark:hover:bg-gray-700 cursor-pointer ${selectedUsers.includes(user.id) ? 'bg-primary/10' : ''}`}
+                onClick={() => onToggleUserSelection(user.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-medium">
+                    {user.username.charAt(0)}
+                  </div>
+                  <div>
+                    <h4 className="font-medium">{user.username}</h4>
+                    <p className="text-xs text-neutral-400">{user.email}</p>
+                  </div>
+                </div>
+                {selectedUsers.includes(user.id) && (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : searchQuery.length >= 2 ? (
+          <div className="text-center py-4 text-neutral-400">
+            No users found
+          </div>
+        ) : null}
+
+        <div className="flex gap-2">
+          <button 
+            type="button" 
+            className="btn-outline flex-1"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button 
+            type="button" 
+            className="btn-primary flex-1"
+            onClick={onAddMembers}
+            disabled={selectedUsers.length === 0}
+          >
+            Add {selectedUsers.length} Member{selectedUsers.length !== 1 ? 's' : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface CreateTeamModalProps {
@@ -118,6 +217,11 @@ export default function Teams() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -183,8 +287,27 @@ export default function Teams() {
     }
   };
 
-  const handleSelectTeam = (team: Team) => {
-    setSelectedTeam(team);
+  const handleSelectTeam = async (team: Team) => {
+    try {
+      // Fetch the team details
+      const teamDetails = await teamApi.getTeamById(team.id);
+      
+      // Fetch the team members
+      const members = await teamApi.getTeamMembers(team.id);
+      console.log('Team members:', members); // Debug log
+      
+      // Create a team object with both details and members
+      const fullTeam = {
+        ...teamDetails,
+        members: members
+      };
+      
+      setSelectedTeam(fullTeam);
+    } catch (err) {
+      console.error('Error fetching team details:', err);
+      // Fallback to the basic team information if full details fail
+      setSelectedTeam(team);
+    }
   };
 
   const handleCloseTeam = () => {
@@ -193,6 +316,124 @@ export default function Teams() {
 
   const handleMobileSidebarToggle = () => {
     setIsMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
+  const handleAddMemberClick = () => {
+    setIsAddMemberModalOpen(true);
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedUsers([]);
+  };
+
+  const handleSearchUsers = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    
+    if (query.length >= 2) {
+      setIsSearching(true);
+      try {
+        const results = await userApi.searchUsers(query);
+        // Filter out users who are already members of the team
+        const existingMemberIds = selectedTeam?.members?.map(member => member.user.id) || [];
+        const filteredResults = results.filter(user => !existingMemberIds.includes(user.id));
+        setSearchResults(filteredResults);
+      } catch (err) {
+        console.error('Error searching users:', err);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  const handleToggleUserSelection = (userId: number) => {
+    setSelectedUsers(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId);
+      } else {
+        return [...prev, userId];
+      }
+    });
+  };
+
+  const handleAddMembers = async () => {
+    if (!selectedTeam || selectedUsers.length === 0) {
+      return;
+    }
+
+    try {
+      // Get the selected users from search results
+      const usersToAdd = searchResults.filter(user => selectedUsers.includes(user.id));
+      
+      // Create member objects
+      const newMembers = usersToAdd.map(user => ({
+        userId: user.id,
+        role: 'member'
+      }));
+
+      // Update the team with new members
+      const updatedTeam = await teamApi.updateTeam(selectedTeam.id, {
+        members: [
+          // Keep existing members
+          ...(selectedTeam.members?.map(member => ({
+            userId: member.user.id,
+            role: member.role
+          })) || []),
+          // Add new members
+          ...newMembers
+        ]
+      });
+
+      // After updating, refetch the team members to show the updated list
+      const members = await teamApi.getTeamMembers(selectedTeam.id);
+      const teamWithUpdatedMembers = {
+        ...selectedTeam,
+        members: members
+      };
+      
+      // Update the selected team in state
+      setSelectedTeam(teamWithUpdatedMembers);
+      
+      // Close the modal
+      setIsAddMemberModalOpen(false);
+    } catch (err) {
+      console.error('Error adding members:', err);
+      setError('Failed to add members. Please try again.');
+    }
+  };
+
+  const handleRemoveMember = async (memberToRemove: TeamMember) => {
+    if (!selectedTeam) {
+      return;
+    }
+
+    try {
+      // Create a new members list without the member to remove
+      const updatedMembers = selectedTeam.members?.filter(member => member.id !== memberToRemove.id) || [];
+      
+      // Update the team with the new members list
+      await teamApi.updateTeam(selectedTeam.id, {
+        members: updatedMembers.map(member => ({
+          userId: member.user.id,
+          role: member.role
+        }))
+      });
+
+      // After updating, refetch the team members to show the updated list
+      const members = await teamApi.getTeamMembers(selectedTeam.id);
+      const teamWithUpdatedMembers = {
+        ...selectedTeam,
+        members: members
+      };
+      
+      // Update the selected team in state
+      setSelectedTeam(teamWithUpdatedMembers);
+    } catch (err) {
+      console.error('Error removing member:', err);
+      setError('Failed to remove member. Please try again.');
+    }
   };
 
   return (
@@ -273,7 +514,10 @@ export default function Teams() {
                   ← Back to Teams
                 </button>
                 <h1 className="text-2xl font-medium">{selectedTeam.name}</h1>
-                <button className="btn-primary">
+                <button 
+                  className="btn-primary"
+                  onClick={handleAddMemberClick}
+                >
                   + Add Member
                 </button>
               </div>
@@ -296,7 +540,10 @@ export default function Teams() {
                           </div>
                         </div>
                         {member.role !== 'owner' && (
-                          <button className="text-error hover:text-error/80 text-sm">
+                          <button 
+                            className="text-error hover:text-error/80 text-sm"
+                            onClick={() => handleRemoveMember(member)}
+                          >
                             Remove
                           </button>
                         )}
@@ -326,6 +573,18 @@ export default function Teams() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateTeam}
+      />
+      
+      <AddMemberModal 
+        isOpen={isAddMemberModalOpen}
+        onClose={() => setIsAddMemberModalOpen(false)}
+        onAddMembers={handleAddMembers}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchUsers}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        selectedUsers={selectedUsers}
+        onToggleUserSelection={handleToggleUserSelection}
       />
     </div>
   );

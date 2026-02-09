@@ -97,11 +97,20 @@ export const authApi = {
   },
 };
 
-// Example: Add more API services as needed
+// User-related API calls
 export const userApi = {
   // Get user profile
   getProfile: async (): Promise<any> => {
     return fetchApi<any>('/profile', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+  
+  // Search users
+  searchUsers: async (query: string): Promise<any[]> => {
+    return fetchApi<any[]>(`/api/users/search?query=${encodeURIComponent(query)}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
@@ -149,6 +158,24 @@ export const teamApi = {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(teamData),
+    });
+  },
+  
+  // Get a team by ID
+  getTeamById: async (teamId: number): Promise<any> => {
+    return fetchApi<any>(`/api/teams/${teamId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+  
+  // Get team members by team ID
+  getTeamMembers: async (teamId: number): Promise<any[]> => {
+    return fetchApi<any[]>(`/api/teams/${teamId}/members`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
     });
   },
 };

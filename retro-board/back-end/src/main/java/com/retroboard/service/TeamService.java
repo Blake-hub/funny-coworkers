@@ -171,4 +171,14 @@ public class TeamService {
         return teamRepository.findById(teamId)
             .orElseThrow(() -> new RuntimeException("Team not found"));
     }
+    
+    public List<TeamMember> getTeamMembers(Long teamId) {
+        // Check team access
+        checkTeamAccess(teamId);
+        
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new RuntimeException("Team not found"));
+        
+        return teamMemberRepository.findByTeam(team);
+    }
 }
