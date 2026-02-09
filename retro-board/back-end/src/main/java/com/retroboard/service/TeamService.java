@@ -8,7 +8,10 @@ import com.retroboard.repository.TeamMemberRepository;
 import com.retroboard.repository.UserRepository;
 import com.retroboard.dto.CreateTeamRequest;
 import com.retroboard.dto.UpdateTeamRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,8 @@ import java.util.Optional;
 
 @Service
 public class TeamService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(TeamService.class);
     
     @Autowired
     private TeamRepository teamRepository;
@@ -30,15 +35,25 @@ public class TeamService {
     
     // Get current authenticated user
     private User getCurrentUser() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        // Check if user is authenticated
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        Object principal = authentication.getPrincipal();
         String username;
         if (principal instanceof UserDetails) {
             username = ((UserDetails) principal).getUsername();
         } else {
             username = principal.toString();
         }
+        
+        logger.debug("Trying to find user with username: {}", username);
+        
         return userRepository.findByUsername(username)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new RuntimeException("User not found: " + username));
     }
     
     // Check if user has access to the team (owner or member)

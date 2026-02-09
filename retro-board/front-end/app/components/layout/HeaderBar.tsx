@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useContext } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { ThemeContext } from '../../contexts/ThemeContext';
 
 interface HeaderBarProps {
@@ -10,6 +10,7 @@ interface HeaderBarProps {
 
 export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState('');
@@ -71,13 +72,22 @@ export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
           <h1 className="text-xl font-medium text-primary">Retro Board</h1>
         </div>
         <nav className="hidden md:flex items-center gap-6">
-          <a href="/dashboard" className="text-primary font-medium">
+          <a 
+            href="/dashboard" 
+            className={`${pathname === '/dashboard' ? 'text-primary font-medium' : 'text-neutral-400 hover:text-neutral-500'}`}
+          >
             Dashboard
           </a>
-          <a href="/teams" className="text-neutral-400 hover:text-neutral-500">
+          <a 
+            href="/teams" 
+            className={`${pathname === '/teams' ? 'text-primary font-medium' : 'text-neutral-400 hover:text-neutral-500'}`}
+          >
             Teams
           </a>
-          <a href="/templates" className="text-neutral-400 hover:text-neutral-500">
+          <a 
+            href="/templates" 
+            className={`${pathname === '/templates' ? 'text-primary font-medium' : 'text-neutral-400 hover:text-neutral-500'}`}
+          >
             Templates
           </a>
         </nav>

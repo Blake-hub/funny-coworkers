@@ -14,6 +14,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +36,15 @@ public class TeamServiceTest {
     
     @Mock
     private UserRepository userRepository;
+    
+    @Mock
+    private Authentication authentication;
+    
+    @Mock
+    private SecurityContext securityContext;
+    
+    @Mock
+    private UserDetails userDetails;
     
     @InjectMocks
     private TeamService teamService;
@@ -76,6 +89,15 @@ public class TeamServiceTest {
         updateTeamRequest.setMembers(List.of(memberRequest));
     }
     
+    // Helper method to set up security context for tests that need it
+    private void setupSecurityContext() {
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(securityContext);
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(authentication.getPrincipal()).thenReturn(userDetails);
+        when(userDetails.getUsername()).thenReturn("testuser");
+    }
+    
     @Test
     void testCreateTeam() {
         // Mock repository methods
@@ -112,7 +134,12 @@ public class TeamServiceTest {
     
     @Test
     void testDeleteTeam() {
+        // Set up security context
+        setupSecurityContext();
+        
         // Mock repository methods
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(owner));
+        when(teamRepository.existsByTeamIdAndOwnerOrMember(1L, owner)).thenReturn(true);
         when(teamRepository.findById(1L)).thenReturn(Optional.of(team));
         doNothing().when(teamRepository).delete(team);
         
@@ -126,7 +153,12 @@ public class TeamServiceTest {
     
     @Test
     void testDeleteTeam_TeamNotFound() {
-        // Mock repository method to return empty
+        // Set up security context
+        setupSecurityContext();
+        
+        // Mock repository methods
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(owner));
+        when(teamRepository.existsByTeamIdAndOwnerOrMember(1L, owner)).thenReturn(true);
         when(teamRepository.findById(1L)).thenReturn(Optional.empty());
         
         // Verify exception is thrown
@@ -139,8 +171,12 @@ public class TeamServiceTest {
     
     @Test
     void testGetAllTeams() {
-        // Mock repository method
-        when(teamRepository.findAll()).thenReturn(List.of(team));
+        // Set up security context
+        setupSecurityContext();
+        
+        // Mock repository methods
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(owner));
+        when(teamRepository.findByOwnerOrMember(owner)).thenReturn(List.of(team));
         
         // Call service method
         List<Team> teams = teamService.getAllTeams();
@@ -151,12 +187,17 @@ public class TeamServiceTest {
         assertEquals(team, teams.get(0));
         
         // Verify repository call
-        verify(teamRepository, times(1)).findAll();
+        verify(teamRepository, times(1)).findByOwnerOrMember(owner);
     }
     
     @Test
     void testUpdateTeam() {
+        // Set up security context
+        setupSecurityContext();
+        
         // Mock repository methods
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(owner));
+        when(teamRepository.existsByTeamIdAndOwnerOrMember(1L, owner)).thenReturn(true);
         when(teamRepository.findById(1L)).thenReturn(Optional.of(team));
         when(teamRepository.save(any(Team.class))).thenReturn(team);
         when(teamMemberRepository.findByTeam(team)).thenReturn(List.of());
@@ -178,7 +219,12 @@ public class TeamServiceTest {
     
     @Test
     void testUpdateTeam_TeamNotFound() {
-        // Mock repository method to return empty
+        // Set up security context
+        setupSecurityContext();
+        
+        // Mock repository methods
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(owner));
+        when(teamRepository.existsByTeamIdAndOwnerOrMember(1L, owner)).thenReturn(true);
         when(teamRepository.findById(1L)).thenReturn(Optional.empty());
         
         // Verify exception is thrown
@@ -191,7 +237,12 @@ public class TeamServiceTest {
     
     @Test
     void testGetTeamById() {
-        // Mock repository method
+        // Set up security context
+        setupSecurityContext();
+        
+        // Mock repository methods
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(owner));
+        when(teamRepository.existsByTeamIdAndOwnerOrMember(1L, owner)).thenReturn(true);
         when(teamRepository.findById(1L)).thenReturn(Optional.of(team));
         
         // Call service method
@@ -207,7 +258,12 @@ public class TeamServiceTest {
     
     @Test
     void testGetTeamById_TeamNotFound() {
-        // Mock repository method to return empty
+        // Set up security context
+        setupSecurityContext();
+        
+        // Mock repository methods
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(owner));
+        when(teamRepository.existsByTeamIdAndOwnerOrMember(1L, owner)).thenReturn(true);
         when(teamRepository.findById(1L)).thenReturn(Optional.empty());
         
         // Verify exception is thrown

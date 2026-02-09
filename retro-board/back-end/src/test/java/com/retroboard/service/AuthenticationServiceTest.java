@@ -112,6 +112,12 @@ class AuthenticationServiceTest {
 
         Authentication authentication = mock(Authentication.class);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
+        
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        when(userRepository.findByUsername(loginRequest.getUsername())).thenReturn(Optional.of(user));
+        
         when(jwtUtil.generateToken(loginRequest.getUsername())).thenReturn("testToken");
 
         // Act
@@ -120,6 +126,8 @@ class AuthenticationServiceTest {
         // Assert
         assertNotNull(tokenResponse);
         assertEquals("testToken", tokenResponse.getToken());
+        assertEquals("testuser", tokenResponse.getUsername());
+        assertEquals(1L, tokenResponse.getUserId());
     }
 
     @Test

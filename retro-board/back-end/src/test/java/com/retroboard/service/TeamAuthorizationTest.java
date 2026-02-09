@@ -103,6 +103,7 @@ public class TeamAuthorizationTest {
         // No need to create actual TeamMember objects for this test
         
         // Mock user details
+        when(authentication.isAuthenticated()).thenReturn(true);
         when(authentication.getPrincipal()).thenReturn(userDetails);
         when(userDetails.getUsername()).thenReturn("currentuser");
         when(userRepository.findByUsername("currentuser")).thenReturn(Optional.of(currentUser));

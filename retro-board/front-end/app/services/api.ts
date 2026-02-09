@@ -1,7 +1,7 @@
 // API service with centralized configuration
 
 // Use relative URL for API requests
-const API_BASE_URL = process.env.NODE_ENV === 'test' ? 'http://localhost:8081' : 'http://10.0.24.110:8081';
+const API_BASE_URL = process.env.NODE_ENV === 'test' ? 'http://localhost:8081' : 'http://localhost:8081';
 
 interface RegisterData {
   username: string;
