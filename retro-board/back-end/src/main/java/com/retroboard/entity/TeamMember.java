@@ -19,7 +19,7 @@ public class TeamMember {
     private Long id;
     
     @ManyToOne
-    @JoinColumn(name = "team_id", nullable = false)
+    @JoinColumn(name = "team_id", nullable = false, onDelete = "CASCADE")
     private Team team;
     
     @ManyToOne

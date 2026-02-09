@@ -70,6 +70,11 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
       throw new Error(errorMessage || `API error: ${response.status} ${response.statusText}`);
     }
 
+    // Handle 204 No Content responses (no body)
+    if (response.status === 204) {
+      return {} as T;
+    }
+
     const data = await response.json();
     return data;
   } catch (error) {

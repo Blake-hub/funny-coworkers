@@ -180,18 +180,128 @@ function CreateTeamModal({ isOpen, onClose, onCreate }: CreateTeamModalProps) {
   );
 }
 
+interface EditTeamNameModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  team: Team | null;
+  onUpdate: (newName: string) => void;
+}
+
+function EditTeamNameModal({ isOpen, onClose, team, onUpdate }: EditTeamNameModalProps) {
+  const [newName, setNewName] = useState(team?.name || '');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newName.trim() && newName !== team?.name) {
+      onUpdate(newName);
+      onClose();
+    }
+  };
+
+  if (!isOpen || !team) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
+        <h3 className="text-lg font-medium mb-4">Edit Team Name</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Team Name</label>
+            <input
+              type="text"
+              className="input-field w-full"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Enter new team name"
+              required
+            />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary flex-1">
+              Save Changes
+            </button>
+            <button type="button" onClick={onClose} className="btn-outline">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface DeleteTeamModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  team: Team | null;
+  onDelete: () => void;
+}
+
+function DeleteTeamModal({ isOpen, onClose, team, onDelete }: DeleteTeamModalProps) {
+  if (!isOpen || !team) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
+        <h3 className="text-lg font-medium mb-4 text-error">Delete Team</h3>
+        <p className="mb-6">Are you sure you want to delete the team <strong>{team.name}</strong>? This action cannot be undone.</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={onDelete} className="btn-primary bg-error hover:bg-error/80 flex-1">
+            Delete Team
+          </button>
+          <button type="button" onClick={onClose} className="btn-outline">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface TransferOwnershipModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  member: TeamMember | null;
+  team: Team | null;
+  onTransfer: () => void;
+}
+
+function TransferOwnershipModal({ isOpen, onClose, member, team, onTransfer }: TransferOwnershipModalProps) {
+  if (!isOpen || !member || !team) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
+        <h3 className="text-lg font-medium mb-4">Transfer Ownership</h3>
+        <p className="mb-6">Are you sure you want to transfer ownership of <strong>{team.name}</strong> to <strong>{member.user?.username || 'Unknown'}</strong>?</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={onTransfer} className="btn-primary flex-1">
+            Transfer Ownership
+          </button>
+          <button type="button" onClick={onClose} className="btn-outline">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface TeamCardProps {
   team: Team;
   onSelect: (team: Team) => void;
+  onEdit: (team: Team) => void;
+  onDelete: (team: Team) => void;
 }
 
-function TeamCard({ team, onSelect }: TeamCardProps) {
+function TeamCard({ team, onSelect, onEdit, onDelete }: TeamCardProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-smooth">
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-lg font-medium">{team.name}</h3>
         <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full">
-          {team.members ? team.members.length : 1} members
+          {team.members ? team.members.length : '?'}
+          {team.members ? (team.members.length === 1 ? ' member' : ' members') : ' member'}
         </span>
       </div>
       <p className="text-sm text-neutral-400 mb-4">
@@ -201,9 +311,26 @@ function TeamCard({ team, onSelect }: TeamCardProps) {
         <span className="text-xs text-neutral-400">
           Created on {team.createdAt}
         </span>
-        <button onClick={() => onSelect(team)} className="btn-primary text-xs">
-          View Team
-        </button>
+        <div className="flex gap-2">
+          <button onClick={(e) => {
+            e.stopPropagation();
+            onEdit(team);
+          }} className="btn-outline text-xs">
+            Edit
+          </button>
+          <button onClick={(e) => {
+            e.stopPropagation();
+            onDelete(team);
+          }} className="btn-outline text-xs text-error">
+            Delete
+          </button>
+          <button onClick={(e) => {
+            e.stopPropagation();
+            onSelect(team);
+          }} className="btn-primary text-xs">
+            View Team
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -212,7 +339,13 @@ function TeamCard({ team, onSelect }: TeamCardProps) {
 export default function Teams() {
   const router = useRouter();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [teamToEdit, setTeamToEdit] = useState<Team | null>(null);
+  const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
+  const [memberToTransferOwnership, setMemberToTransferOwnership] = useState<TeamMember | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -242,13 +375,30 @@ export default function Teams() {
     try {
       const teamsData = await teamApi.getAllTeams();
       // Transform the data to match our interface
-      const transformedTeams = teamsData.map((team: any) => ({
-        id: team.id,
-        name: team.name,
-        owner: team.owner,
-        createdAt: team.createdAt ? new Date(team.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      const transformedTeams = await Promise.all(teamsData.map(async (team: any) => {
+        try {
+          // Fetch members for each team
+          const members = await teamApi.getTeamMembers(team.id);
+          return {
+            id: team.id,
+            name: team.name,
+            owner: team.owner,
+            members: members,
+            createdAt: team.createdAt ? new Date(team.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          };
+        } catch (err) {
+          console.error('Error fetching members for team', team.id, err);
+          // Fallback if members fetch fails
+          return {
+            id: team.id,
+            name: team.name,
+            owner: team.owner,
+            createdAt: team.createdAt ? new Date(team.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          };
+        }
       }));
       setTeams(transformedTeams);
+      console.log('Fetched teams with members:', transformedTeams);
     } catch (err) {
       console.error('Error fetching teams:', err);
       setError('Failed to load teams. Please try again.');
@@ -273,14 +423,19 @@ export default function Teams() {
         ownerId: parseInt(userId, 10),
       });
       
-      // Add the new team to the list
+      // Fetch the new team's members
+      const members = await teamApi.getTeamMembers(newTeam.id);
+      
+      // Add the new team to the list with members
       const transformedTeam = {
         id: newTeam.id,
         name: newTeam.name,
         owner: newTeam.owner,
+        members: members,
         createdAt: newTeam.createdAt ? new Date(newTeam.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       };
       setTeams([...teams, transformedTeam]);
+      console.log('Created new team with members:', newTeam.id, 'members:', members.length);
     } catch (err) {
       console.error('Error creating team:', err);
       setError('Failed to create team. Please try again.');
@@ -301,6 +456,14 @@ export default function Teams() {
         ...teamDetails,
         members: members
       };
+      
+      // Update the teams array with the team that has members
+      setTeams(prevTeams => prevTeams.map(t => 
+        t.id.toString() === team.id.toString() ? fullTeam : t
+      ));
+      
+      // Log for debugging
+      console.log('Updated teams array with team:', team.id, 'members:', members.length);
       
       setSelectedTeam(fullTeam);
     } catch (err) {
@@ -396,6 +559,11 @@ export default function Teams() {
       // Update the selected team in state
       setSelectedTeam(teamWithUpdatedMembers);
       
+      // Update the teams array with the updated team
+      setTeams(prevTeams => prevTeams.map(t => 
+        t.id === selectedTeam.id ? teamWithUpdatedMembers : t
+      ));
+      
       // Close the modal
       setIsAddMemberModalOpen(false);
     } catch (err) {
@@ -430,9 +598,134 @@ export default function Teams() {
       
       // Update the selected team in state
       setSelectedTeam(teamWithUpdatedMembers);
+      
+      // Update the teams array with the updated team
+      setTeams(prevTeams => prevTeams.map(t => 
+        t.id === selectedTeam.id ? teamWithUpdatedMembers : t
+      ));
     } catch (err) {
       console.error('Error removing member:', err);
       setError('Failed to remove member. Please try again.');
+    }
+  };
+
+  const handleEditTeam = (team: Team) => {
+    setTeamToEdit(team);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateTeamName = async (newName: string) => {
+    if (!teamToEdit) {
+      return;
+    }
+
+    try {
+      // Update the team name
+      const updatedTeam = await teamApi.updateTeam(teamToEdit.id, {
+        name: newName
+      });
+
+      // Fetch the updated team's members
+      const members = await teamApi.getTeamMembers(teamToEdit.id);
+      const teamWithMembers = {
+        ...updatedTeam,
+        members: members
+      };
+
+      // Update the teams array
+      setTeams(prevTeams => prevTeams.map(t => 
+        t.id === teamToEdit.id ? teamWithMembers : t
+      ));
+
+      // If this is the selected team, update it too
+      if (selectedTeam && selectedTeam.id === teamToEdit.id) {
+        setSelectedTeam(teamWithMembers);
+      }
+
+      console.log('Updated team name:', teamToEdit.id, 'new name:', newName);
+    } catch (err) {
+      console.error('Error updating team name:', err);
+      setError('Failed to update team name. Please try again.');
+    }
+  };
+
+  const handleDeleteTeam = (team: Team) => {
+    setTeamToDelete(team);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDeleteTeam = async () => {
+    if (!teamToDelete) {
+      return;
+    }
+
+    try {
+      // Delete the team
+      await teamApi.deleteTeam(teamToDelete.id);
+
+      // Remove the team from the teams array
+      setTeams(prevTeams => prevTeams.filter(t => 
+        t.id !== teamToDelete.id
+      ));
+
+      // If this is the selected team, close the detail view
+      if (selectedTeam && selectedTeam.id === teamToDelete.id) {
+        setSelectedTeam(null);
+      }
+
+      // Close the modal
+      setIsDeleteModalOpen(false);
+      setTeamToDelete(null);
+
+      console.log('Deleted team:', teamToDelete.id, teamToDelete.name);
+    } catch (err) {
+      console.error('Error deleting team:', err);
+      setError('Failed to delete team. Please try again.');
+    }
+  };
+
+  const handleTransferOwnership = (member: TeamMember) => {
+    if (!selectedTeam) {
+      return;
+    }
+    setMemberToTransferOwnership(member);
+    setIsTransferModalOpen(true);
+  };
+
+  const handleConfirmTransferOwnership = async () => {
+    if (!memberToTransferOwnership || !selectedTeam) {
+      return;
+    }
+
+    try {
+      // Update the team with new owner
+      const updatedTeam = await teamApi.updateTeam(selectedTeam.id, {
+        ownerId: memberToTransferOwnership.user.id
+      });
+
+      // Fetch the updated team's members
+      const members = await teamApi.getTeamMembers(selectedTeam.id);
+      const teamWithMembers = {
+        ...updatedTeam,
+        members: members
+      };
+
+      // Update the teams array
+      setTeams(prevTeams => prevTeams.map(t => 
+        t.id === selectedTeam.id ? teamWithMembers : t
+      ));
+
+      // Update the selected team
+      setSelectedTeam(teamWithMembers);
+
+      // Close the modal
+      setIsTransferModalOpen(false);
+      setMemberToTransferOwnership(null);
+
+      console.log('Transferred ownership of team:', selectedTeam.id, 'to user:', memberToTransferOwnership.user.id);
+    } catch (err) {
+      console.error('Error transferring ownership:', err);
+      setError('Failed to transfer ownership. Please try again.');
     }
   };
 
@@ -498,7 +791,9 @@ export default function Teams() {
                     <TeamCard 
                       key={team.id} 
                       team={team} 
-                      onSelect={handleSelectTeam} 
+                      onSelect={handleSelectTeam}
+                      onEdit={handleEditTeam}
+                      onDelete={handleDeleteTeam}
                     />
                   ))}
                 </div>
@@ -513,7 +808,13 @@ export default function Teams() {
                 >
                   ← Back to Teams
                 </button>
-                <h1 className="text-2xl font-medium">{selectedTeam.name}</h1>
+                <div>
+                  <h1 className="text-2xl font-medium">{selectedTeam.name}</h1>
+                  <p className="text-sm text-neutral-400">
+                    {selectedTeam.members ? selectedTeam.members.length : '?'} 
+                    {selectedTeam.members ? (selectedTeam.members.length === 1 ? 'member' : 'members') : 'member'}
+                  </p>
+                </div>
                 <button 
                   className="btn-primary"
                   onClick={handleAddMemberClick}
@@ -526,29 +827,45 @@ export default function Teams() {
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
                   <h3 className="text-lg font-medium mb-4">Team Members</h3>
                   <div className="space-y-3">
-                    {(selectedTeam.members || []).map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-neutral-50">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-medium">
-                            {member.user?.username.charAt(0) || 'U'}
+                    {(selectedTeam.members || []).map((member) => {
+                      // Check if current user is the owner
+                      const currentUserId = localStorage.getItem('userId');
+                      const isCurrentUserOwner = currentUserId && selectedTeam.owner?.id === parseInt(currentUserId, 10);
+                      
+                      return (
+                        <div key={member.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-neutral-50">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-medium">
+                              {member.user?.username.charAt(0) || 'U'}
+                            </div>
+                            <div>
+                              <h4 className="font-medium">{member.user?.username || 'Unknown'}</h4>
+                              <p className="text-xs text-neutral-400">
+                                {member.role === 'owner' ? 'Owner' : 'Member'}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium">{member.user?.username || 'Unknown'}</h4>
-                            <p className="text-xs text-neutral-400">
-                              {member.role === 'owner' ? 'Owner' : 'Member'}
-                            </p>
+                          <div className="flex gap-2">
+                            {isCurrentUserOwner && member.role !== 'owner' && (
+                              <button 
+                                className="text-primary hover:text-primary/80 text-sm"
+                                onClick={() => handleTransferOwnership(member)}
+                              >
+                                Transfer Ownership
+                              </button>
+                            )}
+                            {member.role !== 'owner' && (
+                              <button 
+                                className="text-error hover:text-error/80 text-sm"
+                                onClick={() => handleRemoveMember(member)}
+                              >
+                                Remove
+                              </button>
+                            )}
                           </div>
                         </div>
-                        {member.role !== 'owner' && (
-                          <button 
-                            className="text-error hover:text-error/80 text-sm"
-                            onClick={() => handleRemoveMember(member)}
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
                 
@@ -573,6 +890,28 @@ export default function Teams() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateTeam}
+      />
+      
+      <EditTeamNameModal 
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        team={teamToEdit}
+        onUpdate={handleUpdateTeamName}
+      />
+      
+      <DeleteTeamModal 
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        team={teamToDelete}
+        onDelete={handleConfirmDeleteTeam}
+      />
+      
+      <TransferOwnershipModal 
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        member={memberToTransferOwnership}
+        team={selectedTeam}
+        onTransfer={handleConfirmTransferOwnership}
       />
       
       <AddMemberModal 
