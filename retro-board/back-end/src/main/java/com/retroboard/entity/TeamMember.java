@@ -19,7 +19,7 @@ public class TeamMember {
     private Long id;
     
     @ManyToOne
-    @JoinColumn(name = "team_id", nullable = false, onDelete = "CASCADE")
+    @JoinColumn(name = "team_id", nullable = false, foreignKey = @ForeignKey(foreignKeyDefinition = "FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE"))
     private Team team;
     
     @ManyToOne

@@ -9,11 +9,9 @@ import com.retroboard.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RequestBody;
 
 @Service
 public class AuthenticationService {
@@ -32,7 +30,7 @@ public class AuthenticationService {
     
     public TokenResponse login(LoginRequest loginRequest) throws AuthenticationException {
         // Authenticate user
-        Authentication authentication = authenticationManager.authenticate(
+        authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(
                 loginRequest.getUsername(),
                 loginRequest.getPassword()

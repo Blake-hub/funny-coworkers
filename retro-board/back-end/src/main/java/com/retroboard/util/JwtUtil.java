@@ -49,7 +49,7 @@ public class JwtUtil {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(token);
             return true;
-        } catch (SignatureException | MalformedJwtException | ExpiredJwtException | UnsupportedJwtException | IllegalArgumentException e) {
+        } catch (io.jsonwebtoken.security.SignatureException | MalformedJwtException | ExpiredJwtException | UnsupportedJwtException | IllegalArgumentException e) {
             return false;
         }
     }

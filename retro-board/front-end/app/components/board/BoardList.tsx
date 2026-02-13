@@ -60,7 +60,7 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
     onOpenModal();
   };
 
-  const handleSubmitBoard = (boardData: { name: string; description: string }) => {
+  const handleSubmitBoard = (boardData: { name: string; description: string; teamId: number }) => {
     const today = new Date().toISOString().split('T')[0];
     const newBoard: Board = {
       id: boards.length + 1,
