@@ -23,6 +23,7 @@ interface CreateBoardModalProps {
 }
 
 export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBoardModalProps) {
+  console.log('CreateBoardModal rendered with isOpen:', isOpen);
   const router = useRouter();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -78,7 +79,7 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" style={{ zIndex: 9999 }}>
       <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg shadow-xl w-full max-w-md">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">

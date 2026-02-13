@@ -4,7 +4,20 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import HeaderBar from '../components/layout/HeaderBar';
 import Sidebar from '../components/layout/Sidebar';
-import { teamApi, userApi } from '../services/api';
+import CreateBoardModal from '../components/board/CreateBoardModal';
+import { teamApi, userApi, boardApi } from '../services/api';
+
+interface Board {
+  id: number;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  team: {
+    id: number;
+    name: string;
+  };
+}
 
 interface Team {
   id: number;
@@ -15,6 +28,7 @@ interface Team {
     email: string;
   };
   members?: TeamMember[];
+  boards?: Board[];
   createdAt: string;
 }
 
@@ -355,6 +369,9 @@ export default function Teams() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [isCreateBoardModalOpen, setIsCreateBoardModalOpen] = useState(false);
+  const [boardName, setBoardName] = useState('');
+  const [boardDescription, setBoardDescription] = useState('');
 
   useEffect(() => {
     // Check if user is authenticated
@@ -444,26 +461,34 @@ export default function Teams() {
 
   const handleSelectTeam = async (team: Team) => {
     try {
+      // Convert team.id to number to ensure type consistency
+      const teamId = Number(team.id);
+      
       // Fetch the team details
-      const teamDetails = await teamApi.getTeamById(team.id);
+      const teamDetails = await teamApi.getTeamById(teamId);
       
       // Fetch the team members
-      const members = await teamApi.getTeamMembers(team.id);
+      const members = await teamApi.getTeamMembers(teamId);
       console.log('Team members:', members); // Debug log
       
-      // Create a team object with both details and members
+      // Fetch the team boards
+      const boards = await boardApi.getAllBoards(teamId);
+      console.log('Team boards:', boards); // Debug log
+      
+      // Create a team object with both details, members, and boards
       const fullTeam = {
         ...teamDetails,
-        members: members
+        members: members,
+        boards: boards
       };
       
-      // Update the teams array with the team that has members
+      // Update the teams array with the team that has members and boards
       setTeams(prevTeams => prevTeams.map(t => 
-        t.id.toString() === team.id.toString() ? fullTeam : t
+        Number(t.id) === teamId ? fullTeam : t
       ));
       
       // Log for debugging
-      console.log('Updated teams array with team:', team.id, 'members:', members.length);
+      console.log('Updated teams array with team:', team.id, 'members:', members.length, 'boards:', boards.length);
       
       setSelectedTeam(fullTeam);
     } catch (err) {
@@ -729,6 +754,40 @@ export default function Teams() {
     }
   };
 
+  const handleCreateBoard = () => {
+    console.log('Create Board button clicked');
+    console.log('Current isCreateBoardModalOpen state:', isCreateBoardModalOpen);
+    setIsCreateBoardModalOpen(true);
+    console.log('After setting state:', isCreateBoardModalOpen);
+  };
+
+  const handleSubmitBoard = async (boardData: { name: string; description: string; teamId: number }) => {
+    try {
+      // Create the board using the API
+      const newBoard = await boardApi.createBoard(boardData);
+      
+      // If the board was created for the selected team, update the selected team's boards
+      if (selectedTeam && selectedTeam.id === boardData.teamId) {
+        const updatedSelectedTeam = {
+          ...selectedTeam,
+          boards: [...(selectedTeam.boards || []), newBoard]
+        };
+        setSelectedTeam(updatedSelectedTeam);
+        
+        // Also update the team in the teams array
+        setTeams(prevTeams => prevTeams.map(t => 
+          t.id === boardData.teamId ? updatedSelectedTeam : t
+        ));
+      }
+      
+      // Close the modal
+      setIsCreateBoardModalOpen(false);
+    } catch (err) {
+      console.error('Error creating board:', err);
+      setError('Failed to create board. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-gray-900 flex flex-col">
       <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
@@ -872,12 +931,36 @@ export default function Teams() {
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
                   <h3 className="text-lg font-medium mb-4">Team Boards</h3>
                   <div className="space-y-3">
-                    <div className="p-4 border border-dashed border-neutral-200 rounded-lg text-center">
-                      <p className="text-neutral-400 mb-3">No boards yet</p>
-                      <button className="btn-primary text-sm">
-                        + Create First Board
-                      </button>
-                    </div>
+                    {selectedTeam.boards && selectedTeam.boards.length > 0 ? (
+                      selectedTeam.boards.map((board) => (
+                        <div key={board.id} className="p-3 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-smooth">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-medium">{board.name}</h4>
+                            <div className="flex gap-2">
+                              <button 
+                                className="text-sm text-neutral-500 hover:text-neutral-700"
+                                onClick={() => router.push(`/board/${board.id}`)}
+                              >
+                                View
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-neutral-400 mb-2">
+                            {board.description || 'No description'}
+                          </p>
+                          <div className="text-xs text-neutral-400">
+                            Created on {new Date(board.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 border border-dashed border-neutral-200 rounded-lg text-center">
+                        <p className="text-neutral-400 mb-3">No boards yet</p>
+                        <button className="btn-primary text-sm" onClick={handleCreateBoard}>
+                          + Create First Board
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -925,6 +1008,88 @@ export default function Teams() {
         selectedUsers={selectedUsers}
         onToggleUserSelection={handleToggleUserSelection}
       />
+      
+      {/* Simple custom modal for testing */}
+      {isCreateBoardModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-medium">Create New Board</h2>
+                <button
+                  onClick={() => setIsCreateBoardModalOpen(false)}
+                  className="text-neutral-400 hover:text-neutral-600"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (selectedTeam) {
+                  handleSubmitBoard({ name: boardName, description: boardDescription, teamId: Number(selectedTeam.id) });
+                }
+              }}>
+                <div className="mb-4">
+                  <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    Board Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    value={boardName}
+                    onChange={(e) => setBoardName(e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder="Enter board name"
+                    required
+                  />
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    id="description"
+                    value={boardDescription}
+                    onChange={(e) => setBoardDescription(e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder="Add a description for your board"
+                    rows={3}
+                  />
+                </div>
+                <div className="mb-6">
+                  <label htmlFor="team" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    Team <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="team"
+                    value={selectedTeam?.name || ''}
+                    disabled
+                    className="w-full px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateBoardModalOpen(false)}
+                    className="flex-1 px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-neutral-700 hover:bg-neutral-50 dark:hover:bg-gray-600"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-smooth"
+                  >
+                    Create Board
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

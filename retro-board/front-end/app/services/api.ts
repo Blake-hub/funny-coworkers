@@ -185,5 +185,164 @@ export const teamApi = {
   },
 };
 
+// Board-related API calls
+export const boardApi = {
+  // Get all boards for a team
+  getAllBoards: async (teamId: number): Promise<any[]> => {
+    return fetchApi<any[]>(`/api/boards/team/${teamId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  // Create a new board
+  createBoard: async (boardData: { name: string; description: string; teamId: number }): Promise<any> => {
+    return fetchApi<any>('/api/boards', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(boardData),
+    });
+  },
+
+  // Delete a board
+  deleteBoard: async (boardId: number): Promise<void> => {
+    return fetchApi<void>(`/api/boards/${boardId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  // Update a board
+  updateBoard: async (boardId: number, boardData: { name: string; description: string }): Promise<any> => {
+    return fetchApi<any>(`/api/boards/${boardId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(boardData),
+    });
+  },
+  
+  // Get a board by ID
+  getBoardById: async (boardId: number): Promise<any> => {
+    return fetchApi<any>(`/api/boards/${boardId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+};
+
+// Column-related API calls
+export const columnApi = {
+  // Get all columns for a board
+  getAllColumns: async (boardId: number): Promise<any[]> => {
+    return fetchApi<any[]>(`/api/columns/board/${boardId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  // Create a new column
+  createColumn: async (columnData: { name: string; boardId: number; position: number }): Promise<any> => {
+    return fetchApi<any>('/api/columns', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(columnData),
+    });
+  },
+
+  // Delete a column
+  deleteColumn: async (columnId: number): Promise<void> => {
+    return fetchApi<void>(`/api/columns/${columnId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  // Update a column
+  updateColumn: async (columnId: number, columnData: { name: string; position: number }): Promise<any> => {
+    return fetchApi<any>(`/api/columns/${columnId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(columnData),
+    });
+  },
+  
+  // Get a column by ID
+  getColumnById: async (columnId: number): Promise<any> => {
+    return fetchApi<any>(`/api/columns/${columnId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+};
+
+// Card-related API calls
+export const cardApi = {
+  // Get all cards for a column
+  getAllCards: async (columnId: number): Promise<any[]> => {
+    return fetchApi<any[]>(`/api/cards/column/${columnId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  // Create a new card
+  createCard: async (cardData: { title: string; description: string; columnId: number; position: number }): Promise<any> => {
+    return fetchApi<any>('/api/cards', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(cardData),
+    });
+  },
+
+  // Delete a card
+  deleteCard: async (cardId: number): Promise<void> => {
+    return fetchApi<void>(`/api/cards/${cardId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+
+  // Update a card
+  updateCard: async (cardId: number, cardData: { title: string; description: string; columnId: number; position: number }): Promise<any> => {
+    return fetchApi<any>(`/api/cards/${cardId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(cardData),
+    });
+  },
+  
+  // Get a card by ID
+  getCardById: async (cardId: number): Promise<any> => {
+    return fetchApi<any>(`/api/cards/${cardId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+  },
+};
+
 // Export base URL for reference
 export { API_BASE_URL };

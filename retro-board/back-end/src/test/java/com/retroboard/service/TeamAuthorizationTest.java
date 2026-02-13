@@ -1,7 +1,6 @@
 package com.retroboard.service;
 
 import com.retroboard.entity.Team;
-import com.retroboard.entity.TeamMember;
 import com.retroboard.entity.User;
 import com.retroboard.repository.TeamRepository;
 import com.retroboard.repository.TeamMemberRepository;
@@ -24,7 +23,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

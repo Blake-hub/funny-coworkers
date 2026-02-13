@@ -6,22 +6,30 @@ import Card from '../card/Card';
 interface Card {
   id: number;
   title: string;
-  content: string;
-  creator: string;
+  description: string;
+  position: number;
   createdAt: string;
-  votes: number;
+  updatedAt: string;
+  column: {
+    id: number;
+    title: string;
+  };
 }
 
 interface ColumnType {
   id: number;
-  title: string;
-  description: string;
+  name: string;
+  position: number;
+  board: {
+    id: number;
+    name: string;
+  };
   cards: Card[];
 }
 
 interface ColumnProps {
   column: ColumnType;
-  onAddCard: (columnId: number, card: Card) => void;
+  onAddCard: (columnId: number, card: { title: string; description: string }) => void;
   onUpdateCard: (columnId: number, cardId: number, updatedCard: Partial<Card>) => void;
   onDeleteCard: (columnId: number, cardId: number) => void;
   onUpdateColumn: (columnId: number, updatedColumn: Partial<ColumnType>) => void;
@@ -48,25 +56,19 @@ export default function Column({
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(column.title);
-  const [editDescription, setEditDescription] = useState(column.description);
-  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('votes');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [editTitle, setEditTitle] = useState(column.name);
+  const [sortCriteria, setSortCriteria] = useState<'position' | 'createdAt'>('position');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const columnRef = useRef<HTMLDivElement>(null);
 
   const handleAddCard = () => {
     if (newCardTitle.trim()) {
-      const newCard: Card = {
-        id: Date.now(),
+      onAddCard(column.id, {
         title: newCardTitle,
-        content: newCardContent,
-        creator: 'Current User',
-        createdAt: new Date().toISOString().split('T')[0],
-        votes: 0,
-      };
-      onAddCard(column.id, newCard);
+        description: newCardContent,
+      });
       setNewCardTitle('');
       setNewCardContent('');
       setErrorMessage('');
@@ -83,16 +85,14 @@ export default function Column({
   const handleSaveColumn = () => {
     if (editTitle.trim()) {
       onUpdateColumn(column.id, {
-        title: editTitle,
-        description: editDescription,
+        name: editTitle,
       });
       setIsEditing(false);
     }
   };
 
   const handleCancelEdit = () => {
-    setEditTitle(column.title);
-    setEditDescription(column.description);
+    setEditTitle(column.name);
     setIsEditing(false);
   };
 
@@ -101,11 +101,8 @@ export default function Column({
     let comparison = 0;
     
     switch (sortCriteria) {
-      case 'votes':
-        comparison = a.votes - b.votes;
-        break;
-      case 'creator':
-        comparison = a.creator.localeCompare(b.creator);
+      case 'position':
+        comparison = a.position - b.position;
         break;
       case 'createdAt':
         comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -118,7 +115,7 @@ export default function Column({
   });
 
   // Handle sort criteria change
-  const handleSortChange = (criteria: SortCriteria) => {
+  const handleSortChange = (criteria: 'position' | 'createdAt') => {
     if (criteria === sortCriteria) {
       // Toggle direction if same criteria
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -126,7 +123,7 @@ export default function Column({
       // Set new criteria with default direction
       setSortCriteria(criteria);
       // Default direction based on criteria
-      setSortDirection(criteria === 'votes' ? 'desc' : 'asc');
+      setSortDirection('asc');
     }
   };
 
@@ -163,13 +160,6 @@ export default function Column({
               className="input-field w-full text-sm mb-2"
               placeholder="Column title"
             />
-            <input
-              type="text"
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              className="input-field w-full text-xs"
-              placeholder="Column description"
-            />
             <div className="flex gap-2 mt-2">
               <button
                 onClick={handleSaveColumn}
@@ -187,8 +177,7 @@ export default function Column({
           </div>
         ) : (
           <div>
-            <h3 className="font-medium text-neutral-500">{column.title}</h3>
-            <p className="text-xs text-neutral-400">{column.description}</p>
+            <h3 className="font-medium text-neutral-500">{column.name}</h3>
           </div>
         )}
         <div className="flex items-center gap-2">
@@ -208,8 +197,7 @@ export default function Column({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                   </svg>
                   <span className="text-xs text-neutral-400">
-                    {sortCriteria === 'votes' ? 'Votes' : 
-                     sortCriteria === 'creator' ? 'Creator' : 'Date'}
+                    {sortCriteria === 'position' ? 'Position' : 'Date'}
                     {sortDirection === 'asc' ? ' ↑' : ' ↓'}
                   </span>
                 </button>
@@ -217,21 +205,12 @@ export default function Column({
                   <div className="absolute right-0 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
                     <button
                       onClick={() => {
-                        handleSortChange('votes');
+                        handleSortChange('position');
                         setIsSortDropdownOpen(false);
                       }}
-                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'votes' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
+                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'position' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
                     >
-                      Votes {sortCriteria === 'votes' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleSortChange('creator');
-                        setIsSortDropdownOpen(false);
-                      }}
-                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'creator' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
-                    >
-                      Creator {sortCriteria === 'creator' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      Position {sortCriteria === 'position' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
                     <button
                       onClick={() => {

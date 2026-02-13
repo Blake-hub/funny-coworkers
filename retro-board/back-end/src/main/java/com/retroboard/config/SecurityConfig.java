@@ -1,7 +1,6 @@
 package com.retroboard.config;
 
 import com.retroboard.filter.JwtAuthenticationFilter;
-import com.retroboard.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +10,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -25,9 +23,6 @@ import java.util.Arrays;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-    
-    @Autowired
-    private JwtUtil jwtUtil;
     
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -49,8 +44,11 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
+                .requestMatchers("/login", "/register").permitAll()
+                .requestMatchers("/swagger-ui/", "/swagger-ui/**", "/v3/api-docs/", "/v3/api-docs/**").permitAll()
+                .anyRequest().authenticated()
             )
+            .anonymous(anonymous -> anonymous.disable())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         
         return http.build();

@@ -5,10 +5,14 @@ import { useState, useRef } from 'react';
 interface Card {
   id: number;
   title: string;
-  content: string;
-  creator: string;
+  description: string;
+  position: number;
   createdAt: string;
-  votes: number;
+  updatedAt: string;
+  column: {
+    id: number;
+    title: string;
+  };
 }
 
 interface CardProps {
@@ -22,18 +26,14 @@ export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) 
   const [isEditing, setIsEditing] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(card.title);
-  const [editedContent, setEditedContent] = useState(card.content);
+  const [editedContent, setEditedContent] = useState(card.description);
   const [isDragging, setIsDragging] = useState(false);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const handleVote = () => {
-    onUpdate({ votes: card.votes + 1 });
-  };
-
   const handleEdit = () => {
     if (editedTitle.trim()) {
-      onUpdate({ title: editedTitle, content: editedContent });
+      onUpdate({ title: editedTitle, description: editedContent });
       setIsEditing(false);
     }
   };
@@ -101,18 +101,6 @@ export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) 
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                handleVote();
-              }}
-              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-primary transition-smooth"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-              {card.votes}
-            </button>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
                 setIsEditing(true);
               }}
               className="p-1 rounded hover:bg-neutral-200 transition-smooth"
@@ -135,11 +123,10 @@ export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) 
           </div>
         </div>
         <p className="text-sm text-neutral-400 mb-3 line-clamp-2">
-          {card.content}
+          {card.description || 'No description'}
         </p>
-        <div className="flex items-center justify-between text-xs text-neutral-400">
-          <span>{card.creator}</span>
-          <span>{card.createdAt}</span>
+        <div className="flex items-center justify-end text-xs text-neutral-400">
+          <span>{new Date(card.createdAt).toLocaleDateString()}</span>
         </div>
       </div>
 
@@ -155,21 +142,12 @@ export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) 
           <div className="card-container shadow-lg transform rotate-2 opacity-90">
             <div className="flex items-start justify-between mb-2">
               <h4 className="font-medium text-sm flex-1">{card.title}</h4>
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-xs text-neutral-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                  {card.votes}
-                </span>
-              </div>
             </div>
             <p className="text-sm text-neutral-400 mb-3 line-clamp-2">
-              {card.content}
+              {card.description}
             </p>
-            <div className="flex items-center justify-between text-xs text-neutral-400">
-              <span>{card.creator}</span>
-              <span>{card.createdAt}</span>
+            <div className="flex items-center justify-end text-xs text-neutral-400">
+              <span>{new Date(card.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
         </div>
@@ -200,7 +178,7 @@ export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) 
                 onClick={() => {
                   setIsEditing(false);
                   setEditedTitle(card.title);
-                  setEditedContent(card.content);
+                  setEditedContent(card.description);
                 }}
                 className="btn-outline text-xs"
               >
@@ -243,22 +221,9 @@ export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) 
                   onChange={(e) => setEditedContent(e.target.value)}
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <button 
-                      onClick={handleVote}
-                      className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-smooth"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                      Vote ({card.votes})
-                    </button>
-                  </div>
-                </div>
+              <div className="flex items-center justify-end">
                 <div className="text-sm text-neutral-400">
-                  Created by {card.creator} on {card.createdAt}
+                  Created on {new Date(card.createdAt).toLocaleDateString()}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -271,8 +236,8 @@ export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) 
                 <button
                   onClick={() => {
                     setIsDetailOpen(false);
-                    setEditedTitle(card.title);
-                    setEditedContent(card.content);
+                  setEditedTitle(card.title);
+                  setEditedContent(card.description);
                   }}
                   className="btn-outline"
                 >
