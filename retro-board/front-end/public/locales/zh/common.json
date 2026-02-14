@@ -1,0 +1,160 @@
+{
+  "teams": {
+    "pageTitle": "我的团队",
+    "pageDescription": "与您的团队协作进行回顾",
+    "createNewTeam": "+ 创建新团队",
+    "noTeams": "暂无团队",
+    "createFirstTeam": "创建您的第一个团队开始",
+    "teamMembers": "团队成员",
+    "teamBoards": "团队看板",
+    "noBoards": "暂无看板",
+    "createFirstBoard": "+ 创建第一个看板",
+    "owner": "所有者",
+    "members": "成员",
+    "createdOn": "创建于",
+    "backToTeams": "← 返回团队"
+  },
+  "board": {
+    "boardSettings": "看板设置",
+    "teamMembers": "团队成员",
+    "addColumn": "添加列",
+    "noDescription": "无描述"
+  },
+  "dashboard": {
+    "pageTitle": "我的仪表盘",
+    "pageDescription": "查看您的所有看板和团队",
+    "activeBoards": "活跃看板",
+    "noBoardsFound": "未找到看板",
+    "createFirstBoard": "创建您的第一个看板开始",
+    "createBoard": "创建看板",
+    "boardsAvailable": "个可用看板",
+    "createNewBoard": "+ 创建新看板"
+  },
+  "modals": {
+    "createTeam": {
+      "title": "创建新团队",
+      "teamName": "团队名称",
+      "createTeam": "创建团队",
+      "cancel": "取消"
+    },
+    "editTeamName": {
+      "title": "编辑团队名称",
+      "teamName": "团队名称",
+      "saveChanges": "保存更改",
+      "cancel": "取消"
+    },
+    "deleteTeam": {
+      "title": "删除团队",
+      "confirm": "您确定要删除团队 {{teamName}} 吗？此操作无法撤销。",
+      "deleteTeam": "删除团队",
+      "cancel": "取消"
+    },
+    "transferOwnership": {
+      "title": "转移所有权",
+      "confirm": "您确定要将 {{teamName}} 的所有权转移给 {{memberName}} 吗？",
+      "transferOwnership": "转移所有权",
+      "cancel": "取消"
+    },
+    "addMember": {
+      "title": "添加团队成员",
+      "searchUsers": "搜索用户",
+      "searchPlaceholder": "输入用户名或电子邮件",
+      "searchHint": "至少输入 2 个字符进行搜索",
+      "noUsersFound": "未找到用户",
+      "addMembers": "添加 {{count}} 个成员",
+      "cancel": "取消"
+    },
+    "createBoard": {
+      "title": "创建新看板",
+      "boardName": "看板名称",
+      "description": "描述（可选）",
+      "team": "团队",
+      "selectTeam": "-- 选择团队 --",
+      "createBoard": "创建看板",
+      "cancel": "取消",
+      "noTeamsFound": "未找到团队",
+      "needTeam": "您需要先创建团队才能创建看板。",
+      "createTeam": "创建团队"
+    }
+  },
+  "buttons": {
+    "edit": "编辑",
+    "delete": "删除",
+    "view": "查看",
+    "remove": "移除",
+    "transferOwnership": "转移所有权",
+    "tryAgain": "重试",
+    "saveChanges": "保存更改",
+    "cancel": "取消"
+  },
+  "errors": {
+    "failedToLoad": "加载失败",
+    "failedToCreate": "创建失败",
+    "failedToUpdate": "更新失败",
+    "failedToDelete": "删除失败",
+    "pleaseTryAgain": "请重试。",
+    "accessDenied": "访问被拒绝：您没有权限访问此资源"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "confirm": "确认",
+    "yes": "是",
+    "no": "否"
+  },
+  "sidebar": {
+    "myBoards": "我的看板",
+    "teamBoards": "团队看板",
+    "settings": "设置",
+    "helpAndSupport": "帮助与支持",
+    "searchBoards": "搜索看板...",
+    "recentBoards": "最近的看板",
+    "viewAll": "查看全部",
+    "createNewBoard": "+ 创建新看板",
+    "logout": "退出登录",
+    "login": "登录"
+  },
+  "header": {
+    "dashboard": "仪表盘",
+    "teams": "团队",
+    "templates": "模板",
+    "profile": "个人资料",
+    "settings": "设置",
+    "logout": "退出登录",
+    "login": "登录",
+    "userName": "用户名"
+  },
+  "auth": {
+    "login": {
+      "title": "登录您的账户",
+      "orCreateAccountPrefix": "或者",
+      "orCreateAccountLink": "创建新账户",
+      "username": "用户名",
+      "password": "密码",
+      "rememberMe": "记住我",
+      "forgotPassword": "忘记密码？",
+      "signingIn": "登录中...",
+      "signIn": "登录",
+      "dontHaveAccount": "还没有账户？",
+      "register": "注册",
+      "invalidCredentials": "用户名或密码无效"
+    },
+    "register": {
+      "title": "创建您的账户",
+      "orSignInPrefix": "或者",
+      "orSignInLink": "登录您的现有账户",
+      "username": "用户名",
+      "email": "电子邮件",
+      "password": "密码",
+      "registering": "注册中...",
+      "register": "注册",
+      "alreadyHaveAccount": "已经有账户了？",
+      "signIn": "登录",
+      "registrationFailed": "注册失败。请重试。",
+      "successTitle": "注册成功！",
+      "successMessage": "您的账户已成功创建。",
+      "redirecting": "正在重定向到登录页面..."
+    }
+  }
+}

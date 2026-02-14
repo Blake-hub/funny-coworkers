@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 
 interface SidebarProps {
   onCreateBoard?: () => void;
@@ -14,9 +15,9 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeItem, setActiveItem] = useState('my-boards');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { t } = useTranslation('common');
 
   useEffect(() => {
-    // Check if user is authenticated
     const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
   }, []);
@@ -30,7 +31,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
   const navigationItems = [
     {
       id: 'my-boards',
-      label: 'My Boards',
+      label: t('sidebar.myBoards'),
       href: '/dashboard',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -40,7 +41,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
     },
     {
       id: 'team-boards',
-      label: 'Team Boards',
+      label: t('sidebar.teamBoards'),
       href: '/teams',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -50,7 +51,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
     },
     {
       id: 'settings',
-      label: 'Settings',
+      label: t('sidebar.settings'),
       href: '/settings',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,7 +62,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
     },
     {
       id: 'help',
-      label: 'Help & Support',
+      label: t('sidebar.helpAndSupport'),
       href: '/help',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -120,7 +121,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search boards..."
+                placeholder={t('sidebar.searchBoards')}
                 className="input-field w-full text-sm"
               />
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-400 absolute right-3 top-1/2 transform -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -153,9 +154,11 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
         {!isCollapsed && (
           <div className="p-4 border-t border-neutral-200 dark:border-gray-800">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-neutral-400">Recent Boards</h3>
+              <h3 className="text-sm font-medium text-neutral-400">
+                {t('sidebar.recentBoards')}
+              </h3>
               <button className="text-primary hover:text-primary/80 text-sm">
-                View All
+                {t('sidebar.viewAll')}
               </button>
             </div>
             <div className="space-y-2">
@@ -184,7 +187,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
                 }
               }}
             >
-              + Create New Board
+              {t('sidebar.createNewBoard')}
             </button>
             {isAuthenticated ? (
               <button 
@@ -197,7 +200,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
                   }
                 }}
               >
-                Logout
+                {t('sidebar.logout')}
               </button>
             ) : (
               <button 
@@ -210,7 +213,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
                   }
                 }}
               >
-                Login
+                {t('sidebar.login')}
               </button>
             )}
           </div>
@@ -226,7 +229,7 @@ export default function Sidebar({ onCreateBoard, isMobile, onMobileToggle }: Sid
                   onMobileToggle();
                 }
               }}
-              title="Create New Board"
+              title={t('sidebar.createNewBoard')}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

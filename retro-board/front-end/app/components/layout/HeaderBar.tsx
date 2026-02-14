@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { ThemeContext } from '../../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../LanguageSwitcher';
 
 interface HeaderBarProps {
   onMobileMenuClick?: () => void;
@@ -16,12 +18,11 @@ export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
   const [username, setUsername] = useState('');
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const themeContext = useContext(ThemeContext);
+  const { i18n, t } = useTranslation('common');
   
-  // Get theme and toggleTheme from context
   const { theme, toggleTheme } = themeContext || { theme: 'light', toggleTheme: () => {} };
 
   useEffect(() => {
-    // Check if user is authenticated
     const token = localStorage.getItem('token');
     const storedUsername = localStorage.getItem('username');
     setIsAuthenticated(!!token);
@@ -29,9 +30,11 @@ export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
   }, []);
 
   useEffect(() => {
-    // Close profile menu when clicking outside
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+      if (
+        profileMenuRef.current && 
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
         setIsProfileMenuOpen(false);
       }
     };
@@ -76,19 +79,19 @@ export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
             href="/dashboard" 
             className={`${pathname === '/dashboard' ? 'text-primary font-medium' : 'text-neutral-400 hover:text-neutral-500'}`}
           >
-            Dashboard
+            {t('header.dashboard')}
           </a>
           <a 
             href="/teams" 
             className={`${pathname === '/teams' ? 'text-primary font-medium' : 'text-neutral-400 hover:text-neutral-500'}`}
           >
-            Teams
+            {t('header.teams')}
           </a>
           <a 
             href="/templates" 
             className={`${pathname === '/templates' ? 'text-primary font-medium' : 'text-neutral-400 hover:text-neutral-500'}`}
           >
-            Templates
+            {t('header.templates')}
           </a>
         </nav>
       </div>
@@ -116,6 +119,7 @@ export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
                 </svg>
               )}
             </button>
+            <LanguageSwitcher />
             <div className="relative" ref={profileMenuRef}>
               <button
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
@@ -124,7 +128,7 @@ export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
                 <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-white font-medium">
                   {username ? username.charAt(0).toUpperCase() + username.charAt(1).toUpperCase() : 'US'}
                 </div>
-                <span className="hidden lg:block text-sm font-medium">{username || 'User Name'}</span>
+                <span className="hidden lg:block text-sm font-medium">{username || t('header.userName')}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -132,29 +136,32 @@ export default function HeaderBar({ onMobileMenuClick }: HeaderBarProps) {
               {isProfileMenuOpen && (
                 <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-gray-800 dark:border-gray-700 rounded-lg shadow-lg border border-neutral-200 py-2 z-10 dark:text-white">
                   <a href="/profile" className="block px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-gray-700">
-                    Profile
+                    {t('header.profile')}
                   </a>
                   <a href="/settings" className="block px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-gray-700">
-                    Settings
+                    {t('header.settings')}
                   </a>
                   <div className="border-t border-neutral-200 dark:border-gray-700 my-1"></div>
                   <button 
                     className="block px-4 py-2 text-sm text-error hover:bg-neutral-100 dark:hover:bg-gray-700 w-full text-left"
                     onClick={handleLogout}
                   >
-                    Logout
+                    {t('header.logout')}
                   </button>
                 </div>
               )}
             </div>
           </>
         ) : (
-          <button 
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-300 ease-in-out"
-            onClick={() => router.push('/login')}
-          >
-            Login
-          </button>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <button 
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-300 ease-in-out"
+              onClick={() => router.push('/login')}
+            >
+              {t('header.login')}
+            </button>
+          </div>
         )}
       </div>
     </header>

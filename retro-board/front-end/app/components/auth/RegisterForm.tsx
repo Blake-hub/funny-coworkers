@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '../../services/api';
 
 export default function RegisterForm() {
@@ -11,6 +12,7 @@ export default function RegisterForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const { t } = useTranslation('common');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +34,7 @@ export default function RegisterForm() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Registration failed. Please try again.');
+        setError(t('auth.register.registrationFailed'));
       }
       console.error('Registration error:', err);
     } finally {
@@ -51,9 +53,9 @@ export default function RegisterForm() {
               </svg>
             </div>
           </div>
-          <h3 className="text-xl font-medium mb-2 dark:text-white">Registration Successful!</h3>
-          <p className="mb-4 dark:text-white">Your account has been created successfully.</p>
-          <p className="text-sm text-green-500 dark:text-green-400">Redirecting to login page...</p>
+          <h3 className="text-xl font-medium mb-2 dark:text-white">{t('auth.register.successTitle')}</h3>
+          <p className="mb-4 dark:text-white">{t('auth.register.successMessage')}</p>
+          <p className="text-sm text-green-500 dark:text-green-400">{t('auth.register.redirecting')}</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -64,7 +66,7 @@ export default function RegisterForm() {
           )}
           <div>
             <label htmlFor="username" className="block text-sm font-medium mb-2 dark:text-white">
-              Username
+              {t('auth.register.username')}
             </label>
             <input
               type="text"
@@ -77,7 +79,7 @@ export default function RegisterForm() {
           </div>
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-2 dark:text-white">
-              Email
+              {t('auth.register.email')}
             </label>
             <input
               type="email"
@@ -90,7 +92,7 @@ export default function RegisterForm() {
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-2 dark:text-white">
-              Password
+              {t('auth.register.password')}
             </label>
             <input
               type="password"
@@ -107,13 +109,13 @@ export default function RegisterForm() {
               className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all duration-300 ease-in-out w-full"
               disabled={loading}
             >
-              {loading ? 'Registering...' : 'Register'}
+              {loading ? t('auth.register.registering') : t('auth.register.register')}
             </button>
           </div>
           <div className="text-center text-sm dark:text-white">
-            <span>Already have an account? </span>
+            <span>{t('auth.register.alreadyHaveAccount')} </span>
             <Link href="/login" className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
-              Sign in
+              {t('auth.register.signIn')}
             </Link>
           </div>
         </form>

@@ -1,0 +1,160 @@
+{
+  "teams": {
+    "pageTitle": "My Teams",
+    "pageDescription": "Collaborate with your team on retrospectives",
+    "createNewTeam": "+ Create New Team",
+    "noTeams": "No teams yet",
+    "createFirstTeam": "Create your first team to get started",
+    "teamMembers": "Team Members",
+    "teamBoards": "Team Boards",
+    "noBoards": "No boards yet",
+    "createFirstBoard": "+ Create First Board",
+    "owner": "Owner",
+    "members": "members",
+    "createdOn": "Created on",
+    "backToTeams": "← Back to Teams"
+  },
+  "board": {
+    "boardSettings": "Board Settings",
+    "teamMembers": "Team Members",
+    "addColumn": "Add Column",
+    "noDescription": "No description"
+  },
+  "dashboard": {
+    "pageTitle": "My Dashboard",
+    "pageDescription": "View all your boards and teams",
+    "activeBoards": "Active Boards",
+    "noBoardsFound": "No Boards Found",
+    "createFirstBoard": "Create your first board to get started",
+    "createBoard": "Create Board",
+    "boardsAvailable": "boards available",
+    "createNewBoard": "+ Create New Board"
+  },
+  "modals": {
+    "createTeam": {
+      "title": "Create New Team",
+      "teamName": "Team Name",
+      "createTeam": "Create Team",
+      "cancel": "Cancel"
+    },
+    "editTeamName": {
+      "title": "Edit Team Name",
+      "teamName": "Team Name",
+      "saveChanges": "Save Changes",
+      "cancel": "Cancel"
+    },
+    "deleteTeam": {
+      "title": "Delete Team",
+      "confirm": "Are you sure you want to delete the team {{teamName}}? This action cannot be undone.",
+      "deleteTeam": "Delete Team",
+      "cancel": "Cancel"
+    },
+    "transferOwnership": {
+      "title": "Transfer Ownership",
+      "confirm": "Are you sure you want to transfer ownership of {{teamName}} to {{memberName}}?",
+      "transferOwnership": "Transfer Ownership",
+      "cancel": "Cancel"
+    },
+    "addMember": {
+      "title": "Add Team Members",
+      "searchUsers": "Search Users",
+      "searchPlaceholder": "Enter username or email",
+      "searchHint": "Type at least 2 characters to search",
+      "noUsersFound": "No users found",
+      "addMembers": "Add {{count}} Member{{plural}}",
+      "cancel": "Cancel"
+    },
+    "createBoard": {
+      "title": "Create New Board",
+      "boardName": "Board Name",
+      "description": "Description (Optional)",
+      "team": "Team",
+      "selectTeam": "-- Select a team --",
+      "createBoard": "Create Board",
+      "cancel": "Cancel",
+      "noTeamsFound": "No Teams Found",
+      "needTeam": "You need to create a team before creating a board.",
+      "createTeam": "Create Team"
+    }
+  },
+  "buttons": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "view": "View",
+    "remove": "Remove",
+    "transferOwnership": "Transfer Ownership",
+    "tryAgain": "Try Again",
+    "saveChanges": "Save Changes",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "failedToLoad": "Failed to load",
+    "failedToCreate": "Failed to create",
+    "failedToUpdate": "Failed to update",
+    "failedToDelete": "Failed to delete",
+    "pleaseTryAgain": "Please try again.",
+    "accessDenied": "Access denied: You don't have permission to access this resource"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "sidebar": {
+    "myBoards": "My Boards",
+    "teamBoards": "Team Boards",
+    "settings": "Settings",
+    "helpAndSupport": "Help & Support",
+    "searchBoards": "Search boards...",
+    "recentBoards": "Recent Boards",
+    "viewAll": "View All",
+    "createNewBoard": "+ Create New Board",
+    "logout": "Logout",
+    "login": "Login"
+  },
+  "header": {
+    "dashboard": "Dashboard",
+    "teams": "Teams",
+    "templates": "Templates",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout",
+    "login": "Login",
+    "userName": "User Name"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in to your account",
+      "orCreateAccountPrefix": "Or",
+      "orCreateAccountLink": "create a new account",
+      "username": "Username",
+      "password": "Password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "signingIn": "Signing in...",
+      "signIn": "Sign in",
+      "dontHaveAccount": "Don't have an account?",
+      "register": "Register",
+      "invalidCredentials": "Invalid username or password"
+    },
+    "register": {
+      "title": "Create your account",
+      "orSignInPrefix": "Or",
+      "orSignInLink": "sign in to your existing account",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "registering": "Registering...",
+      "register": "Register",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "registrationFailed": "Registration failed. Please try again.",
+      "successTitle": "Registration Successful!",
+      "successMessage": "Your account has been created successfully.",
+      "redirecting": "Redirecting to login page..."
+    }
+  }
+}

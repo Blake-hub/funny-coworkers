@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import CreateBoardModal from './CreateBoardModal';
 import { boardApi, teamApi } from '../../services/api';
 
@@ -40,6 +41,7 @@ interface BoardListProps {
 
 export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: BoardListProps) {
   const router = useRouter();
+  const { t } = useTranslation('common');
   const [boards, setBoards] = useState<Board[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
@@ -206,8 +208,8 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
     <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <div>
-          <h2 className="text-xl font-medium mb-1">Active Boards</h2>
-          <p className="text-neutral-400 text-sm">{boards.length} boards available</p>
+          <h2 className="text-xl font-medium mb-1">{t('dashboard.activeBoards')}</h2>
+          <p className="text-neutral-400 text-sm">{boards.length} {t('dashboard.boardsAvailable')}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           {teams.length > 0 && (
@@ -228,7 +230,7 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
             onClick={handleCreateBoard}
             className="btn-primary w-full sm:w-auto"
           >
-            + Create New Board
+{t('dashboard.createNewBoard')}
           </button>
         </div>
       </div>
@@ -256,13 +258,13 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
           <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-neutral-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
           </svg>
-          <h3 className="text-lg font-medium mb-2">No Boards Found</h3>
-          <p className="text-neutral-400 mb-6">Create your first board to get started</p>
+          <h3 className="text-lg font-medium mb-2">{t('dashboard.noBoardsFound')}</h3>
+          <p className="text-neutral-400 mb-6">{t('dashboard.createFirstBoard')}</p>
           <button
             onClick={handleCreateBoard}
             className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-smooth"
           >
-            Create Board
+            {t('dashboard.createBoard')}
           </button>
         </div>
       ) : (

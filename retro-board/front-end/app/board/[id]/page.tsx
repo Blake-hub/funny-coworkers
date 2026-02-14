@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import HeaderBar from '../../components/layout/HeaderBar';
 import Sidebar from '../../components/layout/Sidebar';
 import Column from '../../components/board/Column';
@@ -47,6 +48,7 @@ export default function BoardPage() {
   const router = useRouter();
   const params = useParams();
   const boardId = params.id as string;
+  const { t } = useTranslation('common');
   
   const [board, setBoard] = useState<Board | null>(null);
   const [columns, setColumns] = useState<ColumnType[]>([]);
@@ -358,20 +360,20 @@ export default function BoardPage() {
               </button>
               <h1 className="text-2xl font-medium">{board.name}</h1>
             </div>
-            <p className="text-neutral-400">{board.description || 'No description'}</p>
+            <p className="text-neutral-400">{board.description || t('board.noDescription')}</p>
           </div>
           <div className="flex items-center gap-4 mb-6">
             <button className="btn-outline text-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
               </svg>
-              Board Settings
+{t('board.boardSettings')}
             </button>
             <button className="btn-outline text-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              Team Members
+{t('board.teamMembers')}
             </button>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-6">
@@ -393,8 +395,8 @@ export default function BoardPage() {
                 const newColumnTitle = `Column ${columns.length + 1}`;
                 handleAddColumn(newColumnTitle);
               }}
-              className="min-w-[300px] bg-white/50 dark:bg-gray-700/50 border-2 border-dashed border-neutral-300 dark:border-gray-600 rounded-lg p-4 flex items-center justify-center hover:bg-white dark:hover:bg-gray-700 hover:border-primary transition-all duration-200"
-              title="Add Column"
+              className="min-w-[300px] bg-white/50 dark:bg-gray-700/50 border-2 border-dashed border-neutral-200 dark:border-gray-600 rounded-lg p-4 flex items-center justify-center hover:bg-white dark:hover:bg-gray-700 hover:border-primary transition-all duration-200"
+              title={t('board.addColumn')}
             >
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all duration-200">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

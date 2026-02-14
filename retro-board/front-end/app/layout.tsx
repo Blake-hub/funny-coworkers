@@ -2,6 +2,8 @@ import './styles/globals.css';
 import React from 'react';
 import type { Metadata } from 'next';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { I18nProvider } from './providers/I18nProvider';
+import { ClientOnly } from './components/ClientOnly';
 
 export const metadata = {
   title: 'Retro Board App',
@@ -19,9 +21,13 @@ export default function RootLayout({
         {/* Theme initialization moved to ThemeProvider client-side */}
       </head>
       <body>
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+        <ClientOnly>
+          <ThemeProvider>
+            <I18nProvider>
+              {children}
+            </I18nProvider>
+          </ThemeProvider>
+        </ClientOnly>
       </body>
     </html>
   );

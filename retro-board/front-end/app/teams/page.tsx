@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import HeaderBar from '../components/layout/HeaderBar';
 import Sidebar from '../components/layout/Sidebar';
 import CreateBoardModal from '../components/board/CreateBoardModal';
@@ -68,23 +69,24 @@ function AddMemberModal({
   selectedUsers, 
   onToggleUserSelection 
 }: AddMemberModalProps) {
+  const { t } = useTranslation('common');
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-medium mb-4">Add Team Members</h3>
+        <h3 className="text-lg font-medium mb-4">{t('modals.addMember.title')}</h3>
         
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Search Users</label>
+          <label className="block text-sm font-medium mb-2">{t('modals.addMember.searchUsers')}</label>
           <input
             type="text"
             className="input-field w-full"
             value={searchQuery}
             onChange={onSearchChange}
-            placeholder="Enter username or email"
+            placeholder={t('modals.addMember.searchPlaceholder')}
           />
-          <p className="text-xs text-neutral-400 mt-1">Type at least 2 characters to search</p>
+          <p className="text-xs text-neutral-400 mt-1">{t('modals.addMember.searchHint')}</p>
         </div>
 
         {isSearching ? (
@@ -118,7 +120,7 @@ function AddMemberModal({
           </div>
         ) : searchQuery.length >= 2 ? (
           <div className="text-center py-4 text-neutral-400">
-            No users found
+            {t('modals.addMember.noUsersFound')}
           </div>
         ) : null}
 
@@ -128,7 +130,7 @@ function AddMemberModal({
             className="btn-outline flex-1"
             onClick={onClose}
           >
-            Cancel
+            {t('modals.addMember.cancel')}
           </button>
           <button 
             type="button" 
@@ -136,7 +138,7 @@ function AddMemberModal({
             onClick={onAddMembers}
             disabled={selectedUsers.length === 0}
           >
-            Add {selectedUsers.length} Member{selectedUsers.length !== 1 ? 's' : ''}
+            {t('modals.addMember.addMembers', { count: selectedUsers.length, plural: selectedUsers.length !== 1 ? 's' : '' })}
           </button>
         </div>
       </div>
@@ -151,6 +153,7 @@ interface CreateTeamModalProps {
 }
 
 function CreateTeamModal({ isOpen, onClose, onCreate }: CreateTeamModalProps) {
+  const { t } = useTranslation('common');
   const [teamName, setTeamName] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -167,10 +170,10 @@ function CreateTeamModal({ isOpen, onClose, onCreate }: CreateTeamModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-medium mb-4">Create New Team</h3>
+        <h3 className="text-lg font-medium mb-4">{t('modals.createTeam.title')}</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Team Name</label>
+            <label className="block text-sm font-medium mb-1">{t('modals.createTeam.teamName')}</label>
             <input
               type="text"
               className="input-field w-full"
@@ -182,10 +185,10 @@ function CreateTeamModal({ isOpen, onClose, onCreate }: CreateTeamModalProps) {
           </div>
           <div className="flex gap-2">
             <button type="submit" className="btn-primary flex-1">
-              Create Team
+              {t('modals.createTeam.createTeam')}
             </button>
             <button type="button" onClick={onClose} className="btn-outline">
-              Cancel
+              {t('modals.createTeam.cancel')}
             </button>
           </div>
         </form>
@@ -202,6 +205,7 @@ interface EditTeamNameModalProps {
 }
 
 function EditTeamNameModal({ isOpen, onClose, team, onUpdate }: EditTeamNameModalProps) {
+  const { t } = useTranslation('common');
   const [newName, setNewName] = useState(team?.name || '');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -217,10 +221,10 @@ function EditTeamNameModal({ isOpen, onClose, team, onUpdate }: EditTeamNameModa
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-medium mb-4">Edit Team Name</h3>
+        <h3 className="text-lg font-medium mb-4">{t('modals.editTeamName.title')}</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Team Name</label>
+            <label className="block text-sm font-medium mb-1">{t('modals.editTeamName.teamName')}</label>
             <input
               type="text"
               className="input-field w-full"
@@ -232,10 +236,10 @@ function EditTeamNameModal({ isOpen, onClose, team, onUpdate }: EditTeamNameModa
           </div>
           <div className="flex gap-2">
             <button type="submit" className="btn-primary flex-1">
-              Save Changes
+              {t('modals.editTeamName.saveChanges')}
             </button>
             <button type="button" onClick={onClose} className="btn-outline">
-              Cancel
+              {t('modals.editTeamName.cancel')}
             </button>
           </div>
         </form>
@@ -252,19 +256,20 @@ interface DeleteTeamModalProps {
 }
 
 function DeleteTeamModal({ isOpen, onClose, team, onDelete }: DeleteTeamModalProps) {
+  const { t } = useTranslation('common');
   if (!isOpen || !team) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-medium mb-4 text-error">Delete Team</h3>
-        <p className="mb-6">Are you sure you want to delete the team <strong>{team.name}</strong>? This action cannot be undone.</p>
+        <h3 className="text-lg font-medium mb-4 text-error">{t('modals.deleteTeam.title')}</h3>
+        <p className="mb-6">{t('modals.deleteTeam.confirm', { teamName: team.name })}</p>
         <div className="flex gap-2">
           <button type="button" onClick={onDelete} className="btn-primary bg-error hover:bg-error/80 flex-1">
-            Delete Team
+            {t('modals.deleteTeam.deleteTeam')}
           </button>
           <button type="button" onClick={onClose} className="btn-outline">
-            Cancel
+            {t('modals.deleteTeam.cancel')}
           </button>
         </div>
       </div>
@@ -281,19 +286,20 @@ interface TransferOwnershipModalProps {
 }
 
 function TransferOwnershipModal({ isOpen, onClose, member, team, onTransfer }: TransferOwnershipModalProps) {
+  const { t } = useTranslation('common');
   if (!isOpen || !member || !team) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-medium mb-4">Transfer Ownership</h3>
-        <p className="mb-6">Are you sure you want to transfer ownership of <strong>{team.name}</strong> to <strong>{member.user?.username || 'Unknown'}</strong>?</p>
+        <h3 className="text-lg font-medium mb-4">{t('modals.transferOwnership.title')}</h3>
+        <p className="mb-6">{t('modals.transferOwnership.confirm', { teamName: team.name, memberName: member.user?.username || 'Unknown' })}</p>
         <div className="flex gap-2">
           <button type="button" onClick={onTransfer} className="btn-primary flex-1">
-            Transfer Ownership
+            {t('modals.transferOwnership.transferOwnership')}
           </button>
           <button type="button" onClick={onClose} className="btn-outline">
-            Cancel
+            {t('modals.transferOwnership.cancel')}
           </button>
         </div>
       </div>
@@ -306,37 +312,38 @@ interface TeamCardProps {
   onSelect: (team: Team) => void;
   onEdit: (team: Team) => void;
   onDelete: (team: Team) => void;
+  t: (key: string, options?: any) => string;
 }
 
-function TeamCard({ team, onSelect, onEdit, onDelete }: TeamCardProps) {
+function TeamCard({ team, onSelect, onEdit, onDelete, t }: TeamCardProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-smooth">
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-lg font-medium">{team.name}</h3>
         <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full">
           {team.members ? team.members.length : '?'}
-          {team.members ? (team.members.length === 1 ? ' member' : ' members') : ' member'}
+          {team.members ? (team.members.length === 1 ? ` ${t('teams.members')}` : ` ${t('teams.members')}`) : ` ${t('teams.members')}`}
         </span>
       </div>
       <p className="text-sm text-neutral-400 mb-4">
-        Owner: {team.owner?.username || 'Unknown'}
+        {t('teams.owner')}: {team.owner?.username || 'Unknown'}
       </p>
       <div className="flex items-center justify-between">
         <span className="text-xs text-neutral-400">
-          Created on {team.createdAt}
+          {t('teams.createdOn')} {team.createdAt}
         </span>
         <div className="flex gap-2">
           <button onClick={(e) => {
             e.stopPropagation();
             onEdit(team);
           }} className="btn-outline text-xs">
-            Edit
+            {t('buttons.edit')}
           </button>
           <button onClick={(e) => {
             e.stopPropagation();
             onDelete(team);
           }} className="btn-outline text-xs text-error">
-            Delete
+            {t('buttons.delete')}
           </button>
           <button onClick={(e) => {
             e.stopPropagation();
@@ -352,6 +359,7 @@ function TeamCard({ team, onSelect, onEdit, onDelete }: TeamCardProps) {
 
 export default function Teams() {
   const router = useRouter();
+  const { t } = useTranslation('common');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -808,14 +816,14 @@ export default function Teams() {
             <>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h1 className="text-2xl font-medium mb-2">My Teams</h1>
-                  <p className="text-neutral-400">Collaborate with your team on retrospectives</p>
+                  <h1 className="text-2xl font-medium mb-2">{t('teams.pageTitle')}</h1>
+                  <p className="text-neutral-400">{t('teams.pageDescription')}</p>
                 </div>
                 <button 
                   className="btn-primary"
                   onClick={() => setIsCreateModalOpen(true)}
                 >
-                  + Create New Team
+                  + {t('teams.createNewTeam')}
                 </button>
               </div>
               
@@ -835,13 +843,13 @@ export default function Teams() {
                 </div>
               ) : teams.length === 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
-                  <h3 className="text-lg font-medium mb-2">No teams yet</h3>
-                  <p className="text-neutral-400 mb-4">Create your first team to get started</p>
+                  <h3 className="text-lg font-medium mb-2">{t('teams.noTeams')}</h3>
+                  <p className="text-neutral-400 mb-4">{t('teams.createFirstTeam')}</p>
                   <button 
                     className="btn-primary"
                     onClick={() => setIsCreateModalOpen(true)}
                   >
-                    + Create New Team
+                    {t('teams.createNewTeam')}
                   </button>
                 </div>
               ) : (
@@ -853,6 +861,7 @@ export default function Teams() {
                       onSelect={handleSelectTeam}
                       onEdit={handleEditTeam}
                       onDelete={handleDeleteTeam}
+                      t={t}
                     />
                   ))}
                 </div>
@@ -865,13 +874,13 @@ export default function Teams() {
                   className="btn-outline mb-4"
                   onClick={handleCloseTeam}
                 >
-                  ← Back to Teams
+{t('teams.backToTeams')}
                 </button>
                 <div>
                   <h1 className="text-2xl font-medium">{selectedTeam.name}</h1>
                   <p className="text-sm text-neutral-400">
-                    {selectedTeam.members ? selectedTeam.members.length : '?'} 
-                    {selectedTeam.members ? (selectedTeam.members.length === 1 ? 'member' : 'members') : 'member'}
+                    {selectedTeam.members ? selectedTeam.members.length : '?'}
+{t('teams.members')}
                   </p>
                 </div>
                 <button 
@@ -884,7 +893,7 @@ export default function Teams() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-                  <h3 className="text-lg font-medium mb-4">Team Members</h3>
+                  <h3 className="text-lg font-medium mb-4">{t('teams.teamMembers')}</h3>
                   <div className="space-y-3">
                     {(selectedTeam.members || []).map((member) => {
                       // Check if current user is the owner
@@ -929,7 +938,7 @@ export default function Teams() {
                 </div>
                 
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-                  <h3 className="text-lg font-medium mb-4">Team Boards</h3>
+                  <h3 className="text-lg font-medium mb-4">{t('teams.teamBoards')}</h3>
                   <div className="space-y-3">
                     {selectedTeam.boards && selectedTeam.boards.length > 0 ? (
                       selectedTeam.boards.map((board) => (
@@ -941,23 +950,23 @@ export default function Teams() {
                                 className="text-sm text-neutral-500 hover:text-neutral-700"
                                 onClick={() => router.push(`/board/${board.id}`)}
                               >
-                                View
+{t('buttons.view')}
                               </button>
                             </div>
                           </div>
                           <p className="text-sm text-neutral-400 mb-2">
-                            {board.description || 'No description'}
+{board.description || t('board.noDescription')}
                           </p>
                           <div className="text-xs text-neutral-400">
-                            Created on {new Date(board.createdAt).toLocaleDateString()}
+{t('teams.createdOn')} {new Date(board.createdAt).toLocaleDateString()}
                           </div>
                         </div>
                       ))
                     ) : (
                       <div className="p-4 border border-dashed border-neutral-200 rounded-lg text-center">
-                        <p className="text-neutral-400 mb-3">No boards yet</p>
+                        <p className="text-neutral-400 mb-3">{t('teams.noBoards')}</p>
                         <button className="btn-primary text-sm" onClick={handleCreateBoard}>
-                          + Create First Board
+                          {t('teams.createFirstBoard')}
                         </button>
                       </div>
                     )}
