@@ -3,6 +3,17 @@ import '@testing-library/jest-dom';
 import RegisterForm from './RegisterForm';
 import * as authApiModule from '../../services/api';
 
+// Mock react-i18next
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: {
+      language: 'en',
+      changeLanguage: jest.fn(),
+    },
+  }),
+}));
+
 // Mock the authApi
 const mockRegister = jest.spyOn(authApiModule.authApi, 'register');
 
@@ -21,10 +32,10 @@ describe('RegisterForm', () => {
   it('should render the form correctly', () => {
     render(<RegisterForm />);
     
-    expect(screen.getByLabelText('Username')).toBeInTheDocument();
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByLabelText('Password')).toBeInTheDocument();
-    expect(screen.getByText('Register')).toBeInTheDocument();
+    expect(screen.getByLabelText('auth.register.username')).toBeInTheDocument();
+    expect(screen.getByLabelText('auth.register.email')).toBeInTheDocument();
+    expect(screen.getByLabelText('auth.register.password')).toBeInTheDocument();
+    expect(screen.getByText('auth.register.register')).toBeInTheDocument();
   });
 
   it('should submit the form successfully', async () => {
@@ -33,17 +44,17 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
     
     // Fill in form
-    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('auth.register.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.register.email'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText('auth.register.password'), { target: { value: 'password123' } });
     
     // Submit form
-    fireEvent.click(screen.getByText('Register'));
+    fireEvent.click(screen.getByText('auth.register.register'));
     
     // Wait for success message
-    expect(await screen.findByText('Registration Successful!')).toBeInTheDocument();
-    expect(screen.getByText('Your account has been created successfully.')).toBeInTheDocument();
-    expect(screen.getByText('Redirecting to login page...')).toBeInTheDocument();
+    expect(await screen.findByText('auth.register.successTitle')).toBeInTheDocument();
+    expect(screen.getByText('auth.register.successMessage')).toBeInTheDocument();
+    expect(screen.getByText('auth.register.redirecting')).toBeInTheDocument();
     
     // Verify API call
     expect(mockRegister).toHaveBeenCalledWith({
@@ -59,12 +70,12 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
     
     // Fill in form
-    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'existinguser' } });
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('auth.register.username'), { target: { value: 'existinguser' } });
+    fireEvent.change(screen.getByLabelText('auth.register.email'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText('auth.register.password'), { target: { value: 'password123' } });
     
     // Submit form
-    fireEvent.click(screen.getByText('Register'));
+    fireEvent.click(screen.getByText('auth.register.register'));
     
     // Wait for error message
     expect(await screen.findByText('Username already exists')).toBeInTheDocument();
@@ -76,12 +87,12 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
     
     // Fill in form
-    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'existing@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('auth.register.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.register.email'), { target: { value: 'existing@example.com' } });
+    fireEvent.change(screen.getByLabelText('auth.register.password'), { target: { value: 'password123' } });
     
     // Submit form
-    fireEvent.click(screen.getByText('Register'));
+    fireEvent.click(screen.getByText('auth.register.register'));
     
     // Wait for error message
     expect(await screen.findByText('Email already exists')).toBeInTheDocument();
@@ -93,12 +104,12 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
     
     // Fill in form
-    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('auth.register.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.register.email'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText('auth.register.password'), { target: { value: 'password123' } });
     
     // Submit form
-    fireEvent.click(screen.getByText('Register'));
+    fireEvent.click(screen.getByText('auth.register.register'));
     
     // Wait for error message
     expect(await screen.findByText('Registration failed')).toBeInTheDocument();

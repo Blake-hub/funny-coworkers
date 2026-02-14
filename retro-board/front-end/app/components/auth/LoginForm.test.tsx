@@ -3,6 +3,17 @@ import '@testing-library/jest-dom';
 import LoginForm from './LoginForm';
 import * as authApiModule from '../../services/api';
 
+// Mock react-i18next
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: {
+      language: 'en',
+      changeLanguage: jest.fn(),
+    },
+  }),
+}));
+
 // Mock the authApi
 const mockLogin = jest.spyOn(authApiModule.authApi, 'login');
 
@@ -35,9 +46,9 @@ describe('LoginForm', () => {
   it('should render the form correctly', () => {
     render(<LoginForm />);
     
-    expect(screen.getByLabelText('Username')).toBeInTheDocument();
-    expect(screen.getByLabelText('Password')).toBeInTheDocument();
-    expect(screen.getByText('Sign in')).toBeInTheDocument();
+    expect(screen.getByLabelText('auth.login.username')).toBeInTheDocument();
+    expect(screen.getByLabelText('auth.login.password')).toBeInTheDocument();
+    expect(screen.getByText('auth.login.signIn')).toBeInTheDocument();
   });
 
   it('should submit the form successfully', async () => {
@@ -46,14 +57,14 @@ describe('LoginForm', () => {
     render(<LoginForm />);
     
     // Fill in form
-    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('auth.login.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.login.password'), { target: { value: 'password123' } });
     
     // Submit form
-    fireEvent.click(screen.getByText('Sign in'));
+    fireEvent.click(screen.getByText('auth.login.signIn'));
     
     // Wait for loading state
-    expect(await screen.findByText('Signing in...')).toBeInTheDocument();
+    expect(await screen.findByText('auth.login.signingIn')).toBeInTheDocument();
     
     // Wait for token to be stored in localStorage
     await waitFor(() => {
@@ -73,11 +84,11 @@ describe('LoginForm', () => {
     render(<LoginForm />);
     
     // Fill in form
-    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrongpassword' } });
+    fireEvent.change(screen.getByLabelText('auth.login.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.login.password'), { target: { value: 'wrongpassword' } });
     
     // Submit form
-    fireEvent.click(screen.getByText('Sign in'));
+    fireEvent.click(screen.getByText('auth.login.signIn'));
     
     // Wait for error message
     expect(await screen.findByText('Invalid username or password')).toBeInTheDocument();
@@ -89,11 +100,11 @@ describe('LoginForm', () => {
     render(<LoginForm />);
     
     // Fill in form
-    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('auth.login.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.login.password'), { target: { value: 'password123' } });
     
     // Submit form
-    fireEvent.click(screen.getByText('Sign in'));
+    fireEvent.click(screen.getByText('auth.login.signIn'));
     
     // Wait for error message
     expect(await screen.findByText('Login failed')).toBeInTheDocument();
@@ -102,7 +113,7 @@ describe('LoginForm', () => {
   it('should have remember me checkbox', () => {
     render(<LoginForm />);
     
-    const checkbox = screen.getByLabelText('Remember me');
+    const checkbox = screen.getByLabelText('auth.login.rememberMe');
     expect(checkbox).toBeInTheDocument();
     expect(checkbox).not.toBeChecked();
     
@@ -113,14 +124,14 @@ describe('LoginForm', () => {
   it('should have forgot password link', () => {
     render(<LoginForm />);
     
-    const forgotPasswordLink = screen.getByText('Forgot password?');
+    const forgotPasswordLink = screen.getByText('auth.login.forgotPassword');
     expect(forgotPasswordLink).toBeInTheDocument();
   });
 
   it('should have register link', () => {
     render(<LoginForm />);
     
-    const registerLink = screen.getByText('Register');
+    const registerLink = screen.getByText('auth.login.register');
     expect(registerLink).toBeInTheDocument();
   });
 });

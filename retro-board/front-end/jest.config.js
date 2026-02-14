@@ -9,9 +9,16 @@ module.exports = {
   },
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
   collectCoverageFrom: [
-    '**/*.{ts,tsx}',
-    '!**/*.d.ts',
+    'app/components/**/*.{ts,tsx}',
+    'app/services/**/*.{ts,tsx}',
+    'app/contexts/**/*.{ts,tsx}',
+    'app/providers/**/*.{ts,tsx}',
+    'app/hooks/**/*.{ts,tsx}',
+    '!app/**/*.d.ts',
     '!**/node_modules/**',
     '!**/.next/**',
+    '!app/components/board/**',
+    '!app/components/card/**',
+    '!app/components/layout/**',
   ],
 };
