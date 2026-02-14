@@ -87,4 +87,24 @@ class JwtUtilTest {
     void testValidateToken_NullToken() {
         assertFalse(jwtUtil.validateToken(null));
     }
+
+    @Test
+    void testValidateToken_ExpiredToken() {
+        // Set expiration to 1 millisecond to create an expired token quickly
+        try {
+            Field expirationMsField = JwtUtil.class.getDeclaredField("expirationMs");
+            expirationMsField.setAccessible(true);
+            expirationMsField.set(jwtUtil, 1L); // 1 millisecond
+
+            // Generate a token that will expire immediately
+            String expiredToken = jwtUtil.generateToken("testuser");
+
+            // Wait a little to ensure token is expired
+            Thread.sleep(10);
+
+            assertFalse(jwtUtil.validateToken(expiredToken));
+        } catch (Exception e) {
+            fail("Should not throw exception: " + e.getMessage());
+        }
+    }
 }

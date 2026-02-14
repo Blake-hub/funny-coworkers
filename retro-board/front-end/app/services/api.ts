@@ -24,14 +24,33 @@ interface AuthResponse {
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const defaultHeaders = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {}),
+  const defaultHeaders: Record<string, string> = {};
+  
+  // Only set Content-Type if there's a body
+  if (options.body) {
+    defaultHeaders['Content-Type'] = 'application/json';
+  }
+  
+  // Merge user-provided headers, converting Headers to plain object first
+  let userHeaders: Record<string, string> = {};
+  if (options.headers) {
+    if (options.headers instanceof Headers) {
+      options.headers.forEach((value, key) => {
+        userHeaders[key] = value;
+      });
+    } else {
+      userHeaders = options.headers as Record<string, string>;
+    }
+  }
+  
+  const headers = {
+    ...defaultHeaders,
+    ...userHeaders,
   };
 
   const config: RequestInit = {
     ...options,
-    headers: defaultHeaders,
+    headers,
   };
 
   try {
@@ -49,20 +68,23 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
         // If no JSON error data, use status text
       }
       
-      // Check if this request has an Authorization header (not login/register)
-      const hasAuthHeader = config.headers && (config.headers as any)['Authorization'];
+      // Check if this request has an Authorization header (not login/register) - case-insensitive
+      const hasAuthHeader = !!Object.keys(headers).find(key => key.toLowerCase() === 'authorization');
       
       // Handle specific HTTP status codes
       if (response.status === 400) {
         throw new Error(errorMessage || 'Invalid input data');
-      } else if (response.status === 401 || response.status === 403) {
-        // Only redirect if this is not a login/register request
+      } else if (response.status === 401) {
+        // Redirect on 401 Unauthorized
         if (hasAuthHeader) {
           localStorage.removeItem('token');
           localStorage.removeItem('username');
           window.location.href = '/login';
         }
         throw new Error(errorMessage || 'Invalid credentials or token expired');
+      } else if (response.status === 403) {
+        // Don't redirect on 403 Forbidden - just throw error
+        throw new Error(errorMessage || 'Access denied: You don\'t have permission to perform this action');
       } else if (response.status === 409) {
         throw new Error(errorMessage || 'Username or email already exists');
       }
@@ -102,23 +124,29 @@ export const authApi = {
   },
 };
 
+// Helper function to get auth headers
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('token');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 // User-related API calls
 export const userApi = {
   // Get user profile
   getProfile: async (): Promise<any> => {
     return fetchApi<any>('/profile', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
   
   // Search users
   searchUsers: async (query: string): Promise<any[]> => {
     return fetchApi<any[]>(`/api/users/search?query=${encodeURIComponent(query)}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 };
@@ -128,9 +156,7 @@ export const teamApi = {
   // Get all teams
   getAllTeams: async (): Promise<any[]> => {
     return fetchApi<any[]>('/api/teams', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 
@@ -138,9 +164,7 @@ export const teamApi = {
   createTeam: async (teamData: { name: string; ownerId: number }): Promise<any> => {
     return fetchApi<any>('/api/teams', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(teamData),
     });
   },
@@ -149,9 +173,7 @@ export const teamApi = {
   deleteTeam: async (teamId: number): Promise<void> => {
     return fetchApi<void>(`/api/teams/${teamId}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 
@@ -159,9 +181,7 @@ export const teamApi = {
   updateTeam: async (teamId: number, teamData: any): Promise<any> => {
     return fetchApi<any>(`/api/teams/${teamId}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(teamData),
     });
   },
@@ -169,18 +189,14 @@ export const teamApi = {
   // Get a team by ID
   getTeamById: async (teamId: number): Promise<any> => {
     return fetchApi<any>(`/api/teams/${teamId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
   
   // Get team members by team ID
   getTeamMembers: async (teamId: number): Promise<any[]> => {
     return fetchApi<any[]>(`/api/teams/${teamId}/members`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 };
@@ -190,9 +206,7 @@ export const boardApi = {
   // Get all boards for a team
   getAllBoards: async (teamId: number): Promise<any[]> => {
     return fetchApi<any[]>(`/api/boards/team/${teamId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 
@@ -200,9 +214,7 @@ export const boardApi = {
   createBoard: async (boardData: { name: string; description: string; teamId: number }): Promise<any> => {
     return fetchApi<any>('/api/boards', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(boardData),
     });
   },
@@ -211,9 +223,7 @@ export const boardApi = {
   deleteBoard: async (boardId: number): Promise<void> => {
     return fetchApi<void>(`/api/boards/${boardId}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 
@@ -221,9 +231,7 @@ export const boardApi = {
   updateBoard: async (boardId: number, boardData: { name: string; description: string }): Promise<any> => {
     return fetchApi<any>(`/api/boards/${boardId}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(boardData),
     });
   },
@@ -231,9 +239,7 @@ export const boardApi = {
   // Get a board by ID
   getBoardById: async (boardId: number): Promise<any> => {
     return fetchApi<any>(`/api/boards/${boardId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 };
@@ -243,9 +249,7 @@ export const columnApi = {
   // Get all columns for a board
   getAllColumns: async (boardId: number): Promise<any[]> => {
     return fetchApi<any[]>(`/api/columns/board/${boardId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 
@@ -253,9 +257,7 @@ export const columnApi = {
   createColumn: async (columnData: { name: string; boardId: number; position: number }): Promise<any> => {
     return fetchApi<any>('/api/columns', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(columnData),
     });
   },
@@ -264,9 +266,7 @@ export const columnApi = {
   deleteColumn: async (columnId: number): Promise<void> => {
     return fetchApi<void>(`/api/columns/${columnId}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 
@@ -274,9 +274,7 @@ export const columnApi = {
   updateColumn: async (columnId: number, columnData: { name: string; position: number }): Promise<any> => {
     return fetchApi<any>(`/api/columns/${columnId}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(columnData),
     });
   },
@@ -284,9 +282,7 @@ export const columnApi = {
   // Get a column by ID
   getColumnById: async (columnId: number): Promise<any> => {
     return fetchApi<any>(`/api/columns/${columnId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 };
@@ -296,9 +292,7 @@ export const cardApi = {
   // Get all cards for a column
   getAllCards: async (columnId: number): Promise<any[]> => {
     return fetchApi<any[]>(`/api/cards/column/${columnId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 
@@ -306,9 +300,7 @@ export const cardApi = {
   createCard: async (cardData: { title: string; description: string; columnId: number; position: number }): Promise<any> => {
     return fetchApi<any>('/api/cards', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(cardData),
     });
   },
@@ -317,9 +309,7 @@ export const cardApi = {
   deleteCard: async (cardId: number): Promise<void> => {
     return fetchApi<void>(`/api/cards/${cardId}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
     });
   },
 
@@ -327,9 +317,7 @@ export const cardApi = {
   updateCard: async (cardId: number, cardData: { title: string; description: string; columnId: number; position: number }): Promise<any> => {
     return fetchApi<any>(`/api/cards/${cardId}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(cardData),
     });
   },
@@ -337,9 +325,15 @@ export const cardApi = {
   // Get a card by ID
   getCardById: async (cardId: number): Promise<any> => {
     return fetchApi<any>(`/api/cards/${cardId}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+      headers: getAuthHeaders(),
+    });
+  },
+  
+  // Vote for a card
+  voteCard: async (cardId: number): Promise<any> => {
+    return fetchApi<any>(`/api/cards/${cardId}/vote`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
     });
   },
 };

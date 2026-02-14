@@ -68,10 +68,10 @@ describe('API Service', () => {
 
       await expect(fetchApi('/test', {
         headers: { 'Authorization': 'Bearer test-token' }
-      })).rejects.toThrow('Invalid credentials or token expired');
+      })).rejects.toThrow('Access denied: You don\'t have permission to perform this action');
 
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('token');
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('username');
+      // Should NOT redirect on 403
+      expect(mockLocalStorage.removeItem).not.toHaveBeenCalled();
     });
 
     it('should throw error for 409 status with message', async () => {
@@ -111,7 +111,7 @@ describe('API Service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await expect(fetchApi('/test')).rejects.toThrow('Invalid credentials or token expired');
+      await expect(fetchApi('/test')).rejects.toThrow('Access denied: You don\'t have permission to perform this action');
     });
 
     it('should throw error for 400 status', async () => {
@@ -210,7 +210,7 @@ describe('API Service', () => {
       const result = await userApi.getProfile();
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/profile', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -223,7 +223,7 @@ describe('API Service', () => {
       const result = await userApi.searchUsers('test');
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/users/search?query=test', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -238,7 +238,7 @@ describe('API Service', () => {
       const result = await teamApi.getAllTeams();
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/teams', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -267,7 +267,7 @@ describe('API Service', () => {
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/teams/1', {
         method: 'DELETE',
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
     });
 
@@ -295,7 +295,7 @@ describe('API Service', () => {
       const result = await teamApi.getTeamById(1);
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/teams/1', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -308,7 +308,7 @@ describe('API Service', () => {
       const result = await teamApi.getTeamMembers(1);
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/teams/1/members', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -323,7 +323,7 @@ describe('API Service', () => {
       const result = await boardApi.getAllBoards(1);
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/boards/team/1', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -352,7 +352,7 @@ describe('API Service', () => {
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/boards/1', {
         method: 'DELETE',
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
     });
 
@@ -380,7 +380,7 @@ describe('API Service', () => {
       const result = await boardApi.getBoardById(1);
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/boards/1', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -395,7 +395,7 @@ describe('API Service', () => {
       const result = await columnApi.getAllColumns(1);
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/columns/board/1', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -424,7 +424,7 @@ describe('API Service', () => {
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/columns/1', {
         method: 'DELETE',
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
     });
 
@@ -452,7 +452,7 @@ describe('API Service', () => {
       const result = await columnApi.getColumnById(1);
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/columns/1', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -467,7 +467,7 @@ describe('API Service', () => {
       const result = await cardApi.getAllCards(1);
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/cards/column/1', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });
@@ -496,7 +496,7 @@ describe('API Service', () => {
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/cards/1', {
         method: 'DELETE',
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
       });
     });
 
@@ -524,7 +524,21 @@ describe('API Service', () => {
       const result = await cardApi.getCardById(1);
       
       expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/cards/1', {
-        headers: { 'Authorization': 'Bearer test-token', 'Content-Type': 'application/json' }
+        headers: { 'Authorization': 'Bearer test-token' }
+      });
+      expect(result).toEqual(mockResponse);
+    });
+    
+    it('should vote for a card', async () => {
+      mockLocalStorage.getItem.mockReturnValue('test-token');
+      const mockResponse = { id: 1, title: 'Card 1', votes: 1 };
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(mockResponse) });
+      
+      const result = await cardApi.voteCard(1);
+      
+      expect(mockFetch).toHaveBeenCalledWith('http://localhost:8081/api/cards/1/vote', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer test-token' }
       });
       expect(result).toEqual(mockResponse);
     });

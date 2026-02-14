@@ -1,0 +1,7 @@
+CREATE TABLE card_votes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    card_id INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uc_user_card UNIQUE (user_id, card_id)
+);

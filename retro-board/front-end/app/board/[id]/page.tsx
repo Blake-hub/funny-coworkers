@@ -7,42 +7,7 @@ import HeaderBar from '../../components/layout/HeaderBar';
 import Sidebar from '../../components/layout/Sidebar';
 import Column from '../../components/board/Column';
 import { boardApi, columnApi, cardApi } from '../../services/api';
-
-interface Card {
-  id: number;
-  title: string;
-  description: string;
-  position: number;
-  createdAt: string;
-  updatedAt: string;
-  column: {
-    id: number;
-    title: string;
-  };
-}
-
-interface ColumnType {
-  id: number;
-  name: string;
-  position: number;
-  board: {
-    id: number;
-    name: string;
-  };
-  cards: Card[];
-}
-
-interface Board {
-  id: number;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  team: {
-    id: number;
-    name: string;
-  };
-}
+import { Card as CardType, ColumnType, Board } from '../../types';
 
 export default function BoardPage() {
   const router = useRouter();
@@ -133,7 +98,7 @@ export default function BoardPage() {
     }
   };
 
-  const handleUpdateCard = async (columnId: number, cardId: number, updatedCard: Partial<Card>) => {
+  const handleUpdateCard = async (columnId: number, cardId: number, updatedCard: Partial<CardType>) => {
     try {
       // Get the current card
       const column = columns.find(col => col.id === columnId);

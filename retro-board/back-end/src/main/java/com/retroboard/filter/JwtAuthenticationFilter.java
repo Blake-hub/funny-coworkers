@@ -41,8 +41,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             jwtToken = authorizationHeader.substring(7);
             try {
-                username = jwtUtil.getUsernameFromToken(jwtToken);
-                logger.debug("Extracted username from token: {}", username);
+                // First validate the token
+                if (jwtUtil.validateToken(jwtToken)) {
+                    username = jwtUtil.getUsernameFromToken(jwtToken);
+                    logger.debug("Extracted username from token: {}", username);
+                } else {
+                    // Invalid token, clear authentication
+                    logger.debug("Token validation failed");
+                    SecurityContextHolder.clearContext();
+                }
             } catch (Exception e) {
                 // Invalid token
                 logger.debug("Invalid token: {}", e.getMessage());
@@ -55,23 +62,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.clearContext();
         }
         
-        // Validate token and set authentication
+        // Set authentication if we have a valid username
         if (username != null) {
             try {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                 logger.debug("Loaded user details for: {}", username);
                 
-                if (jwtUtil.validateToken(jwtToken)) {
-                    UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-                    authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-                    logger.debug("Set authentication for: {}", username);
-                } else {
-                    // Invalid token, clear authentication
-                    logger.debug("Token validation failed for: {}", username);
-                    SecurityContextHolder.clearContext();
-                }
+                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                    userDetails, null, userDetails.getAuthorities());
+                authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                logger.debug("Set authentication for: {}", username);
             } catch (UsernameNotFoundException e) {
                 // User not found, clear authentication
                 logger.debug("User not found: {}", username);

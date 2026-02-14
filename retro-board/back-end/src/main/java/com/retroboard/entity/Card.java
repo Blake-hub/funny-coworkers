@@ -35,6 +35,9 @@ public class Card {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
     
+    @Column(name = "votes", nullable = false)
+    private Integer votes = 0;
+    
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

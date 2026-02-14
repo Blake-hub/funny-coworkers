@@ -51,4 +51,11 @@ public class CardController {
         Card card = cardService.getCardById(id);
         return new ResponseEntity<>(card, HttpStatus.OK);
     }
+    
+    // Vote for a card
+    @PostMapping("/{id}/vote")
+    public ResponseEntity<Card> voteCard(@PathVariable Long id) {
+        Card card = cardService.voteCard(id);
+        return new ResponseEntity<>(card, HttpStatus.OK);
+    }
 }

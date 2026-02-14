@@ -1,28 +1,17 @@
 'use client';
 
 import { useState, useRef } from 'react';
-
-interface Card {
-  id: number;
-  title: string;
-  description: string;
-  position: number;
-  createdAt: string;
-  updatedAt: string;
-  column: {
-    id: number;
-    title: string;
-  };
-}
+import { Card as CardType } from '../../types';
 
 interface CardProps {
-  card: Card;
+  card: CardType;
   columnId: number;
-  onUpdate: (updatedCard: Partial<Card>) => void;
+  onUpdate: (updatedCard: Partial<CardType>) => void;
   onDelete: () => void;
+  onVote: () => void;
 }
 
-export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) {
+export default function Card({ card, columnId, onUpdate, onDelete, onVote }: CardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(card.title);
@@ -125,8 +114,20 @@ export default function Card({ card, columnId, onUpdate, onDelete }: CardProps) 
         <p className="text-sm text-neutral-400 mb-3 line-clamp-2">
           {card.description || 'No description'}
         </p>
-        <div className="flex items-center justify-end text-xs text-neutral-400">
+        <div className="flex items-center justify-between text-xs text-neutral-400">
           <span>{new Date(card.createdAt).toLocaleDateString()}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onVote();
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 transition-all duration-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+            </svg>
+            <span className="font-semibold">{card.votes}</span>
+          </button>
         </div>
       </div>
 

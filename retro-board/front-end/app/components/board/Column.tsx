@@ -2,35 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Card from '../card/Card';
-
-interface Card {
-  id: number;
-  title: string;
-  description: string;
-  position: number;
-  createdAt: string;
-  updatedAt: string;
-  column: {
-    id: number;
-    title: string;
-  };
-}
-
-interface ColumnType {
-  id: number;
-  name: string;
-  position: number;
-  board: {
-    id: number;
-    name: string;
-  };
-  cards: Card[];
-}
+import { cardApi } from '../../services/api';
+import { Card as CardType, ColumnType } from '../../types';
 
 interface ColumnProps {
   column: ColumnType;
   onAddCard: (columnId: number, card: { title: string; description: string }) => void;
-  onUpdateCard: (columnId: number, cardId: number, updatedCard: Partial<Card>) => void;
+  onUpdateCard: (columnId: number, cardId: number, updatedCard: Partial<CardType>) => void;
   onDeleteCard: (columnId: number, cardId: number) => void;
   onUpdateColumn: (columnId: number, updatedColumn: Partial<ColumnType>) => void;
   onDeleteColumn: (columnId: number) => void;
@@ -57,7 +35,7 @@ export default function Column({
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(column.name);
-  const [sortCriteria, setSortCriteria] = useState<'position' | 'createdAt'>('position');
+  const [sortCriteria, setSortCriteria] = useState<'position' | 'createdAt' | 'votes'>('position');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -107,6 +85,9 @@ export default function Column({
       case 'createdAt':
         comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         break;
+      case 'votes':
+        comparison = b.votes - a.votes; // Default to descending for votes
+        break;
       default:
         comparison = 0;
     }
@@ -115,15 +96,15 @@ export default function Column({
   });
 
   // Handle sort criteria change
-  const handleSortChange = (criteria: 'position' | 'createdAt') => {
+  const handleSortChange = (criteria: 'position' | 'createdAt' | 'votes') => {
     if (criteria === sortCriteria) {
       // Toggle direction if same criteria
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       // Set new criteria with default direction
       setSortCriteria(criteria);
-      // Default direction based on criteria
-      setSortDirection('asc');
+      // Default direction: votes default to desc, others to asc
+      setSortDirection(criteria === 'votes' ? 'desc' : 'asc');
     }
   };
 
@@ -197,7 +178,7 @@ export default function Column({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                   </svg>
                   <span className="text-xs text-neutral-400">
-                    {sortCriteria === 'position' ? 'Position' : 'Date'}
+                    {sortCriteria === 'position' ? 'Position' : sortCriteria === 'votes' ? 'Votes' : 'Date'}
                     {sortDirection === 'asc' ? ' ↑' : ' ↓'}
                   </span>
                 </button>
@@ -220,6 +201,15 @@ export default function Column({
                       className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'createdAt' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
                     >
                       Date {sortCriteria === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleSortChange('votes');
+                        setIsSortDropdownOpen(false);
+                      }}
+                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'votes' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
+                    >
+                      Votes {sortCriteria === 'votes' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
                   </div>
                 )}
@@ -357,6 +347,14 @@ export default function Column({
               columnId={column.id}
               onUpdate={(updatedCard) => onUpdateCard(column.id, card.id, updatedCard)}
               onDelete={() => onDeleteCard(column.id, card.id)}
+              onVote={async () => {
+                try {
+                  const updatedCard = await cardApi.voteCard(card.id);
+                  onUpdateCard(column.id, card.id, updatedCard);
+                } catch (err) {
+                  console.error('Failed to vote:', err);
+                }
+              }}
             />
           </div>
         ))}
