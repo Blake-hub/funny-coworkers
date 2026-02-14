@@ -23,6 +23,9 @@ public class BoardColumnService {
     @Autowired
     private BoardService boardService;
     
+    @Autowired
+    private WebSocketService webSocketService;
+    
     @Transactional
     public BoardColumn createColumn(CreateColumnRequest request) {
         // Get the board
@@ -38,7 +41,12 @@ public class BoardColumnService {
         column.setBoard(board);
         column.setPosition(request.getPosition());
         
-        return columnRepository.save(column);
+        BoardColumn savedColumn = columnRepository.save(column);
+        
+        // Broadcast event
+        webSocketService.broadcastBoardUpdate("column_created", board.getId(), savedColumn);
+        
+        return savedColumn;
     }
     
     @Transactional
@@ -50,8 +58,14 @@ public class BoardColumnService {
         // Check board access (via BoardService)
         boardService.getBoardById(column.getBoard().getId());
         
+        // Get board ID
+        Long boardId = column.getBoard().getId();
+        
         // Delete the column
         columnRepository.delete(column);
+        
+        // Broadcast event
+        webSocketService.broadcastBoardUpdate("column_deleted", boardId, columnId);
     }
     
     public List<BoardColumn> getAllColumns(Long boardId) {
@@ -74,6 +88,9 @@ public class BoardColumnService {
         // Check board access (via BoardService)
         boardService.getBoardById(column.getBoard().getId());
         
+        // Get board ID
+        Long boardId = column.getBoard().getId();
+        
         // Update column fields if provided
         if (request.getName() != null) {
             column.setName(request.getName());
@@ -82,7 +99,12 @@ public class BoardColumnService {
             column.setPosition(request.getPosition());
         }
         
-        return columnRepository.save(column);
+        BoardColumn updatedColumn = columnRepository.save(column);
+        
+        // Broadcast event
+        webSocketService.broadcastBoardUpdate("column_updated", boardId, updatedColumn);
+        
+        return updatedColumn;
     }
     
     public BoardColumn getColumnById(Long columnId) {

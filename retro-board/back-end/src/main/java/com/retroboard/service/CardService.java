@@ -10,6 +10,8 @@ import com.retroboard.repository.CardVoteRepository;
 import com.retroboard.repository.UserRepository;
 import com.retroboard.dto.CreateCardRequest;
 import com.retroboard.dto.UpdateCardRequest;
+import com.retroboard.dto.CardResponse;
+import com.retroboard.dto.ColumnSimpleResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,24 @@ public class CardService {
     
     private static final Logger logger = LoggerFactory.getLogger(CardService.class);
     
+    private CardResponse convertCardToResponse(Card card) {
+        CardResponse response = new CardResponse();
+        response.setId(card.getId());
+        response.setTitle(card.getTitle());
+        response.setDescription(card.getDescription());
+        response.setPosition(card.getPosition());
+        response.setCreatedAt(card.getCreatedAt());
+        response.setUpdatedAt(card.getUpdatedAt());
+        response.setVotes(card.getVotes());
+        
+        ColumnSimpleResponse columnSimple = new ColumnSimpleResponse();
+        columnSimple.setId(card.getColumn().getId());
+        columnSimple.setName(card.getColumn().getName());
+        response.setColumn(columnSimple);
+        
+        return response;
+    }
+    
     @Autowired
     private CardRepository cardRepository;
     
@@ -39,6 +59,9 @@ public class CardService {
     
     @Autowired
     private UserRepository userRepository;
+    
+    @Autowired
+    private WebSocketService webSocketService;
     
     // Get current authenticated user
     private User getCurrentUser() {
@@ -79,7 +102,14 @@ public class CardService {
         card.setColumn(column);
         card.setPosition(request.getPosition());
         
-        return cardRepository.save(card);
+        Card savedCard = cardRepository.save(card);
+        
+        // Broadcast event
+        Long boardId = column.getBoard().getId();
+        CardResponse cardResponse = convertCardToResponse(savedCard);
+        webSocketService.broadcastBoardUpdate("card_created", boardId, cardResponse);
+        
+        return savedCard;
     }
     
     @Transactional
@@ -91,8 +121,14 @@ public class CardService {
         // Check column access (via BoardColumnService)
         columnService.getColumnById(card.getColumn().getId());
         
+        // Get board ID before deleting
+        Long boardId = card.getColumn().getBoard().getId();
+        
         // Delete the card
         cardRepository.delete(card);
+        
+        // Broadcast event
+        webSocketService.broadcastBoardUpdate("card_deleted", boardId, cardId);
     }
     
     public List<Card> getAllCards(Long columnId) {
@@ -115,6 +151,9 @@ public class CardService {
         // Check column access (via BoardColumnService)
         columnService.getColumnById(card.getColumn().getId());
         
+        // Get board ID
+        Long boardId = card.getColumn().getBoard().getId();
+        
         // If column is being changed, check access to the new column
         if (request.getColumnId() != null && !request.getColumnId().equals(card.getColumn().getId())) {
             columnService.getColumnById(request.getColumnId());
@@ -134,7 +173,13 @@ public class CardService {
             card.setPosition(request.getPosition());
         }
         
-        return cardRepository.save(card);
+        Card updatedCard = cardRepository.save(card);
+        
+        // Broadcast event
+        CardResponse cardResponse = convertCardToResponse(updatedCard);
+        webSocketService.broadcastBoardUpdate("card_updated", boardId, cardResponse);
+        
+        return updatedCard;
     }
     
     public Card getCardById(Long cardId) {
@@ -157,6 +202,9 @@ public class CardService {
         // Check column access (via BoardColumnService)
         columnService.getColumnById(card.getColumn().getId());
         
+        // Get board ID
+        Long boardId = card.getColumn().getBoard().getId();
+        
         // Get current user
         User currentUser = getCurrentUser();
         
@@ -176,6 +224,14 @@ public class CardService {
             logger.debug("User {} voted for card {}", currentUser.getUsername(), cardId);
         }
         
-        return cardRepository.save(card);
+        Card updatedCard = cardRepository.save(card);
+        
+        logger.info("Vote updated for card {}, broadcasting update...", cardId);
+        
+        // Broadcast event
+        CardResponse cardResponse = convertCardToResponse(updatedCard);
+        webSocketService.broadcastBoardUpdate("card_voted", boardId, cardResponse);
+        
+        return updatedCard;
     }
 }

@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Data
 @NoArgsConstructor
@@ -24,6 +25,7 @@ public class Card {
     
     @ManyToOne
     @JoinColumn(name = "column_id", nullable = false)
+    @JsonIgnoreProperties({"board", "createdAt", "updatedAt", "position"})
     private BoardColumn column;
     
     @Column(name = "position", nullable = false)

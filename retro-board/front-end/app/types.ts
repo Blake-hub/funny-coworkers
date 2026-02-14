@@ -8,7 +8,7 @@ export interface Card {
   votes: number;
   column: {
     id: number;
-    title: string;
+    name: string;
   };
 }
 

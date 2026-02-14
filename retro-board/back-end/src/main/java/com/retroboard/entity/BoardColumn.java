@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Data
 @NoArgsConstructor
@@ -21,6 +22,7 @@ public class BoardColumn {
     
     @ManyToOne
     @JoinColumn(name = "board_id", nullable = false)
+    @JsonIgnoreProperties({"columns", "team", "createdAt", "updatedAt", "description"})
     private Board board;
     
     @Column(name = "position", nullable = false)

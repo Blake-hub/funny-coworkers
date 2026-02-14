@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import HeaderBar from '../../components/layout/HeaderBar';
@@ -8,6 +8,7 @@ import Sidebar from '../../components/layout/Sidebar';
 import Column from '../../components/board/Column';
 import { boardApi, columnApi, cardApi } from '../../services/api';
 import { Card as CardType, ColumnType, Board } from '../../types';
+import useBoardWebSocket from '../../hooks/useBoardWebSocket';
 
 export default function BoardPage() {
   const router = useRouter();
@@ -21,6 +22,72 @@ export default function BoardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // WebSocket event handlers with useCallback to prevent re-subscriptions
+  const handleCardCreated = useCallback((card: CardType) => {
+    console.log('handleCardCreated: called with card:', card);
+    setColumns(prev => prev.map(col => 
+      col.id === card.column.id 
+        ? { ...col, cards: [...col.cards, card] } 
+        : col
+    ));
+  }, []);
+  
+  const handleCardUpdated = useCallback((card: CardType) => {
+    console.log('handleCardUpdated: called with card:', card);
+    console.log('handleCardUpdated: card.column:', card.column);
+    setColumns(prev => {
+      console.log('handleCardUpdated: current columns:', prev);
+      const newColumns = prev.map(col => {
+        console.log('handleCardUpdated: checking column', col.id, 'vs card.column.id', card.column?.id);
+        if (col.id === card.column?.id) {
+          console.log('handleCardUpdated: updating column', col.id);
+          return {
+            ...col,
+            cards: col.cards.map(c => {
+              console.log('handleCardUpdated: checking card', c.id, 'vs event card.id', card.id);
+              return c.id === card.id ? card : c;
+            })
+          };
+        }
+        return col;
+      });
+      console.log('handleCardUpdated: new columns:', newColumns);
+      return newColumns;
+    });
+  }, []);
+  
+  const handleCardDeleted = useCallback((cardId: number) => {
+    setColumns(prev => prev.map(col => 
+      ({ ...col, cards: col.cards.filter(c => c.id !== cardId) })
+    ));
+  }, []);
+  
+  const handleColumnCreated = useCallback((column: ColumnType) => {
+    setColumns(prev => [...prev, { ...column, cards: [] }]);
+  }, []);
+  
+  const handleColumnUpdated = useCallback((column: ColumnType) => {
+    setColumns(prev => prev.map(col => 
+      col.id === column.id ? { ...column, cards: col.cards } : col
+    ));
+  }, []);
+  
+  const handleColumnDeleted = useCallback((columnId: number) => {
+    setColumns(prev => prev.filter(col => col.id !== columnId));
+  }, []);
+  
+  // Connect to WebSocket
+  useBoardWebSocket({
+    boardId: parseInt(boardId),
+    onCardCreated: handleCardCreated,
+    onCardUpdated: handleCardUpdated,
+    onCardDeleted: handleCardDeleted,
+    onCardVoted: handleCardUpdated, // Use same handler as card updated
+    onColumnCreated: handleColumnCreated,
+    onColumnUpdated: handleColumnUpdated,
+    onColumnDeleted: handleColumnDeleted
+  });
 
   useEffect(() => {
     // Check if user is authenticated
