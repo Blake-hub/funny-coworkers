@@ -55,14 +55,14 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
       // Handle specific HTTP status codes
       if (response.status === 400) {
         throw new Error(errorMessage || 'Invalid input data');
-      } else if (response.status === 401) {
+      } else if (response.status === 401 || response.status === 403) {
         // Only redirect if this is not a login/register request
         if (hasAuthHeader) {
           localStorage.removeItem('token');
           localStorage.removeItem('username');
           window.location.href = '/login';
         }
-        throw new Error(errorMessage || 'Invalid credentials');
+        throw new Error(errorMessage || 'Invalid credentials or token expired');
       } else if (response.status === 409) {
         throw new Error(errorMessage || 'Username or email already exists');
       }

@@ -52,7 +52,23 @@ describe('API Service', () => {
 
       await expect(fetchApi('/test', {
         headers: { 'Authorization': 'Bearer test-token' }
-      })).rejects.toThrow('Invalid credentials');
+      })).rejects.toThrow('Invalid credentials or token expired');
+
+      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('token');
+      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('username');
+    });
+
+    it('should handle 403 with Authorization header', async () => {
+      mockLocalStorage.getItem.mockReturnValue('test-token');
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve({}),
+      });
+
+      await expect(fetchApi('/test', {
+        headers: { 'Authorization': 'Bearer test-token' }
+      })).rejects.toThrow('Invalid credentials or token expired');
 
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('token');
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('username');
@@ -85,7 +101,17 @@ describe('API Service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await expect(fetchApi('/test')).rejects.toThrow('Invalid credentials');
+      await expect(fetchApi('/test')).rejects.toThrow('Invalid credentials or token expired');
+    });
+
+    it('should throw error for 403 status', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve({}),
+      });
+
+      await expect(fetchApi('/test')).rejects.toThrow('Invalid credentials or token expired');
     });
 
     it('should throw error for 400 status', async () => {
