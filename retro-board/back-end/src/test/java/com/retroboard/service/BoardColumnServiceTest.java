@@ -30,6 +30,9 @@ public class BoardColumnServiceTest {
     @Mock
     private BoardService boardService;
     
+    @Mock
+    private WebSocketService webSocketService;
+    
     @InjectMocks
     private BoardColumnService boardColumnService;
     
@@ -71,6 +74,7 @@ public class BoardColumnServiceTest {
         assertNotNull(createdColumn);
         assertEquals("Test Column", createdColumn.getName());
         verify(columnRepository, times(1)).save(any(BoardColumn.class));
+        verify(webSocketService, times(1)).broadcastBoardUpdate(eq("column_created"), eq(board.getId()), any());
     }
     
     @Test
@@ -93,6 +97,7 @@ public class BoardColumnServiceTest {
         boardColumnService.deleteColumn(1L);
         
         verify(columnRepository, times(1)).delete(column);
+        verify(webSocketService, times(1)).broadcastBoardUpdate("column_deleted", board.getId(), column.getId());
     }
     
     @Test
@@ -130,6 +135,7 @@ public class BoardColumnServiceTest {
         assertNotNull(updatedColumn);
         assertEquals("Updated Column", updatedColumn.getName());
         verify(columnRepository, times(1)).save(any(BoardColumn.class));
+        verify(webSocketService, times(1)).broadcastBoardUpdate(eq("column_updated"), eq(board.getId()), any());
     }
     
     @Test

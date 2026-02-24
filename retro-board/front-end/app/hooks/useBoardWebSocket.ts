@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
-import { Client } from '@stomp/stompjs';
+import { Client, StompSubscription } from '@stomp/stompjs';
 import { Card as CardType, ColumnType } from '../types';
 
 interface BoardUpdateEvent {
@@ -23,6 +23,11 @@ interface UseBoardWebSocketOptions {
   onColumnDeleted?: (columnId: number) => void;
 }
 
+interface ClientWithSubscription {
+  client: Client;
+  subscription: StompSubscription | null;
+}
+
 export default function useBoardWebSocket({
   boardId,
   onCardCreated,
@@ -33,29 +38,35 @@ export default function useBoardWebSocket({
   onColumnUpdated,
   onColumnDeleted
 }: UseBoardWebSocketOptions) {
-  const clientRef = useRef<Client | null>(null);
+  const clientRef = useRef<ClientWithSubscription | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     console.log('useBoardWebSocket: Connecting to board', boardId);
     
+    let cleanupCalled = false;
+    
     const connect = () => {
-      console.log('useBoardWebSocket: Creating SockJS connection to http://localhost:8081/ws');
-      const socket = new SockJS('http://localhost:8081/ws');
+      console.log('useBoardWebSocket: Connecting to WebSocket via SockJS at http://localhost:8081/ws');
       
-      const client = new Client({
-        webSocketFactory: () => socket,
-        reconnectDelay: 3000,
-        debug: (str) => console.log('[STOMP]', str),
-        onConnect: () => {
-          console.log('useBoardWebSocket: WebSocket connected successfully');
-          setIsConnected(true);
-          
-          const destination = `/topic/board/${boardId}`;
-          console.log('useBoardWebSocket: Subscribing to', destination);
-          
-          client.subscribe(destination, (message) => {
-            console.log('useBoardWebSocket: Received raw message:', message.body);
+      const client = new Client();
+      
+      client.webSocketFactory = () => new SockJS('http://localhost:8081/ws');
+      client.reconnectDelay = 3000;
+      client.debug = (str) => console.log('[STOMP]', str);
+      
+      client.onConnect = () => {
+        if (cleanupCalled) return;
+        console.log('useBoardWebSocket: WebSocket connected successfully');
+        setIsConnected(true);
+        
+        const destination = `/topic/board/${boardId}`;
+        console.log('useBoardWebSocket: Subscribing to', destination);
+        
+        const subscription = client.subscribe(destination, (message) => {
+          if (cleanupCalled) return;
+          console.log('useBoardWebSocket: Received raw message:', message.body);
+          try {
             const event: BoardUpdateEvent = JSON.parse(message.body);
             console.log('useBoardWebSocket: Parsed event:', event);
             console.log('useBoardWebSocket: Event type:', event.type);
@@ -90,31 +101,49 @@ export default function useBoardWebSocket({
               default:
                 console.warn('useBoardWebSocket: Unknown event type:', event.type);
             }
-          });
-        },
-        onDisconnect: () => {
-          console.log('useBoardWebSocket: WebSocket disconnected');
-          setIsConnected(false);
-        },
-        onStompError: (frame) => {
-          console.error('useBoardWebSocket: WebSocket error:', frame);
-          setIsConnected(false);
-        }
-      });
+          } catch (error) {
+            console.error('useBoardWebSocket: Error parsing message:', error);
+          }
+        });
+        
+        // Store client and subscription
+        clientRef.current = {
+          client,
+          subscription
+        };
+      };
+      
+      client.onDisconnect = () => {
+        if (cleanupCalled) return;
+        console.log('useBoardWebSocket: WebSocket disconnected');
+        setIsConnected(false);
+      };
+      
+      client.onStompError = (frame) => {
+        if (cleanupCalled) return;
+        console.error('useBoardWebSocket: WebSocket error:', frame);
+        setIsConnected(false);
+      };
       
       client.activate();
-      clientRef.current = client;
+      
+      return client;
     };
 
-    connect();
+    const client = connect();
 
     return () => {
       console.log('useBoardWebSocket: Cleaning up connection');
+      cleanupCalled = true;
+      
       if (clientRef.current) {
-        clientRef.current.deactivate();
+        clientRef.current.client.deactivate();
+        clientRef.current = null;
       }
+      
+      setIsConnected(false);
     };
-  }, [boardId]); // Simplify dependencies to prevent unnecessary reconnections
+  }, [boardId, onCardCreated, onCardUpdated, onCardDeleted, onCardVoted, onColumnCreated, onColumnUpdated, onColumnDeleted]);
 
   return { isConnected };
 }

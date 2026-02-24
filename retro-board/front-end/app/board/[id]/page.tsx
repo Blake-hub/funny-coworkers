@@ -28,7 +28,12 @@ export default function BoardPage() {
     console.log('handleCardCreated: called with card:', card);
     setColumns(prev => prev.map(col => 
       col.id === card.column.id 
-        ? { ...col, cards: [...col.cards, card] } 
+        ? { 
+            ...col, 
+            cards: col.cards.some(c => c.id === card.id) 
+              ? col.cards 
+              : [...col.cards, card] 
+          } 
         : col
     ));
   }, []);
@@ -38,20 +43,25 @@ export default function BoardPage() {
     console.log('handleCardUpdated: card.column:', card.column);
     setColumns(prev => {
       console.log('handleCardUpdated: current columns:', prev);
-      const newColumns = prev.map(col => {
-        console.log('handleCardUpdated: checking column', col.id, 'vs card.column.id', card.column?.id);
+      
+      // First, remove the card from all columns
+      const columnsWithoutCard = prev.map(col => ({
+        ...col,
+        cards: col.cards.filter(c => c.id !== card.id)
+      }));
+      
+      // Then, add the card to the new column only if it doesn't exist
+      const newColumns = columnsWithoutCard.map(col => {
         if (col.id === card.column?.id) {
-          console.log('handleCardUpdated: updating column', col.id);
+          console.log('handleCardUpdated: adding card to column', col.id);
           return {
             ...col,
-            cards: col.cards.map(c => {
-              console.log('handleCardUpdated: checking card', c.id, 'vs event card.id', card.id);
-              return c.id === card.id ? card : c;
-            })
+            cards: [...col.cards, card]
           };
         }
         return col;
       });
+      
       console.log('handleCardUpdated: new columns:', newColumns);
       return newColumns;
     });
@@ -64,7 +74,16 @@ export default function BoardPage() {
   }, []);
   
   const handleColumnCreated = useCallback((column: ColumnType) => {
-    setColumns(prev => [...prev, { ...column, cards: [] }]);
+    setColumns(prev => {
+      // Check if column already exists to prevent duplicates
+      const columnExists = prev.some(col => col.id === column.id);
+      if (columnExists) {
+        console.log('handleColumnCreated: Column already exists, skipping:', column.id);
+        return prev;
+      }
+      console.log('handleColumnCreated: Adding new column:', column);
+      return [...prev, { ...column, cards: [] }];
+    });
   }, []);
   
   const handleColumnUpdated = useCallback((column: ColumnType) => {
@@ -144,21 +163,15 @@ export default function BoardPage() {
       const newPosition = column.cards.length;
       
       // Create the card using the API
-      const newCard = await cardApi.createCard({
+      await cardApi.createCard({
         title: cardData.title,
         description: cardData.description,
         columnId,
         position: newPosition,
       });
       
-      // Update the local state
-      setColumns((prevColumns) =>
-        prevColumns.map((column) =>
-          column.id === columnId
-            ? { ...column, cards: [...column.cards, newCard] }
-            : column
-        )
-      );
+      // Local state update is no longer needed as WebSocket event will handle it
+      // This prevents duplicate cards from appearing
     } catch (error) {
       console.error('Error adding card:', error);
       alert('Failed to add card');
@@ -229,14 +242,14 @@ export default function BoardPage() {
       const newPosition = columns.length;
       
       // Create the column using the API
-      const newColumn = await columnApi.createColumn({
+      await columnApi.createColumn({
         name: title,
         boardId: parseInt(boardId),
         position: newPosition,
       });
       
-      // Update the local state
-      setColumns((prevColumns) => [...prevColumns, { ...newColumn, cards: [] }]);
+      // Local state update is no longer needed as WebSocket event will handle it
+      // This prevents duplicate columns from appearing
     } catch (error) {
       console.error('Error adding column:', error);
       alert('Failed to add column');
@@ -300,28 +313,8 @@ export default function BoardPage() {
         position: newPosition,
       });
       
-      // Update the local state
-      setColumns((prevColumns) => {
-        // Remove card from source column
-        const columnsWithCardRemoved = prevColumns.map((column) =>
-          column.id === fromColumnId
-            ? {
-                ...column,
-                cards: column.cards.filter((c) => c.id !== cardId),
-              }
-            : column
-        );
-        
-        // Add card to target column
-                return columnsWithCardRemoved.map((column) =>
-                  column.id === toColumnId
-                    ? {
-                        ...column,
-                        cards: [...column.cards, { ...card, column: { id: toColumnId, title: column.name } }],
-                      }
-                    : column
-                );
-      });
+      // Local state update is no longer needed as WebSocket event will handle it
+      // This prevents duplicate cards from appearing
     } catch (error) {
       console.error('Error moving card:', error);
       alert('Failed to move card');
