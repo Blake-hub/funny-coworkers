@@ -12,6 +12,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
 @Service
 public class AuthenticationService {
@@ -28,6 +31,16 @@ public class AuthenticationService {
     @Autowired
     private JwtUtil jwtUtil;
     
+    public String hashToken(String token) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(token.getBytes());
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error hashing token", e);
+        }
+    }
+    
     public TokenResponse login(LoginRequest loginRequest) throws AuthenticationException {
         // Authenticate user
         authenticationManager.authenticate(
@@ -43,6 +56,11 @@ public class AuthenticationService {
         
         // Generate JWT token
         String token = jwtUtil.generateToken(loginRequest.getUsername());
+        
+        // Hash the token and store it in the user record
+        String tokenHash = hashToken(token);
+        user.setActiveTokenHash(tokenHash);
+        userRepository.save(user);
         
         return new TokenResponse(token, user.getUsername(), user.getId());
     }
@@ -64,11 +82,41 @@ public class AuthenticationService {
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         user.setEmail(registerRequest.getEmail());
         
-        userRepository.save(user);
-        
         // Generate JWT token
         String token = jwtUtil.generateToken(user.getUsername());
         
+        // Hash the token and store it in the user record
+        String tokenHash = hashToken(token);
+        user.setActiveTokenHash(tokenHash);
+        
+        // Save user once with all data
+        userRepository.save(user);
+        
         return new TokenResponse(token, user.getUsername(), user.getId());
+    }
+    
+    public boolean validateTokenForUser(String token, String username) {
+        // Validate token format
+        if (!jwtUtil.validateToken(token)) {
+            return false;
+        }
+        
+        // Get user from database
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Check if token matches the active token hash
+        String tokenHash = hashToken(token);
+        return tokenHash.equals(user.getActiveTokenHash());
+    }
+    
+    public void logout(String username) {
+        // Get user from database
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Clear active token hash
+        user.setActiveTokenHash(null);
+        userRepository.save(user);
     }
 }

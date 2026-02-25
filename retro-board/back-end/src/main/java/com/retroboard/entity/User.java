@@ -31,6 +31,9 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
+    @Column(name = "active_token_hash", length = 255)
+    private String activeTokenHash;
+    
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

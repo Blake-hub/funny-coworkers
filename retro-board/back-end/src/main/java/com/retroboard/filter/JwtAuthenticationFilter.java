@@ -1,5 +1,7 @@
 package com.retroboard.filter;
 
+import com.retroboard.entity.User;
+import com.retroboard.repository.UserRepository;
 import com.retroboard.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +19,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -28,6 +33,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     @Autowired
     private UserDetailsService userDetailsService;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    private String hashToken(String token) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(token.getBytes());
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error hashing token", e);
+        }
+    }
+    
+    private boolean validateTokenForUser(String token, String username) {
+        // Validate token format
+        if (!jwtUtil.validateToken(token)) {
+            return false;
+        }
+        
+        // Get user from database
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Check if token matches the active token hash
+        String tokenHash = hashToken(token);
+        return tokenHash.equals(user.getActiveTokenHash());
+    }
     
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) 
@@ -41,20 +74,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             jwtToken = authorizationHeader.substring(7);
             try {
-                // First validate the token
-                if (jwtUtil.validateToken(jwtToken)) {
-                    username = jwtUtil.getUsernameFromToken(jwtToken);
-                    logger.debug("Extracted username from token: {}", username);
-                } else {
-                    // Invalid token, clear authentication
-                    logger.debug("Token validation failed");
+                // First get username from token
+                username = jwtUtil.getUsernameFromToken(jwtToken);
+                logger.debug("Extracted username from token: {}", username);
+                
+                // Then validate the token and check if it's the active token for this user
+                if (!validateTokenForUser(jwtToken, username)) {
+                    // Invalid token or not the active token, clear authentication
+                    logger.debug("Token validation failed or not the active token");
                     SecurityContextHolder.clearContext();
+                    username = null;
+                } else {
+                    logger.debug("Token validation successful");
                 }
             } catch (Exception e) {
                 // Invalid token
                 logger.debug("Invalid token: {}", e.getMessage());
                 // Clear any existing authentication
                 SecurityContextHolder.clearContext();
+                username = null;
             }
         } else {
             // No token provided, clear any existing authentication

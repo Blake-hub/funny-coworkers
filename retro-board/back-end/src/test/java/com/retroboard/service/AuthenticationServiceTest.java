@@ -146,4 +146,125 @@ class AuthenticationServiceTest {
         });
         assertEquals("Authentication failed", exception.getMessage());
     }
+
+    @Test
+    void testValidateTokenForUser_ValidToken() {
+        // Arrange
+        String username = "testuser";
+        String token = "validToken";
+        User user = new User();
+        user.setUsername(username);
+        // Simulate the hashing that would be done in the service
+        user.setActiveTokenHash(authenticationService.hashToken(token));
+        
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+        when(jwtUtil.validateToken(token)).thenReturn(true);
+
+        // Act
+        boolean result = authenticationService.validateTokenForUser(token, username);
+
+        // Assert
+        assertTrue(result);
+    }
+
+    @Test
+    void testValidateTokenForUser_InvalidToken() {
+        // Arrange
+        String username = "testuser";
+        String token = "invalidToken";
+        User user = new User();
+        user.setUsername(username);
+        user.setActiveTokenHash(authenticationService.hashToken("differentToken"));
+        
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+        when(jwtUtil.validateToken(token)).thenReturn(true);
+
+        // Act
+        boolean result = authenticationService.validateTokenForUser(token, username);
+
+        // Assert
+        assertFalse(result);
+    }
+
+    @Test
+    void testValidateTokenForUser_ExpiredToken() {
+        // Arrange
+        String username = "testuser";
+        String token = "expiredToken";
+        User user = new User();
+        user.setUsername(username);
+        user.setActiveTokenHash(authenticationService.hashToken(token));
+        
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+        when(jwtUtil.validateToken(token)).thenReturn(false);
+
+        // Act
+        boolean result = authenticationService.validateTokenForUser(token, username);
+
+        // Assert
+        assertFalse(result);
+    }
+
+    @Test
+    void testLogout() {
+        // Arrange
+        String username = "testuser";
+        User user = new User();
+        user.setUsername(username);
+        user.setActiveTokenHash("someTokenHash");
+        
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(user));
+
+        // Act
+        authenticationService.logout(username);
+
+        // Assert
+        assertNull(user.getActiveTokenHash());
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void testSingleActiveSession() {
+        // Arrange
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setUsername("testuser");
+        loginRequest.setPassword("password123");
+
+        Authentication authentication = mock(Authentication.class);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
+        
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        
+        // Mock userRepository to return the same user object and capture save operations
+        when(userRepository.findByUsername(loginRequest.getUsername())).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User savedUser = invocation.getArgument(0);
+            // Update our local user object with the values from the saved user
+            user.setActiveTokenHash(savedUser.getActiveTokenHash());
+            return savedUser;
+        });
+        
+        // First login generates token1
+        when(jwtUtil.generateToken(loginRequest.getUsername())).thenReturn("token1", "token2");
+        when(jwtUtil.validateToken(anyString())).thenReturn(true);
+
+        // Act
+        TokenResponse firstLoginResponse = authenticationService.login(loginRequest);
+        TokenResponse secondLoginResponse = authenticationService.login(loginRequest);
+
+        // Assert
+        assertNotNull(firstLoginResponse);
+        assertNotNull(secondLoginResponse);
+        assertEquals("token1", firstLoginResponse.getToken());
+        assertEquals("token2", secondLoginResponse.getToken());
+        
+        // Verify that the second login invalidates the first token
+        boolean firstTokenValid = authenticationService.validateTokenForUser("token1", "testuser");
+        boolean secondTokenValid = authenticationService.validateTokenForUser("token2", "testuser");
+        
+        assertFalse(firstTokenValid);
+        assertTrue(secondTokenValid);
+    }
 }
