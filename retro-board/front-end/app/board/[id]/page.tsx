@@ -50,13 +50,16 @@ export default function BoardPage() {
         cards: col.cards.filter(c => c.id !== card.id)
       }));
       
-      // Then, add the card to the new column only if it doesn't exist
+      // Then, add the card to the new column at the correct position
       const newColumns = columnsWithoutCard.map(col => {
         if (col.id === card.column?.id) {
-          console.log('handleCardUpdated: adding card to column', col.id);
+          console.log('handleCardUpdated: adding card to column', col.id, 'at position', card.position);
+          // Create a new array with the card inserted at the correct position
+          const newCards = [...col.cards];
+          newCards.splice(card.position, 0, card);
           return {
             ...col,
-            cards: [...col.cards, card]
+            cards: newCards
           };
         }
         return col;
@@ -305,6 +308,79 @@ export default function BoardPage() {
       // Determine the new position
       let newPosition = dropIndex || 0;
       
+      // Update local state immediately for faster animation response
+      setColumns(prev => {
+        // Create a deep copy of the columns to avoid mutating state
+        const updatedColumns = prev.map(col => ({
+          ...col,
+          cards: [...col.cards]
+        }));
+        
+        // Get the source column
+        const sourceColumn = updatedColumns.find(col => col.id === fromColumnId);
+        if (!sourceColumn) return prev;
+        
+        // Get the current position of the card
+        const currentPosition = sourceColumn.cards.findIndex(c => c.id === cardId);
+        if (currentPosition === -1) return prev;
+        
+        // Remove the card from the source column
+        const [movedCard] = sourceColumn.cards.splice(currentPosition, 1);
+        
+        // If moving within the same column
+        if (fromColumnId === toColumnId) {
+          // If the card is being moved to a position before its current position
+          if (newPosition < currentPosition) {
+            // Update all cards between the new position and current position to move down
+            for (let i = 0; i < sourceColumn.cards.length; i++) {
+              if (sourceColumn.cards[i].position >= newPosition && sourceColumn.cards[i].position < currentPosition) {
+                sourceColumn.cards[i].position += 1;
+              }
+            }
+          }
+          // If the card is being moved to a position after its current position
+          else if (newPosition > currentPosition) {
+            // Update all cards between the current position and new position to move up
+            for (let i = 0; i < sourceColumn.cards.length; i++) {
+              if (sourceColumn.cards[i].position > currentPosition && sourceColumn.cards[i].position < newPosition) {
+                sourceColumn.cards[i].position -= 1;
+              }
+            }
+          }
+          
+          // Insert the card at the new position
+          movedCard.position = newPosition;
+          sourceColumn.cards.splice(newPosition, 0, movedCard);
+        }
+        // If moving to a different column
+        else {
+          // Update cards in the source column to move up
+          for (let i = 0; i < sourceColumn.cards.length; i++) {
+            if (sourceColumn.cards[i].position > currentPosition) {
+              sourceColumn.cards[i].position -= 1;
+            }
+          }
+          
+          // Get the target column
+          const targetColumn = updatedColumns.find(col => col.id === toColumnId);
+          if (targetColumn) {
+            // Update cards in the target column to move down
+            for (let i = 0; i < targetColumn.cards.length; i++) {
+              if (targetColumn.cards[i].position >= newPosition) {
+                targetColumn.cards[i].position += 1;
+              }
+            }
+            
+            // Insert the card at the new position in the target column
+            movedCard.position = newPosition;
+            movedCard.column = { id: toColumnId, name: targetColumn.name };
+            targetColumn.cards.splice(newPosition, 0, movedCard);
+          }
+        }
+        
+        return updatedColumns;
+      });
+      
       // Update the card using the API
       await cardApi.updateCard(cardId, {
         title: card.title,
@@ -313,8 +389,69 @@ export default function BoardPage() {
         position: newPosition,
       });
       
-      // Local state update is no longer needed as WebSocket event will handle it
-      // This prevents duplicate cards from appearing
+      // Update other cards using the API
+      if (fromColumnId === toColumnId) {
+        // Get the current position of the card
+        const currentPosition = fromColumn.cards.findIndex(c => c.id === cardId);
+        
+        // If the card is being moved to a position before its current position
+        if (newPosition < currentPosition) {
+          // Update all cards between the new position and current position to move down
+          for (const c of fromColumn.cards) {
+            if (c.id !== cardId && c.position >= newPosition && c.position < currentPosition) {
+              await cardApi.updateCard(c.id, {
+                title: c.title,
+                description: c.description,
+                columnId: c.column.id,
+                position: c.position + 1
+              });
+            }
+          }
+        }
+        // If the card is being moved to a position after its current position
+        else if (newPosition > currentPosition) {
+          // Update all cards between the current position and new position to move up
+          for (const c of fromColumn.cards) {
+            if (c.id !== cardId && c.position > currentPosition && c.position < newPosition) {
+              await cardApi.updateCard(c.id, {
+                title: c.title,
+                description: c.description,
+                columnId: c.column.id,
+                position: c.position - 1
+              });
+            }
+          }
+        }
+      }
+      // If moving to a different column, adjust positions in both columns
+      else {
+        // Update cards in the source column to move up
+        for (const c of fromColumn.cards) {
+          if (c.id !== cardId && c.position > card.position) {
+            await cardApi.updateCard(c.id, {
+              title: c.title,
+              description: c.description,
+              columnId: c.column.id,
+              position: c.position - 1
+            });
+          }
+        }
+        
+        // Update cards in the target column to move down
+        const toColumn = columns.find(col => col.id === toColumnId);
+        if (toColumn) {
+          for (const c of toColumn.cards) {
+            if (c.position >= newPosition) {
+              await cardApi.updateCard(c.id, {
+                title: c.title,
+                description: c.description,
+                columnId: c.column.id,
+                position: c.position + 1
+              });
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Error moving card:', error);
       alert('Failed to move card');
@@ -373,33 +510,35 @@ export default function BoardPage() {
           isMobile={false}
         />
         <main className="flex-1 p-6 overflow-y-auto">
-          <div className="mb-6">
-            <div className="flex items-center gap-4 mb-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
+            <div className="flex items-start gap-4 mb-4 sm:mb-0">
               <button 
-                className="p-2 rounded-lg hover:bg-neutral-200 transition-smooth"
+                className="p-2 rounded-lg hover:bg-neutral-200 transition-smooth mt-1"
                 onClick={() => router.back()}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h1 className="text-2xl font-medium">{board.name}</h1>
+              <div>
+                <h1 className="text-2xl font-medium">{board.name}</h1>
+                <p className="text-neutral-400">{board.description || t('board.noDescription')}</p>
+              </div>
             </div>
-            <p className="text-neutral-400">{board.description || t('board.noDescription')}</p>
-          </div>
-          <div className="flex items-center gap-4 mb-6">
-            <button className="btn-outline text-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
+            <div className="flex items-center gap-4">
+              <button className="btn-outline text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
 {t('board.boardSettings')}
-            </button>
-            <button className="btn-outline text-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
+              </button>
+              <button className="btn-outline text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
 {t('board.teamMembers')}
-            </button>
+              </button>
+            </div>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-6">
             {columns.map((column) => (
@@ -420,7 +559,7 @@ export default function BoardPage() {
                 const newColumnTitle = `Column ${columns.length + 1}`;
                 handleAddColumn(newColumnTitle);
               }}
-              className="min-w-[300px] bg-white/50 dark:bg-gray-700/50 border-2 border-dashed border-neutral-200 dark:border-gray-600 rounded-lg p-4 flex items-center justify-center hover:bg-white dark:hover:bg-gray-700 hover:border-primary transition-all duration-200"
+              className="w-[320px] bg-white/50 dark:bg-gray-700/50 border-2 border-dashed border-neutral-200 dark:border-gray-600 rounded-lg p-4 flex items-center justify-center hover:bg-white dark:hover:bg-gray-700 hover:border-primary transition-all duration-200"
               title={t('board.addColumn')}
             >
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all duration-200">

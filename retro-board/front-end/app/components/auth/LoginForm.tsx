@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { authApi } from '../../services/api';
 
@@ -11,6 +12,7 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { t } = useTranslation('common');
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +30,7 @@ export default function LoginForm() {
       }
       
       // Redirect to dashboard on success
-      window.location.href = '/dashboard';
+      router.push('/dashboard');
     } catch (err) {
       // Display specific error message from API
       if (err instanceof Error) {

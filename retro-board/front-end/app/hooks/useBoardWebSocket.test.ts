@@ -1,6 +1,6 @@
 'use client';
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import useBoardWebSocket from './useBoardWebSocket';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -86,7 +86,9 @@ describe('useBoardWebSocket', () => {
     // Simulate connection
     const connectCallback = mockClient.onConnect;
     if (connectCallback) {
-      connectCallback();
+      act(() => {
+        connectCallback();
+      });
       
       // Check that subscribe was called with the correct destination
       expect(mockClient.subscribe).toHaveBeenCalledWith(
@@ -116,7 +118,9 @@ describe('useBoardWebSocket', () => {
     // Simulate connection
     const connectCallback = mockClient.onConnect;
     if (connectCallback) {
-      connectCallback();
+      act(() => {
+        connectCallback();
+      });
       
       // Get the subscription callback
       const subscribeCall = mockClient.subscribe.mock.calls[0];
@@ -131,7 +135,9 @@ describe('useBoardWebSocket', () => {
           }),
         };
 
-        subscribeCallback(mockMessage);
+        act(() => {
+          subscribeCallback(mockMessage);
+        });
 
         expect(expectedCallback).toHaveBeenCalledWith(eventData);
       }
@@ -232,7 +238,9 @@ describe('useBoardWebSocket', () => {
     // Simulate connection
     const connectCallback = mockClient.onConnect;
     if (connectCallback) {
-      connectCallback();
+      act(() => {
+        connectCallback();
+      });
       
       // Get the subscription callback
       const subscribeCall = mockClient.subscribe.mock.calls[0];
@@ -247,7 +255,9 @@ describe('useBoardWebSocket', () => {
           }),
         };
 
-        subscribeCallback(mockMessage);
+        act(() => {
+          subscribeCallback(mockMessage);
+        });
 
         expect(consoleWarnSpy).toHaveBeenCalledWith('useBoardWebSocket: Unknown event type:', 'unknown_event');
       }
@@ -276,7 +286,9 @@ describe('useBoardWebSocket', () => {
     // Simulate connection
     const connectCallback = mockClient.onConnect;
     if (connectCallback) {
-      connectCallback();
+      act(() => {
+        connectCallback();
+      });
       
       // Get the subscription callback
       const subscribeCall = mockClient.subscribe.mock.calls[0];
@@ -286,7 +298,9 @@ describe('useBoardWebSocket', () => {
           body: 'invalid json',
         };
 
-        subscribeCallback(mockMessage);
+        act(() => {
+          subscribeCallback(mockMessage);
+        });
 
         expect(consoleErrorSpy).toHaveBeenCalledWith('useBoardWebSocket: Error parsing message:', expect.any(Error));
       }
@@ -314,11 +328,243 @@ describe('useBoardWebSocket', () => {
     // Simulate connection
     const connectCallback = mockClient.onConnect;
     if (connectCallback) {
-      connectCallback();
+      act(() => {
+        connectCallback();
+      });
     }
 
     unmount();
 
     expect(mockClient.deactivate).toHaveBeenCalled();
+  });
+
+  it('should not update state when cleanupCalled is true in onDisconnect', () => {
+    const boardId = 1;
+
+    const { unmount } = renderHook(() =>
+      useBoardWebSocket({
+        boardId,
+        onCardCreated: mockOnCardCreated,
+        onCardUpdated: mockOnCardUpdated,
+        onCardDeleted: mockOnCardDeleted,
+        onCardVoted: mockOnCardVoted,
+        onColumnCreated: mockOnColumnCreated,
+        onColumnUpdated: mockOnColumnUpdated,
+        onColumnDeleted: mockOnColumnDeleted,
+      })
+    );
+
+    // Simulate connection to set up onDisconnect handler
+    const connectCallback = mockClient.onConnect;
+    if (connectCallback) {
+      act(() => {
+        connectCallback();
+      });
+    }
+
+    // Unmount to set cleanupCalled to true
+    unmount();
+
+    // Simulate disconnect event
+    const disconnectCallback = mockClient.onDisconnect;
+    if (disconnectCallback) {
+      act(() => {
+        disconnectCallback();
+      });
+    }
+
+    // No state updates should occur
+  });
+
+  it('should not update state when cleanupCalled is true in onStompError', () => {
+    const boardId = 1;
+
+    const { unmount } = renderHook(() =>
+      useBoardWebSocket({
+        boardId,
+        onCardCreated: mockOnCardCreated,
+        onCardUpdated: mockOnCardUpdated,
+        onCardDeleted: mockOnCardDeleted,
+        onCardVoted: mockOnCardVoted,
+        onColumnCreated: mockOnColumnCreated,
+        onColumnUpdated: mockOnColumnUpdated,
+        onColumnDeleted: mockOnColumnDeleted,
+      })
+    );
+
+    // Simulate connection to set up onStompError handler
+    const connectCallback = mockClient.onConnect;
+    if (connectCallback) {
+      act(() => {
+        connectCallback();
+      });
+    }
+
+    // Unmount to set cleanupCalled to true
+    unmount();
+
+    // Simulate error event
+    const errorCallback = mockClient.onStompError;
+    if (errorCallback) {
+      act(() => {
+        errorCallback({});
+      });
+    }
+
+    // No state updates should occur
+  });
+
+  it('should update state when cleanupCalled is false in onDisconnect', () => {
+    const boardId = 1;
+
+    const { result } = renderHook(() =>
+      useBoardWebSocket({
+        boardId,
+        onCardCreated: mockOnCardCreated,
+        onCardUpdated: mockOnCardUpdated,
+        onCardDeleted: mockOnCardDeleted,
+        onCardVoted: mockOnCardVoted,
+        onColumnCreated: mockOnColumnCreated,
+        onColumnUpdated: mockOnColumnUpdated,
+        onColumnDeleted: mockOnColumnDeleted,
+      })
+    );
+
+    // Simulate connection to set up onDisconnect handler and set isConnected to true
+    const connectCallback = mockClient.onConnect;
+    if (connectCallback) {
+      act(() => {
+        connectCallback();
+      });
+    }
+
+    expect(result.current.isConnected).toBe(true);
+
+    // Simulate disconnect event before unmount (cleanupCalled is false)
+    const disconnectCallback = mockClient.onDisconnect;
+    if (disconnectCallback) {
+      act(() => {
+        disconnectCallback();
+      });
+    }
+
+    expect(result.current.isConnected).toBe(false);
+  });
+
+  it('should update state when cleanupCalled is false in onStompError', () => {
+    const boardId = 1;
+
+    const { result } = renderHook(() =>
+      useBoardWebSocket({
+        boardId,
+        onCardCreated: mockOnCardCreated,
+        onCardUpdated: mockOnCardUpdated,
+        onCardDeleted: mockOnCardDeleted,
+        onCardVoted: mockOnCardVoted,
+        onColumnCreated: mockOnColumnCreated,
+        onColumnUpdated: mockOnColumnUpdated,
+        onColumnDeleted: mockOnColumnDeleted,
+      })
+    );
+
+    // Simulate connection to set up onStompError handler and set isConnected to true
+    const connectCallback = mockClient.onConnect;
+    if (connectCallback) {
+      act(() => {
+        connectCallback();
+      });
+    }
+
+    expect(result.current.isConnected).toBe(true);
+
+    // Simulate error event before unmount (cleanupCalled is false)
+    const errorCallback = mockClient.onStompError;
+    if (errorCallback) {
+      act(() => {
+        errorCallback({});
+      });
+    }
+
+    expect(result.current.isConnected).toBe(false);
+  });
+
+  it('should not update state when cleanupCalled is true in onConnect', () => {
+    const boardId = 1;
+
+    const { unmount } = renderHook(() =>
+      useBoardWebSocket({
+        boardId,
+        onCardCreated: mockOnCardCreated,
+        onCardUpdated: mockOnCardUpdated,
+        onCardDeleted: mockOnCardDeleted,
+        onCardVoted: mockOnCardVoted,
+        onColumnCreated: mockOnColumnCreated,
+        onColumnUpdated: mockOnColumnUpdated,
+        onColumnDeleted: mockOnColumnDeleted,
+      })
+    );
+
+    // Unmount to set cleanupCalled to true before onConnect is called
+    unmount();
+
+    // Simulate connection event
+    const connectCallback = mockClient.onConnect;
+    if (connectCallback) {
+      act(() => {
+        connectCallback();
+      });
+    }
+
+    // No state updates should occur
+  });
+
+  it('should not process messages when cleanupCalled is true in subscription callback', () => {
+    const boardId = 1;
+
+    const { unmount } = renderHook(() =>
+      useBoardWebSocket({
+        boardId,
+        onCardCreated: mockOnCardCreated,
+        onCardUpdated: mockOnCardUpdated,
+        onCardDeleted: mockOnCardDeleted,
+        onCardVoted: mockOnCardVoted,
+        onColumnCreated: mockOnColumnCreated,
+        onColumnUpdated: mockOnColumnUpdated,
+        onColumnDeleted: mockOnColumnDeleted,
+      })
+    );
+
+    // Simulate connection to set up subscription
+    const connectCallback = mockClient.onConnect;
+    if (connectCallback) {
+      act(() => {
+        connectCallback();
+      });
+    }
+
+    // Get the subscription callback
+    const subscribeCall = mockClient.subscribe.mock.calls[0];
+    if (subscribeCall) {
+      const subscribeCallback = subscribeCall[1];
+      const mockMessage = {
+        body: JSON.stringify({
+          type: 'card_created',
+          boardId,
+          data: { id: 1, title: 'Test Card' },
+          timestamp: Date.now(),
+        }),
+      };
+
+      // Unmount to set cleanupCalled to true
+      unmount();
+
+      // Simulate message receipt after cleanup
+      act(() => {
+        subscribeCallback(mockMessage);
+      });
+
+      // No callbacks should be called
+      expect(mockOnCardCreated).not.toHaveBeenCalled();
+    }
   });
 });

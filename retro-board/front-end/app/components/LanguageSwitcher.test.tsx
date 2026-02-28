@@ -1,92 +1,137 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import LanguageSwitcher from './LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 
 // Mock react-i18next
-const mockChangeLanguage = jest.fn();
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: {
-      language: 'en',
-      changeLanguage: mockChangeLanguage,
-    },
-  }),
+  useTranslation: jest.fn(),
 }));
 
-// Mock localStorage
-const mockLocalStorage = {
-  setItem: jest.fn(),
-  getItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-};
-
-Object.defineProperty(window, 'localStorage', {
-  value: mockLocalStorage,
-  writable: true,
-});
-
 describe('LanguageSwitcher', () => {
+  const mockUseTranslation = useTranslation as jest.MockedFunction<typeof useTranslation>;
+  const mockChangeLanguage = jest.fn();
+  
+  // Helper function to create a mock i18n object
+  const createMockI18n = (language: string) => ({
+    language,
+    changeLanguage: mockChangeLanguage,
+  } as any);
+  
   beforeEach(() => {
-    mockChangeLanguage.mockClear();
-    mockLocalStorage.setItem.mockClear();
+    // Clear localStorage before each test
+    localStorage.clear();
+    
+    // Mock useTranslation
+    mockUseTranslation.mockReturnValue({
+      t: () => '',
+      i18n: createMockI18n('en'),
+    } as any);
   });
 
-  it('should render the language switcher button', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should render with English language by default', () => {
     render(<LanguageSwitcher />);
-    
     expect(screen.getByText('EN')).toBeInTheDocument();
   });
 
-  it('should open the menu when button is clicked', () => {
+  it('should render with Chinese language when language is zh', () => {
+    mockUseTranslation.mockReturnValue({
+      t: () => '',
+      i18n: createMockI18n('zh'),
+    } as any);
     render(<LanguageSwitcher />);
-    
-    const button = screen.getByText('EN');
-    fireEvent.click(button);
-    
+    expect(screen.getByText('中文')).toBeInTheDocument();
+  });
+
+  it('should open language menu when button is clicked', () => {
+    render(<LanguageSwitcher />);
+    const languageButton = screen.getByText('EN');
+    fireEvent.click(languageButton);
     expect(screen.getByText('English')).toBeInTheDocument();
     expect(screen.getByText('中文')).toBeInTheDocument();
   });
 
-  it('should change language to English and save to localStorage', () => {
+  it('should change language to English when English option is clicked', () => {
     render(<LanguageSwitcher />);
-    
-    const button = screen.getByText('EN');
-    fireEvent.click(button);
-    
-    const englishButton = screen.getByText('English');
-    fireEvent.click(englishButton);
-    
+    const languageButton = screen.getByText('EN');
+    fireEvent.click(languageButton);
+    fireEvent.click(screen.getByText('English'));
     expect(mockChangeLanguage).toHaveBeenCalledWith('en');
-    expect(mockLocalStorage.setItem).toHaveBeenCalledWith('language', 'en');
+    expect(localStorage.getItem('language')).toBe('en');
   });
 
-  it('should change language to Chinese and save to localStorage', () => {
+  it('should change language to Chinese when Chinese option is clicked', () => {
     render(<LanguageSwitcher />);
-    
-    const button = screen.getByText('EN');
-    fireEvent.click(button);
-    
-    const chineseButton = screen.getByText('中文');
-    fireEvent.click(chineseButton);
-    
+    const languageButton = screen.getByText('EN');
+    fireEvent.click(languageButton);
+    fireEvent.click(screen.getByText('中文'));
     expect(mockChangeLanguage).toHaveBeenCalledWith('zh');
-    expect(mockLocalStorage.setItem).toHaveBeenCalledWith('language', 'zh');
+    expect(localStorage.getItem('language')).toBe('zh');
   });
 
   it('should close menu when clicking outside', () => {
     render(<LanguageSwitcher />);
-    
-    const button = screen.getByText('EN');
-    fireEvent.click(button);
-    
-    // Check menu is open
+    const languageButton = screen.getByText('EN');
+    fireEvent.click(languageButton);
     expect(screen.getByText('English')).toBeInTheDocument();
+    // Click outside the menu
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByText('English')).not.toBeInTheDocument();
+  });
+
+  it('should handle null menuRef gracefully', () => {
+    render(<LanguageSwitcher />);
+    // This test ensures that the component doesn't crash when menuRef is null
+    // The handleClickOutside function should handle this case
+    fireEvent.mouseDown(document.body);
+    // No crash should occur
+  });
+
+  it('should highlight English language in menu when English is current language', () => {
+    // Test with English as current language
+    mockUseTranslation.mockReturnValue({
+      t: () => '',
+      i18n: createMockI18n('en'),
+    } as any);
+
+    render(<LanguageSwitcher />);
+    const languageButton = screen.getByText('EN');
+    fireEvent.click(languageButton);
     
-    // Simulate clicking outside
-    fireEvent.mouseDown(document);
+    // Check that English option has active class
+    const englishButton = screen.getByText('English');
+    expect(englishButton).toHaveClass('bg-neutral-100');
+    expect(englishButton).toHaveClass('font-medium');
     
-    // Check menu is closed - this is a bit tricky, but we can check that clicking English doesn't throw an error
-    // or we can test the internal state
+    // Check that Chinese option does not have active class
+    const chineseButton = screen.getByText('中文');
+    expect(chineseButton).not.toHaveClass('bg-neutral-100');
+    expect(chineseButton).not.toHaveClass('font-medium');
+  });
+
+  it('should highlight Chinese language in menu when Chinese is current language', () => {
+    // Test with Chinese as current language
+    mockUseTranslation.mockReturnValue({
+      t: () => '',
+      i18n: createMockI18n('zh'),
+    } as any);
+
+    render(<LanguageSwitcher />);
+    const languageButton = screen.getByText('中文');
+    fireEvent.click(languageButton);
+    
+    // Check that Chinese option has active class - use getAllByText and filter for the button
+    const chineseElements = screen.getAllByText('中文');
+    const chineseOption = chineseElements.find(el => el.tagName === 'BUTTON');
+    expect(chineseOption).toHaveClass('bg-neutral-100');
+    expect(chineseOption).toHaveClass('font-medium');
+    
+    // Check that English option does not have active class
+    const englishButton = screen.getByText('English');
+    expect(englishButton).not.toHaveClass('bg-neutral-100');
+    expect(englishButton).not.toHaveClass('font-medium');
   });
 });

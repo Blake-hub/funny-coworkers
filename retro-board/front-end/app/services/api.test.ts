@@ -32,6 +32,35 @@ describe('API Service', () => {
       expect(result).toEqual(mockData);
     });
 
+    it('should handle Headers object as options.headers', async () => {
+      const mockData = { token: 'testToken', username: 'testuser' };
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockData),
+      });
+
+      // Create a Headers object with some headers
+      const headers = new Headers();
+      headers.append('Authorization', 'Bearer test-token');
+      headers.append('X-Custom-Header', 'custom-value');
+
+      const result = await fetchApi('/test', {
+        headers: headers,
+      });
+      
+      expect(result).toEqual(mockData);
+      // Verify the headers were properly converted
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'authorization': 'Bearer test-token',
+          'x-custom-header': 'custom-value',
+        }),
+      })
+    );
+    });
+
     it('should handle 204 No Content responses', async () => {
       mockFetch.mockResolvedValue({
         ok: true,

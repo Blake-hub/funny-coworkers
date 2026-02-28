@@ -14,6 +14,15 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+// Mock next/navigation
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+  }),
+}));
+
 // Mock the authApi
 const mockLogin = jest.spyOn(authApiModule.authApi, 'login');
 
@@ -108,6 +117,44 @@ describe('LoginForm', () => {
     
     // Wait for error message
     expect(await screen.findByText('Login failed')).toBeInTheDocument();
+  });
+
+  it('should handle non-Error exceptions', async () => {
+    // Mock with a non-Error object
+    mockLogin.mockRejectedValue('Non-error rejection');
+    
+    render(<LoginForm />);
+    
+    // Fill in form
+    fireEvent.change(screen.getByLabelText('auth.login.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.login.password'), { target: { value: 'password123' } });
+    
+    // Submit form
+    fireEvent.click(screen.getByText('auth.login.signIn'));
+    
+    // Wait for error message (should use the generic error message)
+    expect(await screen.findByText('auth.login.invalidCredentials')).toBeInTheDocument();
+  });
+
+  it('should store userId in localStorage when provided', async () => {
+    // Mock with userId
+    mockLogin.mockResolvedValue({ token: 'testToken', username: 'testuser', userId: 123 });
+    
+    render(<LoginForm />);
+    
+    // Fill in form
+    fireEvent.change(screen.getByLabelText('auth.login.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.login.password'), { target: { value: 'password123' } });
+    
+    // Submit form
+    fireEvent.click(screen.getByText('auth.login.signIn'));
+    
+    // Wait for token to be stored in localStorage
+    await waitFor(() => {
+      expect(localStorage.setItem).toHaveBeenCalledWith('token', 'testToken');
+      expect(localStorage.setItem).toHaveBeenCalledWith('username', 'testuser');
+      expect(localStorage.setItem).toHaveBeenCalledWith('userId', '123');
+    });
   });
 
   it('should have remember me checkbox', () => {

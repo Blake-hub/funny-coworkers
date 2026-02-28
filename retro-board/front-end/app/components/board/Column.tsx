@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Card from '../card/Card';
 import { cardApi } from '../../services/api';
 import { Card as CardType, ColumnType } from '../../types';
@@ -35,9 +35,10 @@ export default function Column({
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(column.name);
-  const [sortCriteria, setSortCriteria] = useState<'position' | 'createdAt' | 'votes'>('position');
+  const [sortCriteria, setSortCriteria] = useState<'createdAt' | 'votes'>('createdAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [isActionDropdownOpen, setIsActionDropdownOpen] = useState(false);
   const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const columnRef = useRef<HTMLDivElement>(null);
 
@@ -79,9 +80,6 @@ export default function Column({
     let comparison = 0;
     
     switch (sortCriteria) {
-      case 'position':
-        comparison = a.position - b.position;
-        break;
       case 'createdAt':
         comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         break;
@@ -96,7 +94,7 @@ export default function Column({
   });
 
   // Handle sort criteria change
-  const handleSortChange = (criteria: 'position' | 'createdAt' | 'votes') => {
+  const handleSortChange = (criteria: 'createdAt' | 'votes') => {
     if (criteria === sortCriteria) {
       // Toggle direction if same criteria
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -111,9 +109,12 @@ export default function Column({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const sortButton = event.target as HTMLElement;
-      if (isSortDropdownOpen && !sortButton.closest('.relative')) {
+      const target = event.target as HTMLElement;
+      if (isSortDropdownOpen && !target.closest('.relative')) {
         setIsSortDropdownOpen(false);
+      }
+      if (isActionDropdownOpen && !target.closest('.relative')) {
+        setIsActionDropdownOpen(false);
       }
     };
 
@@ -121,7 +122,7 @@ export default function Column({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isSortDropdownOpen]);
+  }, [isSortDropdownOpen, isActionDropdownOpen]);
 
   const handleDeleteColumn = () => {
     if (confirm('Are you sure you want to delete this column?')) {
@@ -130,75 +131,62 @@ export default function Column({
   };
 
   return (
-    <div className="min-w-[300px] bg-neutral-200 dark:bg-gray-800 rounded-lg p-4 flex flex-col">
-      <div className="flex items-start justify-between mb-4">
+    <div className="w-[320px] bg-neutral-200 dark:bg-gray-800 rounded-xl p-5 flex flex-col transition-all duration-300 hover:shadow-md">
+      <div className="flex items-start justify-between mb-5 h-16">
         {isEditing ? (
-          <div className="flex-1 pr-4">
+          <div className="flex-1 pr-4 flex flex-col justify-between h-full">
             <input
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="input-field w-full text-sm mb-2"
+              className="input-field w-full text-base py-2"
               placeholder="Column title"
             />
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-3 mt-2">
               <button
                 onClick={handleSaveColumn}
-                className="btn-primary text-xs flex-1"
+                className="btn-primary text-sm flex-1 py-1.5 transition-all duration-300 transform hover:scale-105"
               >
                 Save
               </button>
               <button
                 onClick={handleCancelEdit}
-                className="btn-outline text-xs"
+                className="btn-outline text-sm py-1.5 transition-all duration-300"
               >
                 Cancel
               </button>
             </div>
           </div>
         ) : (
-          <div>
-            <h3 className="font-medium text-neutral-500">{column.name}</h3>
+          <div className="flex-1 mr-4 flex items-center h-full overflow-hidden">
+            <h3 className="font-medium text-neutral-600 dark:text-neutral-300 text-lg truncate">{column.name}</h3>
           </div>
         )}
-        <div className="flex items-center gap-2">
-          <span className="bg-neutral-300 text-neutral-500 text-xs font-medium px-2 py-1 rounded-full">
+        <div className="flex items-center gap-2 h-full">
+          <span className="bg-neutral-300 dark:bg-gray-700 text-neutral-600 dark:text-neutral-300 text-xs font-medium px-3 py-1.5 rounded-full">
             {column.cards.length}
           </span>
           {!isEditing && (
             <div className="flex items-center gap-1">
-              {/* Sort dropdown */}
+              {/* Sort dropdown - icon only */}
               <div className="relative">
                 <button 
-                  className="p-1 rounded hover:bg-neutral-300 transition-smooth flex items-center gap-1"
-                  title="Sort cards"
+                  className="p-1.5 rounded-full hover:bg-neutral-300 dark:hover:bg-gray-700 transition-all duration-300"
+                  title={`Sort by ${sortCriteria === 'votes' ? 'Votes' : 'Date'} ${sortDirection === 'asc' ? 'Ascending' : 'Descending'}`}
                   onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-500 dark:text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                   </svg>
-                  <span className="text-xs text-neutral-400">
-                    {sortCriteria === 'position' ? 'Position' : sortCriteria === 'votes' ? 'Votes' : 'Date'}
-                    {sortDirection === 'asc' ? ' ↑' : ' ↓'}
-                  </span>
                 </button>
                 {isSortDropdownOpen && (
-                  <div className="absolute right-0 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
-                    <button
-                      onClick={() => {
-                        handleSortChange('position');
-                        setIsSortDropdownOpen(false);
-                      }}
-                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'position' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
-                    >
-                      Position {sortCriteria === 'position' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </button>
+                  <div className="absolute right-0 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[130px] transform transition-all duration-300 animate-scale-in">
                     <button
                       onClick={() => {
                         handleSortChange('createdAt');
                         setIsSortDropdownOpen(false);
                       }}
-                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'createdAt' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
+                      className={`block w-full text-left px-4 py-2 text-sm ${sortCriteria === 'createdAt' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
                     >
                       Date {sortCriteria === 'createdAt' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
@@ -207,38 +195,54 @@ export default function Column({
                         handleSortChange('votes');
                         setIsSortDropdownOpen(false);
                       }}
-                      className={`block w-full text-left px-3 py-2 text-sm ${sortCriteria === 'votes' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
+                      className={`block w-full text-left px-4 py-2 text-sm ${sortCriteria === 'votes' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
                     >
                       Votes {sortCriteria === 'votes' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
                   </div>
                 )}
               </div>
-              <button 
-                onClick={handleEditColumn}
-                className="p-1 rounded hover:bg-neutral-300 transition-smooth"
-                title="Edit column"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-              <button 
-                onClick={handleDeleteColumn}
-                className="p-1 rounded hover:bg-neutral-300 transition-smooth"
-                title="Delete column"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+              {/* Actions dropdown */}
+              <div className="relative">
+                <button 
+                  className="p-1.5 rounded-full hover:bg-neutral-300 dark:hover:bg-gray-700 transition-all duration-300"
+                  title="Column actions"
+                  onClick={() => setIsActionDropdownOpen(!isActionDropdownOpen)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-500 dark:text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                </button>
+                {isActionDropdownOpen && (
+                  <div className="absolute right-0 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[120px] transform transition-all duration-300 animate-scale-in">
+                    <button
+                      onClick={() => {
+                        handleEditColumn();
+                        setIsActionDropdownOpen(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-gray-600"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDeleteColumn();
+                        setIsActionDropdownOpen(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
       </div>
       <div 
         ref={columnRef}
-        className={`flex-1 space-y-2 mb-4 overflow-y-auto max-h-[500px] transition-all duration-200 ${isDragOver ? 'bg-primary/10 border-2 border-primary rounded-lg p-2' : ''}`}
+        className={`flex-1 mb-5 overflow-y-auto transition-all duration-200 ${isDragOver ? 'bg-primary/10 border-2 border-primary rounded-lg p-3' : ''}`}
         onDragOver={(e) => {
           e.preventDefault();
           // Clear any existing timeout
@@ -254,7 +258,7 @@ export default function Column({
             const y = e.clientY - rect.top;
             const cardElements = columnRef.current.querySelectorAll('.card-container');
             
-            let closestIndex = column.cards.length;
+            let closestIndex = sortedCards.length;
             let minDistance = Infinity;
             
             if (cardElements.length > 0) {
@@ -292,7 +296,7 @@ export default function Column({
               
               const bottomDistance = Math.abs(y - lastCardBottom);
               if (y > lastCardBottom && bottomDistance < minDistance) {
-                closestIndex = column.cards.length;
+                closestIndex = sortedCards.length;
               }
             }
             
@@ -337,37 +341,43 @@ export default function Column({
           setDropIndex(null);
         }}
       >
-        {sortedCards.map((card, index) => (
-          <div key={card.id}>
-            {dropIndex === index && (
-              <div className="h-1 bg-primary rounded-full my-1 transition-all duration-200"></div>
-            )}
-            <Card
-              card={card}
-              columnId={column.id}
-              onUpdate={(updatedCard) => onUpdateCard(column.id, card.id, updatedCard)}
-              onDelete={() => onDeleteCard(column.id, card.id)}
-              onVote={async () => {
-                try {
-                  const updatedCard = await cardApi.voteCard(card.id);
-                  onUpdateCard(column.id, card.id, updatedCard);
-                } catch (err) {
-                  console.error('Failed to vote:', err);
-                }
-              }}
-            />
-          </div>
-        ))}
-        {dropIndex === sortedCards.length && (
-          <div className="h-1 bg-primary rounded-full my-1 transition-all duration-200"></div>
-        )}
+        <div className="space-y-3">
+          {sortedCards.map((card, index) => (
+            <div 
+              key={card.id} 
+              className="transition-all duration-1000 ease-in-out transform"
+              style={{ transitionProperty: 'transform, opacity', transitionTimingFunction: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
+            >
+              {dropIndex === index && (
+                <div className="h-1.5 bg-primary rounded-full my-1.5 transition-all duration-300"></div>
+              )}
+              <Card
+                card={card}
+                columnId={column.id}
+                onUpdate={(updatedCard) => onUpdateCard(column.id, card.id, updatedCard)}
+                onDelete={() => onDeleteCard(column.id, card.id)}
+                onVote={async () => {
+                  try {
+                    const updatedCard = await cardApi.voteCard(card.id);
+                    onUpdateCard(column.id, card.id, updatedCard);
+                  } catch (err) {
+                    console.error('Failed to vote:', err);
+                  }
+                }}
+              />
+            </div>
+          ))}
+          {dropIndex === sortedCards.length && (
+            <div className="h-1.5 bg-primary rounded-full my-1.5 transition-all duration-300"></div>
+          )}
+        </div>
       </div>
       {isAddingCard ? (
-        <div className="bg-white dark:bg-gray-700 rounded-lg p-3 space-y-2">
+        <div className="bg-white dark:bg-gray-700 rounded-xl p-4 space-y-3 shadow-sm">
           <input
             type="text"
             placeholder="Card title"
-            className="input-field w-full text-sm"
+            className="input-field w-full text-sm py-3"
             value={newCardTitle}
             onChange={(e) => {
               setNewCardTitle(e.target.value);
@@ -379,19 +389,19 @@ export default function Column({
           />
           <textarea
             placeholder="Card content"
-            className="input-field w-full text-sm h-20 resize-none"
+            className="input-field w-full text-sm h-24 resize-none py-3"
             value={newCardContent}
             onChange={(e) => setNewCardContent(e.target.value)}
           />
           {errorMessage && (
-            <div className="text-xs text-error">
+            <div className="text-xs text-red-500 font-medium">
               {errorMessage}
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={handleAddCard}
-              className="btn-primary text-xs flex-1"
+              className="btn-primary text-sm flex-1 py-3 transition-all duration-300 transform hover:scale-105"
             >
               Add Card
             </button>
@@ -402,7 +412,7 @@ export default function Column({
                 setNewCardContent('');
                 setErrorMessage('');
               }}
-              className="btn-outline text-xs"
+              className="btn-outline text-sm py-3 transition-all duration-300"
             >
               Cancel
             </button>
@@ -416,9 +426,12 @@ export default function Column({
             setNewCardContent('');
             setErrorMessage('');
           }}
-          className="w-full text-left p-2 rounded-lg hover:bg-neutral-300 transition-smooth text-sm text-neutral-500"
+          className="w-full text-left p-3 rounded-xl hover:bg-neutral-300 dark:hover:bg-gray-700 transition-all duration-300 text-sm text-neutral-600 dark:text-neutral-400 font-medium flex items-center gap-2"
         >
-          + Add Card
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-neutral-500 dark:text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Card
         </button>
       )}
     </div>

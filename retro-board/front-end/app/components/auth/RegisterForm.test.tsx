@@ -114,4 +114,53 @@ describe('RegisterForm', () => {
     // Wait for error message
     expect(await screen.findByText('Registration failed')).toBeInTheDocument();
   });
+
+  it('should handle non-Error exceptions', async () => {
+    // Mock with a non-Error object
+    mockRegister.mockRejectedValue('Non-error rejection');
+    
+    render(<RegisterForm />);
+    
+    // Fill in form
+    fireEvent.change(screen.getByLabelText('auth.register.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.register.email'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText('auth.register.password'), { target: { value: 'password123' } });
+    
+    // Submit form
+    fireEvent.click(screen.getByText('auth.register.register'));
+    
+    // Wait for error message (should use the generic error message)
+    expect(await screen.findByText('auth.register.registrationFailed')).toBeInTheDocument();
+  });
+
+  it('should redirect to login after successful registration', async () => {
+    // Mock successful registration
+    mockRegister.mockResolvedValue({ token: 'testToken', username: 'testuser' });
+    
+    // Save original location
+    const originalLocation = window.location.href;
+    
+    // Use delete and reassign instead of Object.defineProperty
+    delete (global as any).window.location;
+    (global as any).window.location = { href: originalLocation };
+    
+    render(<RegisterForm />);
+    
+    // Fill in form
+    fireEvent.change(screen.getByLabelText('auth.register.username'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByLabelText('auth.register.email'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText('auth.register.password'), { target: { value: 'password123' } });
+    
+    // Submit form
+    fireEvent.click(screen.getByText('auth.register.register'));
+    
+    // Wait for success message
+    expect(await screen.findByText('auth.register.successTitle')).toBeInTheDocument();
+    expect(screen.getByText('auth.register.successMessage')).toBeInTheDocument();
+    expect(screen.getByText('auth.register.redirecting')).toBeInTheDocument();
+    
+    // Restore original location
+    delete (global as any).window.location;
+    (global as any).window.location = { href: originalLocation };
+  });
 });

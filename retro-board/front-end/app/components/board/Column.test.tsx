@@ -113,7 +113,7 @@ describe('Column', () => {
     );
 
     // Click add card button
-    const addCardButton = screen.getByText('+ Add Card');
+    const addCardButton = screen.getByText('Add Card');
     fireEvent.click(addCardButton);
 
     // Should show add card form
@@ -137,7 +137,7 @@ describe('Column', () => {
     );
 
     // Open add card form
-    const addCardButton = screen.getByText('+ Add Card');
+    const addCardButton = screen.getByText('Add Card');
     fireEvent.click(addCardButton);
 
     // Fill form
@@ -169,7 +169,7 @@ describe('Column', () => {
     );
 
     // Open add card form
-    const addCardButton = screen.getByText('+ Add Card');
+    const addCardButton = screen.getByText('Add Card');
     fireEvent.click(addCardButton);
 
     // Submit form without title
@@ -192,9 +192,14 @@ describe('Column', () => {
       />
     );
 
-    // Click edit button
-    const editButton = screen.getAllByRole('button')[1]; // Edit button is second button
-    fireEvent.click(editButton);
+    // Click action dropdown button (second button in the header)
+    const actionButtons = screen.getAllByRole('button');
+    const actionDropdownButton = actionButtons[1]; // Action dropdown is second button
+    fireEvent.click(actionDropdownButton);
+
+    // Click Edit option from dropdown
+    const editOption = screen.getByText('Edit');
+    fireEvent.click(editOption);
 
     // Change title
     const titleInput = screen.getByPlaceholderText('Column title');
@@ -226,9 +231,14 @@ describe('Column', () => {
       />
     );
 
-    // Click delete button
-    const deleteButton = screen.getAllByRole('button')[2]; // Delete button is third button
-    fireEvent.click(deleteButton);
+    // Click action dropdown button (second button in the header)
+    const actionButtons = screen.getAllByRole('button');
+    const actionDropdownButton = actionButtons[1]; // Action dropdown is second button
+    fireEvent.click(actionDropdownButton);
+
+    // Click Delete option from dropdown
+    const deleteOption = screen.getByText('Delete');
+    fireEvent.click(deleteOption);
 
     expect(mockOnDeleteColumn).toHaveBeenCalledWith(1);
 
@@ -253,9 +263,14 @@ describe('Column', () => {
       />
     );
 
-    // Click delete button
-    const deleteButton = screen.getAllByRole('button')[2]; // Delete button is third button
-    fireEvent.click(deleteButton);
+    // Click action dropdown button (second button in the header)
+    const actionButtons = screen.getAllByRole('button');
+    const actionDropdownButton = actionButtons[1]; // Action dropdown is second button
+    fireEvent.click(actionDropdownButton);
+
+    // Click Delete option from dropdown
+    const deleteOption = screen.getByText('Delete');
+    fireEvent.click(deleteOption);
 
     expect(mockOnDeleteColumn).not.toHaveBeenCalled();
 
@@ -313,8 +328,8 @@ describe('Column', () => {
       />
     );
 
-    // Click sort button
-    const sortButton = screen.getByTitle('Sort cards');
+    // Click sort button (title changes based on current sort)
+    const sortButton = screen.getAllByRole('button')[0]; // Sort button is first button
     fireEvent.click(sortButton);
 
     // Click votes sort option
@@ -339,16 +354,68 @@ describe('Column', () => {
       />
     );
 
-    // Click sort button
-    const sortButton = screen.getByTitle('Sort cards');
+    // Click sort button (title changes based on current sort)
+    const sortButton = screen.getAllByRole('button')[0]; // Sort button is first button
     fireEvent.click(sortButton);
 
-    // Click date sort option
-    const dateSortOption = screen.getByText('Date');
+    // Click date sort option (text includes 'Date' with arrow)
+    const dateSortOption = screen.getByText((content) => content.includes('Date'));
     fireEvent.click(dateSortOption);
 
     // Check that cards are rendered - find only card titles
     expect(screen.getByText('Card 1')).toBeInTheDocument();
     expect(screen.getByText('Card 2')).toBeInTheDocument();
+  });
+
+  it('should have animation classes on card containers', () => {
+    render(
+      <Column
+        column={mockColumn}
+        onAddCard={mockOnAddCard}
+        onUpdateCard={mockOnUpdateCard}
+        onDeleteCard={mockOnDeleteCard}
+        onUpdateColumn={mockOnUpdateColumn}
+        onDeleteColumn={mockOnDeleteColumn}
+        onMoveCard={mockOnMoveCard}
+      />
+    );
+
+    // Find all card containers
+    const cardContainers = screen.getAllByText('Card 1').map(el => el.closest('.card-container'));
+    
+    // Check that each card container has the transition classes
+    cardContainers.forEach(container => {
+      expect(container).toHaveClass('transition-all');
+      expect(container).toHaveClass('duration-300');
+      expect(container).toHaveClass('ease-in-out');
+    });
+  });
+
+  it('should have animation classes on card wrapper divs', () => {
+    render(
+      <Column
+        column={mockColumn}
+        onAddCard={mockOnAddCard}
+        onUpdateCard={mockOnUpdateCard}
+        onDeleteCard={mockOnDeleteCard}
+        onUpdateColumn={mockOnUpdateColumn}
+        onDeleteColumn={mockOnDeleteColumn}
+        onMoveCard={mockOnMoveCard}
+      />
+    );
+
+    // Find all card titles
+    const cardTitles = [screen.getByText('Card 1'), screen.getByText('Card 2')];
+    
+    // Check that each card title's parent wrapper has the animation classes
+    cardTitles.forEach(title => {
+      // Get the card container first, then find its parent wrapper
+      const cardContainer = title.closest('.card-container');
+      const cardWrapper = cardContainer?.parentElement;
+      expect(cardWrapper).toHaveClass('transition-all');
+      expect(cardWrapper).toHaveClass('duration-1000');
+      expect(cardWrapper).toHaveClass('ease-in-out');
+      expect(cardWrapper).toHaveClass('transform');
+    });
   });
 });
