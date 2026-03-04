@@ -559,7 +559,7 @@ export default function BoardPage() {
                 const newColumnTitle = `Column ${columns.length + 1}`;
                 handleAddColumn(newColumnTitle);
               }}
-              className="w-[320px] bg-white/50 dark:bg-gray-700/50 border-2 border-dashed border-neutral-200 dark:border-gray-600 rounded-lg p-4 flex items-center justify-center hover:bg-white dark:hover:bg-gray-700 hover:border-primary transition-all duration-200"
+              className="w-[320px] flex-shrink-0 bg-white/50 dark:bg-gray-700/50 border-2 border-dashed border-neutral-200 dark:border-gray-600 rounded-lg p-4 flex items-center justify-center hover:bg-white dark:hover:bg-gray-700 hover:border-primary transition-all duration-200"
               title={t('board.addColumn')}
             >
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all duration-200">

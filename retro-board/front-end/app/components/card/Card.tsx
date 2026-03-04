@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Card as CardType } from '../../types';
 
 interface CardProps {
@@ -138,7 +139,7 @@ export default function Card({ card, columnId, onUpdate, onDelete, onVote }: Car
       </div>
 
       {/* Floating card that follows cursor during drag */}
-      {isDragging && (
+      {isDragging && createPortal(
         <div 
           className="fixed top-0 left-0 pointer-events-none z-50 transition-transform duration-0"
           style={{
@@ -157,7 +158,8 @@ export default function Card({ card, columnId, onUpdate, onDelete, onVote }: Car
               <span className="font-medium">{new Date(card.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {isEditing && (
@@ -198,7 +200,7 @@ export default function Card({ card, columnId, onUpdate, onDelete, onVote }: Car
         </div>
       )}
 
-      {isDetailOpen && (
+      {isDetailOpen && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-gray-800 dark:text-white rounded-xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl transform transition-all duration-300 animate-scale-in">
             <div className="flex items-center justify-between mb-6">
@@ -268,7 +270,8 @@ export default function Card({ card, columnId, onUpdate, onDelete, onVote }: Car
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

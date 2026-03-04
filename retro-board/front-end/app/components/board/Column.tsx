@@ -131,7 +131,7 @@ export default function Column({
   };
 
   return (
-    <div className="w-[320px] bg-neutral-200 dark:bg-gray-800 rounded-xl p-5 flex flex-col transition-all duration-300 hover:shadow-md">
+    <div className="w-[320px] flex-shrink-0 bg-neutral-200 dark:bg-gray-800 rounded-xl p-5 flex flex-col transition-all duration-300 hover:shadow-md">
       <div className="flex items-start justify-between mb-5 h-16">
         {isEditing ? (
           <div className="flex-1 pr-4 flex flex-col justify-between h-full">
