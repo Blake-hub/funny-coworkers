@@ -1,0 +1,6 @@
+.trae/
+implementation-plan.md
+workflows.md
+requirements.md
+/frontend/node_modules/
+/frontend/.next/
