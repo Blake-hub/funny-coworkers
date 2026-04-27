@@ -12,8 +12,12 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronRight as ChevronRightIcon,
   Search,
-  Bell
+  Bell,
+  Plus,
+  MoreHorizontal
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { currentUser, mockIssues, mockProjects, mockTeams } from '@/data/mockData';
@@ -23,11 +27,19 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const menuItems = [
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  href?: string;
+  badge?: number;
+}
+
+const menuItems: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { id: 'issues', label: 'My Issues', icon: Bug, href: '/issues', badge: mockIssues.length },
   { id: 'projects', label: 'My Projects', icon: FolderOpen, href: '/projects', badge: mockProjects.length },
-  { id: 'teams', label: 'My Teams', icon: Users, href: '/teams', badge: mockTeams.length },
+  { id: 'teams', label: 'My Teams', icon: Users, badge: mockTeams.length },
   { id: 'wiki', label: 'Wiki', icon: FileText, href: '/wiki' },
   { id: 'reports', label: 'Reports', icon: BarChart3, href: '/reports' },
 ];
@@ -36,6 +48,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const router = useRouter();
   const { logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
   
   const handleLogout = () => {
     logout();
@@ -44,6 +58,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const handleSearchClick = () => {
     router.push('/search');
+  };
+
+  const handleTeamsClick = () => {
+    setExpandedMenu(expandedMenu === 'teams' ? null : 'teams');
   };
 
   const unreadCount = 3;
@@ -122,22 +140,131 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = router.pathname === item.href;
+            
+            if (item.id === 'teams') {
+              return (
+                <div key={item.id}>
+                  <div 
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out cursor-pointer ${
+                      isActive 
+                        ? 'bg-gray-500 text-white shadow-md' 
+                        : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
+                    }`}
+                    onClick={handleTeamsClick}
+                  >
+                    <Icon className="w-4 h-4 transition-transform duration-200" />
+                    {!collapsed && (
+                      <div className="flex-1 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span>{item.label}</span>
+                          {expandedMenu === 'teams' ? (
+                            <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                          ) : (
+                            <ChevronRightIcon className="w-4 h-4 transition-transform duration-200" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {item.badge && (
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs transition-colors duration-200 ${
+                              isActive ? 'bg-white/20' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 hover:text-gray-800'
+                            }`}>
+                              {item.badge}
+                            </span>
+                          )}
+                          <button
+                            className={`p-1 rounded transition-colors duration-200 ${
+                              isActive ? 'hover:bg-white/20' : 'hover:bg-gray-300'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            title="Add Team"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {collapsed && item.badge && (
+                      <span className="bg-gray-200 text-gray-700 w-4 h-4 rounded-full flex items-center justify-center text-xs">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {!collapsed && expandedMenu === 'teams' && (
+                    <div className="ml-4 mt-0.5 space-y-0.5">
+                      {mockTeams.map((team) => {
+                        const isTeamExpanded = expandedTeams[team.id] ?? false;
+                        return (
+                          <div key={team.id}>
+                            <div className="w-full flex items-center justify-between px-2 py-1 rounded text-sm text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm transition-all duration-200 ease-in-out cursor-pointer">
+                              <button
+                                onClick={() => setExpandedTeams(prev => ({ ...prev, [team.id]: !(prev[team.id] ?? false) }))}
+                                className="flex items-center min-w-0 flex-1"
+                              >
+                                <Users className="w-3 h-3 inline mr-2 flex-shrink-0" />
+                                <span className="truncate">{team.name}</span>
+                                <span className="w-1.5"></span>
+                                {isTeamExpanded ? (
+                                  <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                                ) : (
+                                  <ChevronRightIcon className="w-4 h-4 flex-shrink-0" />
+                                )}
+                              </button>
+                              <button
+                                className="p-1 rounded transition-colors duration-200 hover:bg-gray-300"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                title="Edit Team"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </div>
+                            {isTeamExpanded && (
+                              <div className="ml-6 mt-0.5 space-y-0.5">
+                                <button
+                                  className="w-full text-left px-2 py-1 rounded text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all duration-200"
+                                >
+                                  <Bug className="w-3 h-3 inline mr-2" />
+                                  Issues
+                                </button>
+                                <button
+                                  className="w-full text-left px-2 py-1 rounded text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all duration-200"
+                                >
+                                  <FolderOpen className="w-3 h-3 inline mr-2" />
+                                  Projects
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            
             return (
               <Link
                 key={item.id}
-                href={item.href}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-sm ${
+                href={item.href!}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
                   isActive 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-gray-500 text-white shadow-md' 
+                    : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm hover:scale-[1.02]'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4 transition-transform duration-200" />
                 {!collapsed && (
                   <>
                     <span className="flex-1 text-left">{item.label}</span>
                     {item.badge && (
-                      <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-xs">
+                      <span className={`px-1.5 py-0.5 rounded-full text-xs transition-colors duration-200 ${
+                        isActive ? 'bg-white/20' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 hover:text-gray-800'
+                      }`}>
                         {item.badge}
                       </span>
                     )}
@@ -155,8 +282,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         {/* Bottom Actions */}
         <div className="p-3 border-t border-gray-200 space-y-1">
-          <button className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors text-sm ${
-            collapsed ? 'justify-center' : ''
+          <button className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
+            collapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
           }`}
           title="Settings">
             <Settings className="w-4 h-4" />
@@ -164,8 +291,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </button>
           <button 
             onClick={handleLogout}
-            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors text-sm ${
-              collapsed ? 'justify-center' : ''
+            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
+              collapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
             }`}
             title="Logout">
             <LogOut className="w-4 h-4" />
@@ -176,7 +303,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {/* Toggle Button */}
         <button
           onClick={onToggle}
-          className="absolute -right-3 top-20 bg-white border border-gray-300 rounded-full p-1 hover:bg-gray-100 transition-colors shadow-sm"
+          className="absolute -right-3 top-20 bg-white border border-gray-300 rounded-full p-1.5 hover:bg-gray-100 hover:shadow-md hover:scale-110 transition-all duration-200 ease-in-out"
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="w-4 h-4 text-gray-600" /> : <ChevronLeft className="w-4 h-4 text-gray-600" />}
