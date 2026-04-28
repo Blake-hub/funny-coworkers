@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
-import { mockIssues, mockProjects, statusLabels, priorityLabels, typeLabels } from '@/data/mockData';
+import { issueApi, projectApi, type IssueResponse, type ProjectResponse } from '@/services/api';
+import { mockData, statusLabels, priorityLabels, typeLabels } from '@/data/mockData';
 import { Plus, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
@@ -32,17 +33,50 @@ const priorityColors: Record<string, string> = {
 export default function Dashboard() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const [issues, setIssues] = useState<IssueResponse[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
+      return;
     }
+
+    const fetchData = async () => {
+      try {
+        const [issuesData, projectsData] = await Promise.all([
+          issueApi.getAllIssues(),
+          projectApi.getAllProjects(),
+        ]);
+        setIssues(issuesData);
+        setProjects(projectsData);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        setIssues(mockData.mockIssues);
+        setProjects(mockData.mockProjects);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [isAuthenticated, router]);
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </Layout>
+    );
+  }
+
   const today = new Date().toISOString().split('T')[0];
-  const todayIssues = mockIssues.filter(issue => issue.dueDate === today);
-  const overdueIssues = mockIssues.filter(issue => issue.dueDate < today && issue.status !== 'done');
-  const openIssues = mockIssues.filter(issue => issue.status !== 'done');
+  const todayIssues = issues.filter(issue => issue.dueDate === today);
+  const overdueIssues = issues.filter(issue => issue.dueDate < today && issue.status !== 'done');
+  const openIssues = issues.filter(issue => issue.status !== 'done');
 
   return (
     <Layout>
@@ -101,21 +135,21 @@ export default function Dashboard() {
           </button>
         </div>
         <div className="divide-y divide-gray-100">
-          {mockIssues.slice(0, 3).map((issue) => (
+          {issues.slice(0, 3).map((issue) => (
             <div key={issue.id} className="p-4 hover:bg-gray-50 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-mono text-gray-500">#{issue.id}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[issue.status]}`}>
-                      {statusLabels[issue.status]}
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[issue.status] || 'bg-gray-100 text-gray-600'}`}>
+                      {statusLabels[issue.status] || issue.status}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityColors[issue.priority]}`}>
-                      {priorityLabels[issue.priority]}
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityColors[issue.priority] || 'bg-gray-100 text-gray-600'}`}>
+                      {priorityLabels[issue.priority] || issue.priority}
                     </span>
                   </div>
                   <p className="font-medium text-gray-800 truncate">{issue.title}</p>
-                  <p className="text-sm text-gray-500 mt-1">{typeLabels[issue.type]} | Due: {issue.dueDate}</p>
+                  <p className="text-sm text-gray-500 mt-1">{typeLabels[issue.type] || issue.type} | Due: {issue.dueDate}</p>
                 </div>
               </div>
             </div>
@@ -138,20 +172,20 @@ export default function Dashboard() {
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-          {mockProjects.slice(0, 2).map((project) => (
+          {projects.slice(0, 2).map((project: any) => (
             <div key={project.id} className="border border-gray-200 rounded-lg p-4">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-medium text-gray-800">{project.name}</h3>
-                <span className="text-sm text-gray-500">{project.progress}%</span>
+                <span className="text-sm text-gray-500">{project.progress || 0}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
                 <div 
                   className="bg-blue-600 h-2 rounded-full transition-all"
-                  style={{ width: `${project.progress}%` }}
+                  style={{ width: `${project.progress || 0}%` }}
                 />
               </div>
               <p className="text-sm text-gray-500">
-                Leader: {project.leaderName} | {project.openIssues}/{project.issueCount} open issues
+                Leader: {project.leaderName || 'Unknown'} | {project.openIssues || 0}/{project.issueCount || 0} open issues
               </p>
             </div>
           ))}

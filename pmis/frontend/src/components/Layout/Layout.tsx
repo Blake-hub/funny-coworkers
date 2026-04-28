@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
+import ToastContainer from '../Toast/ToastContainer';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </main>
       </div>
+      <ToastContainer />
     </div>
   );
 }

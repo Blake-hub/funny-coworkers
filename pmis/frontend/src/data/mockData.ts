@@ -1,14 +1,19 @@
 export interface Issue {
-  id: string;
+  id: number;
   title: string;
   type: 'task' | 'user_story' | 'requirement' | 'bug';
   status: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   dueDate: string;
-  assigneeId: string;
-  projectId: string;
-  parentId?: string;
-  rootId: string;
+  assigneeId: number;
+  projectId: number;
+  parentId: number | null;
+  rootId: number;
+  description: string;
+  labels: string[];
+  storyPoints: number | null;
+  severity: string | null;
+  acceptanceCriteria: string | null;
 }
 
 export interface Project {
@@ -24,6 +29,7 @@ export interface Project {
 
 export interface Team {
   id: string;
+  identifier: string;
   name: string;
   description: string;
   memberCount: number;
@@ -39,48 +45,72 @@ export interface User {
 
 export const mockIssues: Issue[] = [
   {
-    id: '1',
+    id: 1,
     title: 'Fix login bug',
     type: 'bug',
     status: 'in_progress',
     priority: 'high',
     dueDate: '2026-04-24',
-    assigneeId: '1',
-    projectId: '1',
-    rootId: '1',
+    assigneeId: 1,
+    projectId: 1,
+    parentId: null,
+    rootId: 1,
+    description: 'Fix authentication bug in login page',
+    labels: ['bug', 'auth'],
+    storyPoints: 3,
+    severity: 'high',
+    acceptanceCriteria: 'Login should work with valid credentials',
   },
   {
-    id: '2',
+    id: 2,
     title: 'Review API design document',
     type: 'task',
     status: 'todo',
     priority: 'medium',
     dueDate: '2026-04-25',
-    assigneeId: '1',
-    projectId: '1',
-    rootId: '2',
+    assigneeId: 1,
+    projectId: 1,
+    parentId: null,
+    rootId: 2,
+    description: 'Review and approve API design',
+    labels: ['review'],
+    storyPoints: 2,
+    severity: null,
+    acceptanceCriteria: null,
   },
   {
-    id: '3',
+    id: 3,
     title: 'Implement payment flow',
     type: 'user_story',
     status: 'backlog',
     priority: 'high',
     dueDate: '2026-04-30',
-    assigneeId: '1',
-    projectId: '2',
-    rootId: '3',
+    assigneeId: 1,
+    projectId: 2,
+    parentId: null,
+    rootId: 3,
+    description: 'Implement payment processing flow',
+    labels: ['feature', 'payment'],
+    storyPoints: 8,
+    severity: null,
+    acceptanceCriteria: 'Payment should complete successfully',
   },
   {
-    id: '4',
+    id: 4,
     title: 'Create database schema',
     type: 'requirement',
     status: 'approved',
     priority: 'critical',
     dueDate: '2026-04-22',
-    assigneeId: '1',
-    projectId: '1',
-    rootId: '4',
+    assigneeId: 1,
+    projectId: 1,
+    parentId: null,
+    rootId: 4,
+    description: 'Design and create database schema',
+    labels: ['database', 'architecture'],
+    storyPoints: 5,
+    severity: null,
+    acceptanceCriteria: 'Schema should support all required entities',
   },
 ];
 
@@ -120,6 +150,7 @@ export const mockProjects: Project[] = [
 export const mockTeams: Team[] = [
   {
     id: '1',
+    identifier: 'ENG',
     name: 'Engineering Team',
     description: 'Core development team',
     memberCount: 12,
@@ -127,6 +158,7 @@ export const mockTeams: Team[] = [
   },
   {
     id: '2',
+    identifier: 'QA',
     name: 'QA Team',
     description: 'Quality assurance team',
     memberCount: 5,
@@ -134,6 +166,7 @@ export const mockTeams: Team[] = [
   },
   {
     id: '3',
+    identifier: 'PROD',
     name: 'Product Team',
     description: 'Product management team',
     memberCount: 4,
@@ -177,4 +210,11 @@ export const typeLabels: Record<string, string> = {
   user_story: 'User Story',
   requirement: 'Requirement',
   bug: 'Bug',
+};
+
+export const mockData = {
+  mockIssues,
+  mockProjects,
+  mockTeams,
+  currentUser,
 };

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authApi } from '@/services/api';
 
 interface User {
   id: string;
@@ -9,53 +10,89 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
+  token: string | null;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Fake credentials
-const FAKE_USER: User = {
-  id: '1',
-  email: 'admin@pmis.com',
-  name: 'John Doe',
-  role: 'Project Manager',
+const setCookie = (name: string, value: string, days: number = 1) => {
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = `expires=${date.toUTCString()}`;
+  document.cookie = `${name}=${value};${expires};path=/;SameSite=Strict`;
 };
 
-const FAKE_CREDENTIALS = {
-  email: 'admin@pmis.com',
-  password: 'admin',
+const getCookie = (name: string): string | null => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+
+const deleteCookie = (name: string) => {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check local storage for session
     const storedUser = localStorage.getItem('pmis-user');
-    if (storedUser) {
+    const storedToken = localStorage.getItem('pmis-token') || getCookie('pmis-token');
+    
+    if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
+      setToken(storedToken);
+      if (!localStorage.getItem('pmis-token')) {
+        localStorage.setItem('pmis-token', storedToken);
+      }
+      if (!getCookie('pmis-token')) {
+        setCookie('pmis-token', storedToken);
+      }
     }
+    setLoading(false);
   }, []);
 
-  const login = (email: string, password: string): boolean => {
-    if (email === FAKE_CREDENTIALS.email && password === FAKE_CREDENTIALS.password) {
-      setUser(FAKE_USER);
-      localStorage.setItem('pmis-user', JSON.stringify(FAKE_USER));
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const response = await authApi.login({ email, password });
+      
+      const userData: User = {
+        id: response.user.id.toString(),
+        email: response.user.email,
+        name: response.user.name,
+        role: response.user.role,
+      };
+
+      setUser(userData);
+      setToken(response.token.token);
+      localStorage.setItem('pmis-user', JSON.stringify(userData));
+      localStorage.setItem('pmis-token', response.token.token);
+      setCookie('pmis-token', response.token.token, 1);
+
       return true;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
     setUser(null);
+    setToken(null);
     localStorage.removeItem('pmis-user');
+    localStorage.removeItem('pmis-token');
+    deleteCookie('pmis-token');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!user && !!token, loading }}>
       {children}
     </AuthContext.Provider>
   );

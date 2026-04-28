@@ -8,6 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
 
@@ -17,21 +18,24 @@ export default function Login() {
     }
   }, [isAuthenticated, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     
     if (!email || !password) {
       setError('Please fill in all fields');
+      setIsLoading(false);
       return;
     }
 
-    const success = login(email, password);
+    const success = await login(email, password);
     if (success) {
       router.push('/');
     } else {
-      setError('Invalid email or password. Try admin@pmis.com / admin');
+      setError('Invalid email or password');
     }
+    setIsLoading(false);
   };
 
   return (
@@ -99,16 +103,24 @@ export default function Login() {
               <br />
               Email: <code className="bg-white px-1 rounded">admin@pmis.com</code>
               <br />
-              Password: <code className="bg-white px-1 rounded">admin</code>
+              Password: <code className="bg-white px-1 rounded">password</code>
             </p>
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            disabled={isLoading}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Sign In
+            {isLoading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              'Sign In'
+            )}
           </button>
         </form>
 
