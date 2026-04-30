@@ -11,12 +11,14 @@ interface TokenResponse {
   expiresIn: number;
 }
 
-interface UserResponse {
+export interface UserResponse {
   id: number;
   email: string;
   name: string;
   role: string;
   teamId: number;
+  organizationId?: number;
+  departmentId?: number;
 }
 
 interface AuthResponse {
@@ -72,11 +74,6 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
       if (response.status === 400) {
         throw new Error(errorMessage || 'Invalid input data');
       } else if (response.status === 401) {
-        if (hasAuthHeader) {
-          localStorage.removeItem('pmis-token');
-          localStorage.removeItem('pmis-user');
-          window.location.href = '/login';
-        }
         throw new Error(errorMessage || 'Invalid credentials or token expired');
       } else if (response.status === 403) {
         throw new Error(errorMessage || 'Access denied: You don\'t have permission to perform this action');
@@ -99,8 +96,17 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
   }
 }
 
+const getCookie = (name: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+
 export const getAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('pmis-token');
+  const token = localStorage.getItem('pmis-token') || getCookie('pmis-token');
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -297,6 +303,80 @@ export const issueApi = {
   deleteIssue: async (id: number): Promise<void> => {
     return fetchApi<void>(`/issues/${id}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+  },
+};
+
+export interface OrganizationResponse {
+  id: number;
+  name: string;
+  description: string;
+  website: string;
+  logoUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DepartmentResponse {
+  id: number;
+  organizationId: number;
+  name: string;
+  description: string;
+  parentDepartmentId: number | null;
+  parentDepartmentName: string | null;
+  leadUserId: number | null;
+  leadUserName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const organizationApi = {
+  getOrganization: async (id: number): Promise<OrganizationResponse> => {
+    return fetchApi<OrganizationResponse>(`/organizations/${id}`, {
+      headers: getAuthHeaders(),
+    });
+  },
+
+  updateOrganization: async (id: number, orgData: { name?: string; description?: string; website?: string; logoUrl?: string }): Promise<OrganizationResponse> => {
+    return fetchApi<OrganizationResponse>(`/organizations/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(orgData),
+    });
+  },
+
+  getDepartments: async (organizationId: number): Promise<DepartmentResponse[]> => {
+    return fetchApi<DepartmentResponse[]>(`/organizations/${organizationId}/departments`, {
+      headers: getAuthHeaders(),
+    });
+  },
+
+  createDepartment: async (organizationId: number, departmentData: { name: string; description: string; parentDepartmentId?: number; leadUserId?: number }): Promise<DepartmentResponse> => {
+    return fetchApi<DepartmentResponse>(`/organizations/${organizationId}/departments`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(departmentData),
+    });
+  },
+
+  updateDepartment: async (id: number, departmentData: { name?: string; description?: string; parentDepartmentId?: number; leadUserId?: number }): Promise<DepartmentResponse> => {
+    return fetchApi<DepartmentResponse>(`/organizations/departments/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(departmentData),
+    });
+  },
+
+  deleteDepartment: async (id: number): Promise<void> => {
+    return fetchApi<void>(`/organizations/departments/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+  },
+
+  getEmployees: async (organizationId: number): Promise<UserResponse[]> => {
+    return fetchApi<UserResponse[]>(`/organizations/${organizationId}/employees`, {
       headers: getAuthHeaders(),
     });
   },

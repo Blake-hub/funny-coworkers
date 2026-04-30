@@ -30,6 +30,12 @@ public class User {
     @Column(name = "team_id")
     private Long teamId;
 
+    @Column(name = "organization_id")
+    private Long organizationId;
+
+    @Column(name = "department_id")
+    private Long departmentId;
+
     @Column(nullable = false, length = 255)
     private String password;
 }

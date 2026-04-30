@@ -20,6 +20,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const setCookie = (name: string, value: string, days: number = 1) => {
+  if (typeof window === 'undefined') return;
+  
   const date = new Date();
   date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
   const expires = `expires=${date.toUTCString()}`;
@@ -27,6 +29,8 @@ const setCookie = (name: string, value: string, days: number = 1) => {
 };
 
 const getCookie = (name: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
@@ -34,6 +38,8 @@ const getCookie = (name: string): string | null => {
 };
 
 const deleteCookie = (name: string) => {
+  if (typeof window === 'undefined') return;
+  
   document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
 };
 
@@ -41,23 +47,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkedStorage, setCheckedStorage] = useState(false);
+  const [foundAuthData, setFoundAuthData] = useState(false);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('pmis-user');
-    const storedToken = localStorage.getItem('pmis-token') || getCookie('pmis-token');
-    
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
-      if (!localStorage.getItem('pmis-token')) {
-        localStorage.setItem('pmis-token', storedToken);
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('pmis-user');
+      const storedToken = localStorage.getItem('pmis-token') || getCookie('pmis-token');
+      
+      if (storedUser && storedToken) {
+        setFoundAuthData(true);
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setToken(storedToken);
+        
+        if (!localStorage.getItem('pmis-token')) {
+          localStorage.setItem('pmis-token', storedToken);
+        }
+        if (!getCookie('pmis-token')) {
+          setCookie('pmis-token', storedToken);
+        }
+      } else {
+        setFoundAuthData(false);
       }
-      if (!getCookie('pmis-token')) {
-        setCookie('pmis-token', storedToken);
+      
+      setCheckedStorage(true);
+    } else {
+      setCheckedStorage(true);
+      setFoundAuthData(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (checkedStorage) {
+      if (foundAuthData) {
+        if (user && token) {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
       }
     }
-    setLoading(false);
-  }, []);
+  }, [checkedStorage, foundAuthData, user, token]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {

@@ -246,6 +246,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                                 className="p-1 rounded transition-colors duration-200 hover:bg-gray-300"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  router.push(`/teams/edit/${team.id}`);
                                 }}
                                 title="Edit Team"
                               >
@@ -314,10 +315,13 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {/* Bottom Actions */}
         {!isCreateTeamPage && (
           <div className="p-3 border-t border-gray-200 space-y-1">
-            <button className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
-              collapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-            }`}
-            title="Settings">
+            <button
+              onClick={() => router.push('/settings/')}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
+                collapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
+              }`}
+              title="Settings"
+            >
               <Settings className="w-4 h-4" />
               {!collapsed && <span>Settings</span>}
             </button>

@@ -74,6 +74,8 @@ public class UserService {
         existingUser.setName(userDTO.getName());
         existingUser.setRole(userDTO.getRole());
         existingUser.setTeamId(userDTO.getTeamId());
+        existingUser.setOrganizationId(userDTO.getOrganizationId());
+        existingUser.setDepartmentId(userDTO.getDepartmentId());
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
             existingUser.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         }
@@ -120,6 +122,8 @@ public class UserService {
                 .name(user.getName())
                 .role(user.getRole())
                 .teamId(user.getTeamId())
+                .organizationId(user.getOrganizationId())
+                .departmentId(user.getDepartmentId())
                 .build();
     }
 
@@ -129,6 +133,8 @@ public class UserService {
                 .name(userDTO.getName())
                 .role(userDTO.getRole())
                 .teamId(userDTO.getTeamId())
+                .organizationId(userDTO.getOrganizationId())
+                .departmentId(userDTO.getDepartmentId())
                 .build();
     }
 }

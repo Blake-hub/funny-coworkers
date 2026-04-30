@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import { mockTeams } from '@/data/mockData';
-import { Plus, Search, Users, User } from 'lucide-react';
+import { Plus, Search, Users, User, Pencil } from 'lucide-react';
 
 export default function Teams() {
   const router = useRouter();
@@ -41,7 +41,10 @@ export default function Teams() {
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+          <button 
+            onClick={() => router.push('/teams/new')}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
             <Plus className="w-4 h-4" />
             New Team
           </button>
@@ -51,7 +54,7 @@ export default function Teams() {
       {/* Teams List */}
       <div className="space-y-4">
         {filteredTeams.map((team) => (
-          <div key={team.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+          <div key={team.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-5" style={{ position: 'relative' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -62,7 +65,7 @@ export default function Teams() {
                   <p className="text-sm text-gray-500">{team.description}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6" style={{ position: 'relative' }}>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-gray-800">{team.memberCount}</p>
                   <p className="text-sm text-gray-500">Members</p>
@@ -77,6 +80,14 @@ export default function Teams() {
                   </div>
                 </div>
               </div>
+              <a
+                href={`/teams/edit/${team.id}`}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer font-medium text-sm"
+                style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', zIndex: 100 }}
+              >
+                <Pencil className="w-4 h-4" />
+                Edit
+              </a>
             </div>
           </div>
         ))}
