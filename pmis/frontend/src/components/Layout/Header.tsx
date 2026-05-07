@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Search, Bell, User, X } from 'lucide-react';
-import { currentUser } from '@/data/mockData';
+import { useAuth } from '@/context/AuthContext';
 
 interface Notification {
   id: string;
@@ -19,6 +19,7 @@ const mockNotifications: Notification[] = [
 export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useAuth();
   
   const unreadCount = mockNotifications.filter(n => !n.read).length;
 
@@ -88,11 +89,11 @@ export default function Header() {
         {/* User */}
         <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
           <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-            {currentUser.name.charAt(0)}
+            {user?.name ? user.name.charAt(0) : '?'}
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium">{currentUser.name}</p>
-            <p className="text-xs text-gray-500">{currentUser.role}</p>
+            <p className="text-sm font-medium">{user?.name || 'Unknown User'}</p>
+            <p className="text-xs text-gray-500">{user?.role || 'Unknown Role'}</p>
           </div>
           <User className="w-5 h-5 text-gray-400" />
         </div>

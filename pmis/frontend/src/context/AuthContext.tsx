@@ -13,6 +13,7 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void;
   isAuthenticated: boolean;
   loading: boolean;
 }
@@ -21,7 +22,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const setCookie = (name: string, value: string, days: number = 1) => {
   if (typeof window === 'undefined') return;
-  
+
   const date = new Date();
   date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
   const expires = `expires=${date.toUTCString()}`;
@@ -30,7 +31,7 @@ const setCookie = (name: string, value: string, days: number = 1) => {
 
 const getCookie = (name: string): string | null => {
   if (typeof window === 'undefined') return null;
-  
+
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
@@ -39,61 +40,105 @@ const getCookie = (name: string): string | null => {
 
 const deleteCookie = (name: string) => {
   if (typeof window === 'undefined') return;
-  
+
   document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
 };
+
+function validateToken(token: string): { isValid: boolean; reason: string } {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return { isValid: false, reason: 'invalid-token' };
+    }
+
+    let payloadStr = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (payloadStr.length % 4) {
+      payloadStr += '=';
+    }
+
+    const payload = JSON.parse(Buffer.from(payloadStr, 'base64').toString('utf-8'));
+
+    if (!payload || !payload.sub || typeof payload.exp !== 'number') {
+      return { isValid: false, reason: 'invalid-token' };
+    }
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (payload.exp < currentTime) {
+      return { isValid: false, reason: 'session-expired' };
+    }
+
+    return { isValid: true, reason: 'valid' };
+  } catch {
+    return { isValid: false, reason: 'invalid-token' };
+  }
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [checkedStorage, setCheckedStorage] = useState(false);
-  const [foundAuthData, setFoundAuthData] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedUser = localStorage.getItem('pmis-user');
-      const storedToken = localStorage.getItem('pmis-token') || getCookie('pmis-token');
-      
-      if (storedUser && storedToken) {
-        setFoundAuthData(true);
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
+    const cookieToken = getCookie('pmis-token');
+    const localStorageToken = localStorage.getItem('pmis-token');
+    const storedUser = localStorage.getItem('pmis-user');
+
+    const activeToken = cookieToken || localStorageToken;
+
+    if (activeToken && storedUser) {
+      const validation = validateToken(activeToken);
+
+      if (!validation.isValid) {
+        console.log('AuthContext - Token validation failed:', validation.reason);
+        localStorage.removeItem('pmis-token');
+        localStorage.removeItem('pmis-user');
+        deleteCookie('pmis-token');
+        setUser(null);
+        setToken(null);
+        setLoading(false);
+        return;
+      }
+
+      try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        setToken(storedToken);
-        
-        if (!localStorage.getItem('pmis-token')) {
-          localStorage.setItem('pmis-token', storedToken);
-        }
-        if (!getCookie('pmis-token')) {
-          setCookie('pmis-token', storedToken);
-        }
-      } else {
-        setFoundAuthData(false);
-      }
-      
-      setCheckedStorage(true);
-    } else {
-      setCheckedStorage(true);
-      setFoundAuthData(false);
-    }
-  }, []);
+        setToken(activeToken);
 
-  useEffect(() => {
-    if (checkedStorage) {
-      if (foundAuthData) {
-        if (user && token) {
-          setLoading(false);
+        if (!getCookie('pmis-token')) {
+          setCookie('pmis-token', activeToken);
         }
-      } else {
-        setLoading(false);
+      } catch (error) {
+        console.error('Failed to parse stored user:', error);
+        localStorage.removeItem('pmis-token');
+        localStorage.removeItem('pmis-user');
+        deleteCookie('pmis-token');
+        setUser(null);
+        setToken(null);
       }
+    } else if (activeToken || storedUser) {
+      console.log('AuthContext - Inconsistent auth data, clearing');
+      localStorage.removeItem('pmis-token');
+      localStorage.removeItem('pmis-user');
+      deleteCookie('pmis-token');
+      setUser(null);
+      setToken(null);
+    } else if (!localStorageToken && !storedUser && cookieToken) {
+      console.log('AuthContext - Token only in cookie, clearing cookie');
+      deleteCookie('pmis-token');
     }
-  }, [checkedStorage, foundAuthData, user, token]);
+
+    setLoading(false);
+  }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const response = await authApi.login({ email, password });
-      
+
       const userData: User = {
         id: response.user.id.toString(),
         email: response.user.email,
@@ -120,10 +165,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('pmis-user');
     localStorage.removeItem('pmis-token');
     deleteCookie('pmis-token');
+    window.location.href = '/login';
+  };
+
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      localStorage.setItem('pmis-user', JSON.stringify(updatedUser));
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!user && !!token, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser, isAuthenticated: !!user && !!token, loading }}>
       {children}
     </AuthContext.Provider>
   );

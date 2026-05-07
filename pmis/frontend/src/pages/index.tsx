@@ -5,6 +5,64 @@ import Layout from '@/components/Layout/Layout';
 import { issueApi, projectApi, type IssueResponse, type ProjectResponse } from '@/services/api';
 import { mockData, statusLabels, priorityLabels, typeLabels } from '@/data/mockData';
 import { Plus, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
+
+export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
+  const token = context.req.cookies['pmis-token'];
+
+  if (!token) {
+    return {
+      redirect: {
+        destination: '/login?reason=not-logged-in',
+        permanent: false,
+      },
+    };
+  }
+
+  const validationResult = validateToken(token);
+
+  if (!validationResult.isValid) {
+    return {
+      redirect: {
+        destination: `/login?reason=${validationResult.reason}`,
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+}
+
+function validateToken(token: string): { isValid: boolean; reason: string } {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return { isValid: false, reason: 'invalid-token' };
+    }
+
+    let payloadStr = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (payloadStr.length % 4) {
+      payloadStr += '=';
+    }
+
+    const payload = JSON.parse(Buffer.from(payloadStr, 'base64').toString('utf-8'));
+
+    if (!payload || !payload.sub || typeof payload.exp !== 'number') {
+      return { isValid: false, reason: 'invalid-token' };
+    }
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (payload.exp < currentTime) {
+      return { isValid: false, reason: 'session-expired' };
+    }
+
+    return { isValid: true, reason: 'valid' };
+  } catch {
+    return { isValid: false, reason: 'invalid-token' };
+  }
+}
 
 const statusColors: Record<string, string> = {
   backlog: 'bg-gray-100 text-gray-600',
@@ -32,168 +90,183 @@ const priorityColors: Record<string, string> = {
 
 export default function Dashboard() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const [issues, setIssues] = useState<IssueResponse[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login?reason=not-logged-in');
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        const [issuesData, projectsData] = await Promise.all([
-          issueApi.getAllIssues(),
-          projectApi.getAllProjects(),
-        ]);
-        setIssues(issuesData);
-        setProjects(projectsData);
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-        setIssues(mockData.mockIssues);
-        setProjects(mockData.mockProjects);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!authLoading && isAuthenticated) {
+      const fetchData = async () => {
+        try {
+          const [issuesData, projectsData] = await Promise.all([
+            issueApi.getAllIssues(),
+            projectApi.getAllProjects(),
+          ]);
+          setIssues(issuesData);
+          setProjects(projectsData);
+        } catch (error: any) {
+          console.error('Failed to fetch data:', error);
 
-    fetchData();
-  }, [isAuthenticated, router]);
+          if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('Invalid credentials')) {
+            console.log('Authentication error - clearing invalid token and redirecting');
+            localStorage.removeItem('pmis-token');
+            localStorage.removeItem('pmis-user');
+            document.cookie = 'pmis-token=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+            window.location.href = '/login?reason=auth-error';
+            return;
+          }
 
-  if (loading) {
+          setIssues(mockData.mockIssues);
+          setProjects(mockData.mockProjects);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [isAuthenticated, authLoading, router, logout]);
+
+  if (authLoading || !isAuthenticated) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </Layout>
+      <div className="flex items-center justify-center h-screen">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
-  const today = new Date().toISOString().split('T')[0];
-  const todayIssues = issues.filter(issue => issue.dueDate === today);
-  const overdueIssues = issues.filter(issue => issue.dueDate < today && issue.status !== 'done');
-  const openIssues = issues.filter(issue => issue.status !== 'done');
-
   return (
     <Layout>
-      {/* Welcome Banner */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Welcome back! Here&apos;s what&apos;s happening today.</p>
-      </div>
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 mt-1">Overview of your project management activities</p>
+        </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Today&apos;s Tasks</p>
-              <p className="text-2xl font-bold text-gray-800">{todayIssues.length}</p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Issues</p>
+                <p className="text-2xl font-bold text-gray-900">{issues.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-6 h-6 text-blue-600" />
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">In Progress</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {issues.filter(i => i.status === 'in_progress').length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Completed</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {issues.filter(i => i.status === 'done').length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Projects</p>
+                <p className="text-2xl font-bold text-gray-900">{projects.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <Plus className="w-6 h-6 text-purple-600" />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Open Issues</p>
-              <p className="text-2xl font-bold text-gray-800">{openIssues.length}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">Recent Issues</h2>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Overdue</p>
-              <p className="text-2xl font-bold text-red-600">{overdueIssues.length}</p>
-            </div>
-            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* What's Next */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="font-semibold text-gray-800">What&apos;s Next</h2>
-          <button className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
-            <Plus className="w-4 h-4" />
-            New Issue
-          </button>
-        </div>
-        <div className="divide-y divide-gray-100">
-          {issues.slice(0, 3).map((issue) => (
-            <div key={issue.id} className="p-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-mono text-gray-500">#{issue.id}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[issue.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {statusLabels[issue.status] || issue.status}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityColors[issue.priority] || 'bg-gray-100 text-gray-600'}`}>
-                      {priorityLabels[issue.priority] || issue.priority}
-                    </span>
-                  </div>
-                  <p className="font-medium text-gray-800 truncate">{issue.title}</p>
-                  <p className="text-sm text-gray-500 mt-1">{typeLabels[issue.type] || issue.type} | Due: {issue.dueDate}</p>
+            <div className="divide-y">
+              {loading ? (
+                <div className="p-8 text-center">
+                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
                 </div>
-              </div>
+              ) : issues.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">No issues found</div>
+              ) : (
+                issues.slice(0, 5).map(issue => (
+                  <div key={issue.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${typeLabels[issue.type] || 'bg-gray-100 text-gray-600'}`}>
+                          {issue.type}
+                        </span>
+                        <span className="font-medium text-gray-900">{issue.title}</span>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${statusColors[issue.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {issue.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                      <span>Priority: <span className={`px-1.5 py-0.5 rounded ${priorityColors[issue.priority] || 'bg-gray-100 text-gray-600'}`}>{issue.priority}</span></span>
+                      <span>Due: {issue.dueDate ? new Date(issue.dueDate).toLocaleDateString() : 'No due date'}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          ))}
-        </div>
-        <div className="p-4 border-t border-gray-200">
-          <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            View All Issues →
-          </button>
-        </div>
-      </div>
+          </div>
 
-      {/* My Projects */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="font-semibold text-gray-800">My Projects</h2>
-          <button className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
-            <Plus className="w-4 h-4" />
-            New Project
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-          {projects.slice(0, 2).map((project: any) => (
-            <div key={project.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="font-medium text-gray-800">{project.name}</h3>
-                <span className="text-sm text-gray-500">{project.progress || 0}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all"
-                  style={{ width: `${project.progress || 0}%` }}
-                />
-              </div>
-              <p className="text-sm text-gray-500">
-                Leader: {project.leaderName || 'Unknown'} | {project.openIssues || 0}/{project.issueCount || 0} open issues
-              </p>
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">Active Projects</h2>
             </div>
-          ))}
-        </div>
-        <div className="p-4 border-t border-gray-200">
-          <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            View All Projects →
-          </button>
+            <div className="divide-y">
+              {loading ? (
+                <div className="p-8 text-center">
+                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">No projects found</div>
+              ) : (
+                projects.slice(0, 5).map(project => (
+                  <div key={project.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-900">{project.name}</span>
+                      <span className="text-sm text-gray-500">{project.status}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">{project.description}</p>
+                    <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                      <span>Start: {new Date(project.startDate).toLocaleDateString()}</span>
+                      <span>End: {new Date(project.endDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </Layout>

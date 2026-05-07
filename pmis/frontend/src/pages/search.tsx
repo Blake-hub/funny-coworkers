@@ -4,6 +4,24 @@ import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import { Search, Bug, FolderOpen, FileText, Users } from 'lucide-react';
 import { mockIssues, mockProjects, mockTeams } from '@/data/mockData';
+import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
+
+export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
+  const token = context.req.cookies['pmis-token'];
+  
+  if (!token) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+}
 
 export default function SearchPage() {
   const router = useRouter();

@@ -92,6 +92,23 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
+    @Transactional
+    public void changePassword(Long userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new RuntimeException("Current password is incorrect");
+        }
+
+        if (newPassword.length() < 6) {
+            throw new RuntimeException("New password must be at least 6 characters");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Object> login(AuthDTO authDTO) {
         User user = userRepository.findByEmail(authDTO.getEmail())

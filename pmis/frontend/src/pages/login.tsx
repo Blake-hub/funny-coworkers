@@ -2,13 +2,43 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
-export default function Login() {
+interface LoginProps {
+  message?: { type: 'info' | 'warning' | 'error'; text: string };
+}
+
+export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<LoginProps>> {
+  const reason = context.query.reason as string;
+  
+  if (reason) {
+    const messages: Record<string, { type: 'info' | 'warning' | 'error'; text: string }> = {
+      'not-logged-in': { type: 'info', text: 'Please sign in to access the application.' },
+      'session-expired': { type: 'warning', text: 'Your session has expired. Please sign in again.' },
+      'invalid-token': { type: 'error', text: 'Invalid session detected. Please sign in again.' },
+      'auth-error': { type: 'error', text: 'Authentication error. Please sign in again.' },
+    };
+    
+    const message = messages[reason];
+    if (message) {
+      return {
+        props: { message },
+      };
+    }
+  }
+
+  return {
+    props: {},
+  };
+}
+
+export default function Login({ message: initialMessage }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'info' | 'warning' | 'error'; text: string } | null>(initialMessage || null);
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
 
@@ -49,6 +79,18 @@ export default function Login() {
           <h1 className="text-2xl font-bold text-gray-800">PMIS</h1>
           <p className="text-gray-500 mt-2">Project Manager Information System</p>
         </div>
+
+        {/* Info Message */}
+        {message && (
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-lg mb-6 ${
+            message.type === 'info' ? 'bg-blue-50 border border-blue-200 text-blue-600' :
+            message.type === 'warning' ? 'bg-yellow-50 border border-yellow-200 text-yellow-700' :
+            'bg-red-50 border border-red-200 text-red-600'
+          }`}>
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm">{message.text}</span>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit}>

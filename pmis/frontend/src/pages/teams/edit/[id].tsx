@@ -5,6 +5,24 @@ import { useToast } from '@/context/ToastContext';
 import { teamApi } from '@/services/api';
 import Layout from '@/components/Layout/Layout';
 import { Save, Users, Hash, Trash2, AlertCircle } from 'lucide-react';
+import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
+
+export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
+  const token = context.req.cookies['pmis-token'];
+  
+  if (!token) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+}
 
 export default function EditTeam() {
   const router = useRouter();

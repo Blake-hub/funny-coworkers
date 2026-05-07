@@ -19,10 +19,18 @@ export interface Issue {
 export interface Project {
   id: string;
   name: string;
+  summary: string;
   description: string;
   progress: number;
+  status: string;
+  priority: string;
   leaderId: string;
   leaderName: string;
+  memberIds: string[];
+  startDate: string | null;
+  endDate: string | null;
+  labels: string[];
+  milestones: string[];
   issueCount: number;
   openIssues: number;
 }
@@ -114,34 +122,85 @@ export const mockIssues: Issue[] = [
   },
 ];
 
+export const mockUsers: User[] = [
+  {
+    id: '1',
+    name: 'John Doe',
+    email: 'admin@pmis.com',
+    role: 'Project Manager',
+  },
+  {
+    id: '2',
+    name: 'Sarah Smith',
+    email: 'sarah@pmis.com',
+    role: 'Senior Developer',
+  },
+  {
+    id: '3',
+    name: 'Mike Johnson',
+    email: 'mike@pmis.com',
+    role: 'Team Lead',
+  },
+  {
+    id: '4',
+    name: 'Lisa Anderson',
+    email: 'lisa@pmis.com',
+    role: 'QA Engineer',
+  },
+];
+
 export const mockProjects: Project[] = [
   {
     id: '1',
     name: 'Website Redesign',
-    description: 'Redesign the company website',
+    summary: 'Redesign the company website',
+    description: 'Redesign the company website to improve user experience',
     progress: 85,
+    status: 'in_progress',
+    priority: 'high',
     leaderId: '1',
     leaderName: 'John Doe',
+    memberIds: ['2', '3'],
+    startDate: '2026-03-01',
+    endDate: '2026-06-01',
+    labels: ['web', 'design'],
+    milestones: [],
     issueCount: 12,
     openIssues: 3,
   },
   {
     id: '2',
     name: 'Mobile App Development',
-    description: 'Develop native mobile applications',
+    summary: 'Develop native mobile applications',
+    description: 'Develop native mobile applications for iOS and Android',
     progress: 60,
+    status: 'in_progress',
+    priority: 'medium',
     leaderId: '2',
     leaderName: 'Sarah Smith',
+    memberIds: ['1', '4'],
+    startDate: '2026-04-01',
+    endDate: '2026-08-01',
+    labels: ['mobile', 'native'],
+    milestones: [],
     issueCount: 20,
     openIssues: 5,
   },
   {
     id: '3',
     name: 'API Gateway',
-    description: 'Build RESTful API gateway',
+    summary: 'Build RESTful API gateway',
+    description: 'Build RESTful API gateway to handle all API requests',
     progress: 90,
+    status: 'in_progress',
+    priority: 'critical',
     leaderId: '1',
     leaderName: 'John Doe',
+    memberIds: ['3'],
+    startDate: '2026-02-01',
+    endDate: '2026-05-01',
+    labels: ['api', 'infrastructure'],
+    milestones: [],
     issueCount: 8,
     openIssues: 1,
   },

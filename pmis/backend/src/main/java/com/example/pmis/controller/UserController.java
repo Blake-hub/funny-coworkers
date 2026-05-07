@@ -64,4 +64,14 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody AuthDTO authDTO) {
         return ResponseEntity.ok(userService.login(authDTO));
     }
+
+    @PostMapping("/{id}/change-password")
+    @Operation(summary = "Change user password")
+    public ResponseEntity<Void> changePassword(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        String currentPassword = request.get("currentPassword");
+        String newPassword = request.get("newPassword");
+        
+        userService.changePassword(id, currentPassword, newPassword);
+        return ResponseEntity.ok().build();
+    }
 }

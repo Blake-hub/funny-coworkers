@@ -3,6 +3,24 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import { Plus, Search, FileText, FolderOpen, Edit3 } from 'lucide-react';
+import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
+
+export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
+  const token = context.req.cookies['pmis-token'];
+  
+  if (!token) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
+}
 
 interface WikiPage {
   id: string;

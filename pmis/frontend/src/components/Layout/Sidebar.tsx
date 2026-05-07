@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { teamApi, type TeamResponse } from '@/services/api';
-import { currentUser, mockIssues, mockProjects } from '@/data/mockData';
+import { mockIssues, mockProjects } from '@/data/mockData';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -39,7 +39,7 @@ interface MenuItem {
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
@@ -97,12 +97,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               {/* User Profile */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
-                  {currentUser.name.charAt(0)}
+                  {user?.name ? user.name.charAt(0) : '?'}
                 </div>
                 {!collapsed && (
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{currentUser.name}</p>
-                    <p className="text-xs text-gray-500 truncate">{currentUser.role}</p>
+                    <p className="text-sm font-medium text-gray-800 truncate">{user?.name || 'Unknown User'}</p>
+                    <p className="text-xs text-gray-500 truncate">{user?.role || 'Unknown Role'}</p>
                   </div>
                 )}
               </div>

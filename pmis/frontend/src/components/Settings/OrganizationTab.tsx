@@ -7,6 +7,14 @@ interface DepartmentTreeNode extends DepartmentResponse {
   children: DepartmentTreeNode[];
 }
 
+function getCookie(name: string): string | null {
+  if (typeof window === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+}
+
 export default function OrganizationTab() {
   const router = useRouter();
   const [organization, setOrganization] = useState<OrganizationResponse | null>(null);
@@ -24,13 +32,15 @@ export default function OrganizationTab() {
   const ORG_ID = 1;
 
   useEffect(() => {
-    const token = localStorage.getItem('pmis-token');
-    
+    const cookieToken = getCookie('pmis-token');
+    const localStorageToken = localStorage.getItem('pmis-token');
+    const token = cookieToken || localStorageToken;
+
     if (!token) {
-      router.push('/login');
+      router.push('/login?reason=not-logged-in');
       return;
     }
-    
+
     loadData();
   }, []);
 
@@ -53,8 +63,12 @@ export default function OrganizationTab() {
       setEmployees(empsData);
     } catch (error: any) {
       console.error('Failed to load organization data:', error);
-      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-        setAuthError('Your session has expired. Please log out and log back in.');
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.message?.includes('Invalid credentials')) {
+        localStorage.removeItem('pmis-token');
+        localStorage.removeItem('pmis-user');
+        document.cookie = 'pmis-token=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+        router.push('/login?reason=auth-error');
+        return;
       } else {
         setAuthError('Failed to load organization data. Please try again later.');
       }
