@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
+import RichTextEditor from '@/components/RichTextEditor';
 import { mockProjects, mockUsers } from '@/data/mockData';
-import { Plus, Filter, ChevronDown, Settings, Check, X, Calendar, User, Users, Tag } from 'lucide-react';
+import { Plus, Filter, ChevronDown, Settings, Check, X, Calendar, User, Users, Tag, Inbox, Clock, Play, AlertCircle, Minus, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
@@ -33,6 +34,13 @@ export default function Projects() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [selectedCreator, setSelectedCreator] = useState<string | null>(null);
+  const [showMilestoneForm, setShowMilestoneForm] = useState(false);
+  const [newMilestone, setNewMilestone] = useState({
+    name: '',
+    description: '',
+    dueDate: '',
+  });
+  const [projectDescriptionRows, setProjectDescriptionRows] = useState(3);
 
   const [enabledColumns, setEnabledColumns] = useState({
     name: true,
@@ -66,6 +74,18 @@ export default function Projects() {
     }
   }, [isAuthenticated, router]);
 
+  useEffect(() => {
+    const closeDropdowns = () => {
+      setShowStatusDropdown(false);
+      setShowPriorityDropdown(false);
+      setShowLeaderDropdown(false);
+      setShowMembersDropdown(false);
+    };
+
+    document.addEventListener('click', closeDropdowns);
+    return () => document.removeEventListener('click', closeDropdowns);
+  }, []);
+
   const chipOptions = [
     { id: 'all', label: 'All projects' },
     { id: 'milestone', label: 'Has milestone' },
@@ -93,19 +113,19 @@ export default function Projects() {
   ];
 
   const projectStatusOptions = [
-    { id: 'backlog', label: 'Backlog', value: 1 },
-    { id: 'planned', label: 'Planned', value: 2 },
-    { id: 'in_progress', label: 'In Process', value: 3 },
-    { id: 'completed', label: 'Completed', value: 4 },
-    { id: 'canceled', label: 'Canceled', value: 5 },
+    { id: 'backlog', label: 'Backlog', value: 1, icon: Inbox },
+    { id: 'planned', label: 'Planned', value: 2, icon: Clock },
+    { id: 'in_progress', label: 'In Process', value: 3, icon: Play },
+    { id: 'completed', label: 'Completed', value: 4, icon: Check },
+    { id: 'canceled', label: 'Canceled', value: 5, icon: AlertCircle },
   ];
 
   const projectPriorityOptions = [
-    { id: 'no_priority', label: 'No priority', value: 0 },
-    { id: 'urgent', label: 'Urgent', value: 1 },
-    { id: 'high', label: 'High', value: 2 },
-    { id: 'medium', label: 'Medium', value: 3 },
-    { id: 'low', label: 'Low', value: 4 },
+    { id: 'no_priority', label: 'No priority', value: 0, icon: Minus },
+    { id: 'urgent', label: 'Urgent', value: 1, icon: AlertTriangle },
+    { id: 'high', label: 'High', value: 2, icon: ArrowUp },
+    { id: 'medium', label: 'Medium', value: 3, icon: Minus },
+    { id: 'low', label: 'Low', value: 4, icon: ArrowDown },
   ];
 
   const filteredProjects = mockProjects.filter(project => {
@@ -416,9 +436,9 @@ export default function Projects() {
 
         {/* Create Project Dialog */}
         {showCreateDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[95vh] overflow-y-auto">
-              {/* Dialog Header */}
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl h-[80vh] flex flex-col">
+              {/* Dialog Header - Fixed */}
               <div className="flex items-center justify-between px-6 py-3">
                 <h2 className="text-base font-semibold text-gray-800">Create new project</h2>
                 <button
@@ -429,28 +449,30 @@ export default function Projects() {
                 </button>
               </div>
 
-              {/* Dialog Content */}
-              <div className="px-6 py-4 space-y-4">
-                {/* Project Name */}
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Project name"
-                    value={newProject.name}
-                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                    className="w-full text-base font-semibold border-0 px-0 py-0 focus:ring-0 focus:outline-none"
-                  />
-                </div>
+              {/* Dialog Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                <div className="space-y-2">
+                  {/* Project Name */}
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Project name"
+                      value={newProject.name}
+                      onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                      className="w-full text-base font-semibold border-0 px-0 py-0 focus:ring-0 focus:outline-none"
+                    />
+                  </div>
 
-                {/* Summary */}
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Add a short summary for this project"
-                    value={newProject.summary}
-                    onChange={(e) => setNewProject({ ...newProject, summary: e.target.value })}
-                    className="w-full border-0 px-0 py-0 text-sm focus:ring-0 focus:outline-none"
-                  />
+                  {/* Summary */}
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Add a short summary for this project"
+                      value={newProject.summary}
+                      onChange={(e) => setNewProject({ ...newProject, summary: e.target.value })}
+                      className="w-full border-0 px-0 py-0 text-sm focus:ring-0 focus:outline-none"
+                    />
+                  </div>
                 </div>
 
                 {/* Chips Row */}
@@ -458,7 +480,8 @@ export default function Projects() {
                   {/* Status */}
                   <div className="relative">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setShowStatusDropdown(!showStatusDropdown);
                         setShowPriorityDropdown(false);
                         setShowLeaderDropdown(false);
@@ -466,25 +489,41 @@ export default function Projects() {
                       }}
                       className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs hover:bg-gray-200"
                     >
-                      {projectStatusOptions.find(s => s.id === newProject.status)?.label || 'Status'}
+                      {(() => {
+                        const status = projectStatusOptions.find(s => s.id === newProject.status);
+                        if (status) {
+                          const Icon = status.icon;
+                          return (
+                            <>
+                              <Icon className="w-3 h-3" />
+                              {status.label}
+                            </>
+                          );
+                        }
+                        return 'Status';
+                      })()}
                       <ChevronDown className="w-3 h-3" />
                     </button>
                     {showStatusDropdown && (
-                      <div className="absolute left-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                        {projectStatusOptions.map((status) => (
-                          <button
-                            key={status.id}
-                            onClick={() => {
-                              setNewProject({ ...newProject, status: status.id });
-                              setShowStatusDropdown(false);
-                            }}
-                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 ${
-                              newProject.status === status.id ? 'bg-gray-100' : ''
-                            }`}
-                          >
-                            {status.label}
-                          </button>
-                        ))}
+                      <div className="absolute left-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                        {projectStatusOptions.map((status) => {
+                          const Icon = status.icon;
+                          return (
+                            <button
+                              key={status.id}
+                              onClick={() => {
+                                setNewProject({ ...newProject, status: status.id });
+                                setShowStatusDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 flex items-center gap-2 ${
+                                newProject.status === status.id ? 'bg-gray-100' : ''
+                              }`}
+                            >
+                              <Icon className="w-3 h-3 text-gray-400" />
+                              {status.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -492,7 +531,8 @@ export default function Projects() {
                   {/* Priority */}
                   <div className="relative">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setShowPriorityDropdown(!showPriorityDropdown);
                         setShowStatusDropdown(false);
                         setShowLeaderDropdown(false);
@@ -500,25 +540,41 @@ export default function Projects() {
                       }}
                       className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs hover:bg-gray-200"
                     >
-                      {projectPriorityOptions.find(p => p.id === newProject.priority)?.label || 'Priority'}
+                      {(() => {
+                        const priority = projectPriorityOptions.find(p => p.id === newProject.priority);
+                        if (priority) {
+                          const Icon = priority.icon;
+                          return (
+                            <>
+                              <Icon className="w-3 h-3" />
+                              {priority.label}
+                            </>
+                          );
+                        }
+                        return 'Priority';
+                      })()}
                       <ChevronDown className="w-3 h-3" />
                     </button>
                     {showPriorityDropdown && (
-                      <div className="absolute left-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                        {projectPriorityOptions.map((priority) => (
-                          <button
-                            key={priority.id}
-                            onClick={() => {
-                              setNewProject({ ...newProject, priority: priority.id });
-                              setShowPriorityDropdown(false);
-                            }}
-                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 ${
+                      <div className="absolute left-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                        {projectPriorityOptions.map((priority) => {
+                          const Icon = priority.icon;
+                          return (
+                            <button
+                              key={priority.id}
+                              onClick={() => {
+                                setNewProject({ ...newProject, priority: priority.id });
+                                setShowPriorityDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 flex items-center gap-2 ${
                               newProject.priority === priority.id ? 'bg-gray-100' : ''
                             }`}
-                          >
-                            {priority.label}
-                          </button>
-                        ))}
+                            >
+                              <Icon className="w-3 h-3 text-gray-400" />
+                              {priority.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -526,7 +582,8 @@ export default function Projects() {
                   {/* Leader */}
                   <div className="relative">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setShowLeaderDropdown(!showLeaderDropdown);
                         setShowStatusDropdown(false);
                         setShowPriorityDropdown(false);
@@ -561,7 +618,8 @@ export default function Projects() {
                   {/* Members */}
                   <div className="relative">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setShowMembersDropdown(!showMembersDropdown);
                         setShowStatusDropdown(false);
                         setShowPriorityDropdown(false);
@@ -636,20 +694,94 @@ export default function Projects() {
 
                 {/* Description */}
                 <div>
-                  <textarea
-                    placeholder="Describe the project's goal, backgroud, or other usefull information..."
+                  <RichTextEditor
                     value={newProject.description}
-                    onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                    className="w-full h-40 border-0 p-0 text-sm focus:ring-0 focus:outline-none resize-none"
+                    onChange={(content) => setNewProject({ ...newProject, description: content })}
+                    placeholder="Write a project introduction, or other useful information...."
+                    className="border-0"
                   />
                 </div>
 
-                {/* Milestones Bar */}
-                <div className="flex items-center justify-between bg-gray-100 rounded-lg px-4 py-3">
-                  <span className="text-sm text-gray-700">Milestone</span>
-                  <button className="flex items-center justify-center w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50">
-                    <Plus className="w-4 h-4 text-gray-600" />
-                  </button>
+              </div>
+
+              {/* Milestones Bar - Fixed above footer */}
+              <div className="px-6 py-3 border-t border-gray-200">
+                <div className="bg-gray-100 rounded-lg overflow-hidden">
+                  {!showMilestoneForm && (
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <span className="text-sm text-gray-700">Milestone</span>
+                      <button
+                        onClick={() => {
+                          setShowMilestoneForm(true);
+                          setNewMilestone({ name: '', description: '', dueDate: '' });
+                        }}
+                        className="flex items-center justify-center w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50"
+                      >
+                        <Plus className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  )}
+
+                  {showMilestoneForm && (
+                    <div className="px-4 py-3 space-y-3">
+                      <div className="pt-3">
+                        <span className="text-sm font-semibold text-gray-700">Create milestone</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Milestone name"
+                          value={newMilestone.name}
+                          onChange={(e) => setNewMilestone({ ...newMilestone, name: e.target.value })}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-0 focus:outline-none focus:border-gray-300"
+                        />
+                        <button
+                          className="flex items-center justify-center w-8 h-8 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                          onClick={() => (document.getElementById('milestone-due-date') as HTMLInputElement)?.showPicker()}
+                        >
+                          <Calendar className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <input
+                          id="milestone-due-date"
+                          type="date"
+                          value={newMilestone.dueDate}
+                          onChange={(e) => setNewMilestone({ ...newMilestone, dueDate: e.target.value })}
+                          className="sr-only"
+                        />
+                      </div>
+
+                      <textarea
+                          placeholder="Description..."
+                          value={newMilestone.description}
+                          onChange={(e) => setNewMilestone({ ...newMilestone, description: e.target.value })}
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-0 focus:outline-none focus:border-gray-300 resize-none"
+                          rows={2}
+                        />
+
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setShowMilestoneForm(false);
+                            setNewMilestone({ name: '', description: '', dueDate: '' });
+                          }}
+                          className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowMilestoneForm(false);
+                            setNewMilestone({ name: '', description: '', dueDate: '' });
+                          }}
+                          className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+                        >
+                          Add milestone
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
