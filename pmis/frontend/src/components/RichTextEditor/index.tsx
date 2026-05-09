@@ -15,10 +15,11 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
   const Color = require('@tiptap/extension-color').default;
   const { TextStyle } = require('@tiptap/extension-text-style');
   const Link = require('@tiptap/extension-link').default;
+  const UnderlineExtension = require('@tiptap/extension-underline').default;
   const {
     Bold,
     Italic,
-    Underline,
+    UnderlineIcon,
     Strikethrough,
     Heading1,
     Heading2,
@@ -33,36 +34,45 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
   } = require('lucide-react');
 
   const [showSlashMenu, setShowSlashMenu] = useState(false);
-  const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0 });
+  const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0, maxHeight: 520 });
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const selectedIndexRef = useRef(0);
+  const menuVisibleRef = useRef(false);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [floatingToolbarPosition, setFloatingToolbarPosition] = useState({ x: 0, y: 0 });
   const [linkUrl, setLinkUrl] = useState('');
   const [showLinkModal, setShowLinkModal] = useState(false);
 
   const slashCommands = [
-    { id: 'bold', label: 'Bold', icon: Bold, command: 'toggleBold' },
-    { id: 'italic', label: 'Italic', icon: Italic, command: 'toggleItalic' },
-    { id: 'underline', label: 'Underline', icon: Underline, command: 'toggleUnderline' },
-    { id: 'strike', label: 'Strikethrough', icon: Strikethrough, command: 'toggleStrike' },
-    { id: 'h1', label: 'Heading 1', icon: Heading1, command: 'toggleHeading', params: { level: 1 } },
-    { id: 'h2', label: 'Heading 2', icon: Heading2, command: 'toggleHeading', params: { level: 2 } },
-    { id: 'bulletList', label: 'Bullet List', icon: List, command: 'toggleBulletList' },
-    { id: 'orderedList', label: 'Ordered List', icon: ListOrdered, command: 'toggleOrderedList' },
-    { id: 'code', label: 'Inline Code', icon: Code, command: 'toggleCode' },
-    { id: 'codeBlock', label: 'Code Block', icon: Type, command: 'toggleCodeBlock' },
-    { id: 'link', label: 'Insert Link', icon: Link2, command: 'insertLink' },
-    { id: 'image', label: 'Insert Image', icon: ImageIcon, command: 'insertImage' },
-    { id: 'file', label: 'Attach File', icon: FileText, command: 'attachFile' },
+    { id: 'bold', label: 'Bold', icon: Bold, command: 'toggleBold', group: 'text' },
+    { id: 'italic', label: 'Italic', icon: Italic, command: 'toggleItalic', group: 'text' },
+    { id: 'underline', label: 'Underline', icon: UnderlineIcon, command: 'toggleUnderline', group: 'text' },
+    { id: 'strike', label: 'Strikethrough', icon: Strikethrough, command: 'toggleStrike', group: 'text' },
+    { id: 'h1', label: 'Heading 1', icon: Heading1, command: 'toggleHeading', params: { level: 1 }, group: 'heading' },
+    { id: 'h2', label: 'Heading 2', icon: Heading2, command: 'toggleHeading', params: { level: 2 }, group: 'heading' },
+    { id: 'bulletList', label: 'Bullet List', icon: List, command: 'toggleBulletList', group: 'list' },
+    { id: 'orderedList', label: 'Ordered List', icon: ListOrdered, command: 'toggleOrderedList', group: 'list' },
+    { id: 'code', label: 'Inline Code', icon: Code, command: 'toggleCode', group: 'code' },
+    { id: 'codeBlock', label: 'Code Block', icon: Type, command: 'toggleCodeBlock', group: 'code' },
+    { id: 'link', label: 'Insert Link', icon: Link2, command: 'insertLink', group: 'insert' },
+    { id: 'image', label: 'Insert Image', icon: ImageIcon, command: 'insertImage', group: 'insert' },
+    { id: 'file', label: 'Attach File', icon: FileText, command: 'attachFile', group: 'insert' },
   ];
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        codeBlock: false,
+        link: false,
+      }),
       Image.configure({ inline: true }),
       CodeBlock,
       Color,
       TextStyle,
       Link.configure({ openOnClick: false }),
+      UnderlineExtension,
     ],
     content: value,
     immediatelyRender: false,
@@ -89,64 +99,227 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
   });
 
   useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuVisibleRef.current && slashMenuRef.current) {
+        if (!slashMenuRef.current.contains(e.target as Node)) {
+          menuVisibleRef.current = false;
+          setShowSlashMenu(false);
+          setMenuVisible(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/' && editor) {
+      if (!editor) return;
+      
+      if (e.key === '/') {
         const selection = editor.state.selection;
         const $from = selection.$from;
         const textBeforeCursor = $from.nodeBefore?.textContent || '';
         const lastSpaceIndex = textBeforeCursor.lastIndexOf(' ');
         const textAfterLastSpace = textBeforeCursor.substring(lastSpaceIndex + 1);
         
-        if (textAfterLastSpace === '/' || textAfterLastSpace === '') {
+        if (textAfterLastSpace === '') {
           e.preventDefault();
           const domSelection = window.getSelection();
           if (domSelection && domSelection.rangeCount > 0) {
             const range = domSelection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            setSlashMenuPosition({ x: rect.left, y: rect.bottom + 8 });
+            let rect = range.getBoundingClientRect();
+            
+            if (rect.width === 0 && rect.height === 0) {
+              const selectionNode = range.commonAncestorContainer;
+              const parentElement = selectionNode.nodeType === Node.TEXT_NODE 
+                ? selectionNode.parentElement 
+                : selectionNode as HTMLElement;
+              
+              if (parentElement) {
+                const parentRect = parentElement.getBoundingClientRect();
+                const editorElement = parentElement.closest('.tiptap-editor');
+                
+                if (editorElement) {
+                  const editorRect = editorElement.getBoundingClientRect();
+                  rect = {
+                    x: editorRect.left + 16,
+                    y: parentRect.top,
+                    width: 0,
+                    height: 20,
+                    top: parentRect.top,
+                    bottom: parentRect.bottom,
+                    left: editorRect.left + 16,
+                    right: editorRect.left + 16,
+                    toJSON: () => ({})
+                  };
+                }
+              }
+            }
+            
+            const menuWidth = 256;
+            const menuHeight = 520;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const safeMargin = 32;
+            
+            let menuX = rect.left;
+            let menuY = rect.bottom;
+            let maxMenuHeight = menuHeight;
+            
+            if (menuX + menuWidth > viewportWidth - safeMargin) {
+              menuX = viewportWidth - menuWidth - safeMargin;
+            }
+            
+            if (menuX < safeMargin) {
+              menuX = safeMargin;
+            }
+            
+            const spaceBelow = viewportHeight - rect.bottom - safeMargin;
+            const spaceAbove = rect.top - safeMargin;
+            
+            let shouldFlip = false;
+            let targetHeight = menuHeight;
+            
+            if (spaceBelow < targetHeight && spaceAbove > spaceBelow) {
+              shouldFlip = true;
+              targetHeight = Math.min(targetHeight, spaceAbove);
+            } else if (spaceBelow < targetHeight) {
+              targetHeight = Math.max(100, spaceBelow);
+            }
+            
+            maxMenuHeight = targetHeight;
+            
+            if (shouldFlip) {
+              menuY = rect.top - maxMenuHeight;
+            }
+            
+            if (menuY < safeMargin) {
+              menuY = safeMargin;
+              maxMenuHeight = Math.max(100, Math.min(maxMenuHeight, viewportHeight - safeMargin * 2));
+            }
+            
+            setSlashMenuPosition({ x: menuX, y: menuY, maxHeight: maxMenuHeight });
+            selectedIndexRef.current = 0;
+            menuVisibleRef.current = true;
+            setSelectedCommandIndex(0);
             setShowSlashMenu(true);
+            setMenuVisible(true);
           }
         }
       }
+      
       if (e.key === 'Escape') {
+        menuVisibleRef.current = false;
         setShowSlashMenu(false);
+        setMenuVisible(false);
+        return;
+      }
+      
+      if (menuVisibleRef.current) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          e.stopPropagation();
+          const nextIndex = selectedIndexRef.current < slashCommands.length - 1 
+            ? selectedIndexRef.current + 1 
+            : 0;
+          selectedIndexRef.current = nextIndex;
+          setSelectedCommandIndex(nextIndex);
+          console.log('Selected command:', slashCommands[nextIndex].label);
+          
+          setTimeout(() => {
+            const menu = slashMenuRef.current;
+            if (menu) {
+              const selectedButton = menu.querySelector(`button[data-command-index="${nextIndex}"]`);
+              if (selectedButton) {
+                selectedButton.scrollIntoView({ block: 'nearest' });
+              }
+            }
+          }, 0);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          e.stopPropagation();
+          const nextIndex = selectedIndexRef.current > 0 
+            ? selectedIndexRef.current - 1 
+            : slashCommands.length - 1;
+          selectedIndexRef.current = nextIndex;
+          setSelectedCommandIndex(nextIndex);
+          console.log('Selected command:', slashCommands[nextIndex].label);
+          
+          setTimeout(() => {
+            const menu = slashMenuRef.current;
+            if (menu) {
+              const selectedButton = menu.querySelector(`button[data-command-index="${nextIndex}"]`);
+              if (selectedButton) {
+                selectedButton.scrollIntoView({ block: 'nearest' });
+              }
+            }
+          }, 0);
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          const cmd = slashCommands[selectedIndexRef.current];
+          console.log('Enter pressed, executing:', cmd?.label);
+          if (cmd) {
+            executeCommand(cmd.command, cmd.params);
+          }
+          menuVisibleRef.current = false;
+          setShowSlashMenu(false);
+          setMenuVisible(false);
+          return;
+        }
       }
     };
 
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.slash-menu') && !target.closest('.tiptap-editor')) {
+        menuVisibleRef.current = false;
         setShowSlashMenu(false);
+        setMenuVisible(false);
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
     document.addEventListener('click', handleClickOutside);
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [editor]);
+  }, [editor, menuVisible]);
 
   const executeCommand = (command: string, params?: any) => {
     if (!editor) return;
+    editor.view.focus();
+    console.log('Executing command:', command, 'with params:', params);
 
     switch (command) {
       case 'toggleBold':
         editor.chain().focus().toggleBold().run();
+        console.log('Bold executed');
         break;
       case 'toggleItalic':
         editor.chain().focus().toggleItalic().run();
+        console.log('Italic executed');
         break;
       case 'toggleUnderline':
         editor.chain().focus().toggleUnderline().run();
+        console.log('Underline executed');
         break;
       case 'toggleStrike':
         editor.chain().focus().toggleStrike().run();
+        console.log('Strike executed');
         break;
       case 'toggleHeading':
-        editor.chain().focus().toggleHeading(params).run();
+        editor.chain().focus().setHeading(params).insertContent(' ').run();
         break;
       case 'toggleBulletList':
         editor.chain().focus().toggleBulletList().run();
@@ -155,10 +328,20 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
         editor.chain().focus().toggleOrderedList().run();
         break;
       case 'toggleCode':
-        editor.chain().focus().toggleCode().run();
+        try {
+          editor.chain().focus().toggleCode().run();
+          console.log('Code executed');
+        } catch (error) {
+          console.error('Error executing code:', error);
+        }
         break;
       case 'toggleCodeBlock':
-        editor.chain().focus().toggleCodeBlock().run();
+        try {
+          editor.chain().focus().toggleCodeBlock().run();
+          console.log('Code block executed');
+        } catch (error) {
+          console.error('Error executing code block:', error);
+        }
         break;
       case 'insertLink':
         setShowLinkModal(true);
@@ -236,6 +419,56 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
           pointer-events: none;
           user-select: none;
         }
+        .tiptap-editor h1 {
+          font-size: 2em;
+          font-weight: bold;
+          margin: 0.5em 0;
+          line-height: 1.2;
+        }
+        .tiptap-editor h2 {
+          font-size: 1.5em;
+          font-weight: bold;
+          margin: 0.5em 0;
+          line-height: 1.2;
+        }
+        .tiptap-editor ul, .tiptap-editor ol {
+          padding-left: 1.5em;
+          margin: 0.5em 0;
+          list-style-type: initial;
+        }
+        .tiptap-editor ul {
+          list-style-type: disc;
+        }
+        .tiptap-editor ol {
+          list-style-type: decimal;
+        }
+        .tiptap-editor li {
+          margin: 0.25em 0;
+        }
+        .tiptap-editor li p {
+          margin: 0;
+          display: inline;
+        }
+        .tiptap-editor code {
+          background-color: #f3f4f6;
+          padding: 0.2em 0.4em;
+          border-radius: 0.25em;
+          font-family: monospace;
+          font-size: 0.9em;
+        }
+        .tiptap-editor pre {
+          background-color: #1f2937;
+          color: #f9fafb;
+          padding: 1em;
+          border-radius: 0.5em;
+          overflow-x: auto;
+          margin: 0.5em 0;
+        }
+        .tiptap-editor pre code {
+          background-color: transparent;
+          padding: 0;
+          color: inherit;
+        }
       `}</style>
       {!value && (
         <div className="editor-placeholder">{placeholder || 'Start writing...'}</div>
@@ -248,23 +481,43 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
 
       {showSlashMenu && (
         <div
-          className="slash-menu fixed bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 w-64"
-          style={{ left: slashMenuPosition.x, top: slashMenuPosition.y }}
+          ref={slashMenuRef}
+          className="slash-menu fixed bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 w-64 overflow-y-auto"
+          style={{ 
+            left: slashMenuPosition.x, 
+            top: slashMenuPosition.y,
+            maxHeight: `${slashMenuPosition.maxHeight || 520}px`
+          }}
         >
-          <p className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Commands</p>
-          {slashCommands.map((cmd) => {
-            const Icon = cmd.icon;
-            return (
-              <button
-                key={cmd.id}
-                onClick={() => executeCommand(cmd.command, cmd.params)}
-                className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors"
-              >
-                <Icon className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-700">{cmd.label}</span>
-              </button>
-            );
-          })}
+          {(() => {
+            let currentGroup = '';
+            let flatIndex = 0;
+            return slashCommands.map((cmd) => {
+              const Icon = cmd.icon;
+              const showDivider = cmd.group !== currentGroup && currentGroup !== '';
+              currentGroup = cmd.group;
+              
+              const isSelected = flatIndex === selectedCommandIndex;
+              const currentIndex = flatIndex;
+              flatIndex++;
+              
+              return (
+                <div key={cmd.id}>
+                  {showDivider && <div className="h-px bg-gray-200 my-1 mx-2" />}
+                  <button
+                    onClick={() => executeCommand(cmd.command, cmd.params)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 transition-colors ${
+                      isSelected ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                    data-command-index={currentIndex}
+                  >
+                    <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
+                    <span className="text-sm">{cmd.label}</span>
+                  </button>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 
@@ -304,7 +557,7 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
             className={`p-1.5 rounded hover:bg-gray-100 transition-colors ${editor.isActive('underline') ? 'bg-gray-100' : ''}`}
             title="Underline"
           >
-            <Underline className="w-4 h-4" />
+            <UnderlineIcon className="w-4 h-4" />
           </button>
           <div className="w-px h-5 bg-gray-200 mx-1" />
           <button

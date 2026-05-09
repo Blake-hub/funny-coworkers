@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import Layout from '@/components/Layout/Layout';
 import RichTextEditor from '@/components/RichTextEditor';
 import { mockProjects, mockUsers } from '@/data/mockData';
@@ -27,6 +28,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 export default function Projects() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChip, setSelectedChip] = useState('all');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -40,7 +42,10 @@ export default function Projects() {
     description: '',
     dueDate: '',
   });
+  const [milestones, setMilestones] = useState<Array<{ id: string; name: string; dueDate: string; description: string }>>([]);
   const [projectDescriptionRows, setProjectDescriptionRows] = useState(3);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const milestoneRef = useRef<HTMLDivElement>(null);
 
   const [enabledColumns, setEnabledColumns] = useState({
     name: true,
@@ -85,6 +90,14 @@ export default function Projects() {
     document.addEventListener('click', closeDropdowns);
     return () => document.removeEventListener('click', closeDropdowns);
   }, []);
+
+  useEffect(() => {
+    if (showMilestoneForm && milestoneRef.current) {
+      setTimeout(() => {
+        milestoneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [showMilestoneForm]);
 
   const chipOptions = [
     { id: 'all', label: 'All projects' },
@@ -450,33 +463,34 @@ export default function Projects() {
               </div>
 
               {/* Dialog Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-                <div className="space-y-2">
-                  {/* Project Name */}
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Project name"
-                      value={newProject.name}
-                      onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                      className="w-full text-base font-semibold border-0 px-0 py-0 focus:ring-0 focus:outline-none"
-                    />
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col">
+                <div className="flex-1 px-6 py-4 space-y-4">
+                  <div className="space-y-2">
+                    {/* Project Name */}
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Project name"
+                        value={newProject.name}
+                        onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                        className="w-full text-base font-semibold border-0 px-0 py-0 focus:ring-0 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Summary */}
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Add a short summary for this project"
+                        value={newProject.summary}
+                        onChange={(e) => setNewProject({ ...newProject, summary: e.target.value })}
+                        className="w-full border-0 px-0 py-0 text-sm focus:ring-0 focus:outline-none"
+                      />
+                    </div>
                   </div>
 
-                  {/* Summary */}
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Add a short summary for this project"
-                      value={newProject.summary}
-                      onChange={(e) => setNewProject({ ...newProject, summary: e.target.value })}
-                      className="w-full border-0 px-0 py-0 text-sm focus:ring-0 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Chips Row */}
-                <div className="flex flex-wrap gap-2 relative z-10">
+                  {/* Chips Row */}
+                  <div className="flex flex-wrap gap-2 relative z-10">
                   {/* Status */}
                   <div className="relative">
                     <button
@@ -689,9 +703,6 @@ export default function Projects() {
                   </div>
                 </div>
 
-                {/* Divider */}
-                <div className="border-t border-gray-200" />
-
                 {/* Description */}
                 <div>
                   <RichTextEditor
@@ -701,108 +712,161 @@ export default function Projects() {
                     className="border-0"
                   />
                 </div>
-
               </div>
-
-              {/* Milestones Bar - Fixed above footer */}
-              <div className="px-6 py-3 border-t border-gray-200">
-                <div className="bg-gray-100 rounded-lg overflow-hidden">
+              
+            {/* Milestone Area - At the bottom */}
+            <div ref={milestoneRef} className="px-6 pb-4">
+              <div className="bg-gray-100 rounded-lg overflow-hidden">
+                {/* Milestone Title */}
+                <div className="flex items-center justify-between px-4 py-2">
+                  <span className="text-sm font-medium text-gray-700">Milestone</span>
                   {!showMilestoneForm && (
-                    <div className="flex items-center justify-between px-4 py-3">
-                      <span className="text-sm text-gray-700">Milestone</span>
-                      <button
-                        onClick={() => {
-                          setShowMilestoneForm(true);
-                          setNewMilestone({ name: '', description: '', dueDate: '' });
-                        }}
-                        className="flex items-center justify-center w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50"
-                      >
-                        <Plus className="w-4 h-4 text-gray-600" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => {
+                        setShowMilestoneForm(true);
+                        setNewMilestone({ name: '', description: '', dueDate: '' });
+                      }}
+                      className="flex items-center justify-center w-6 h-6 bg-white border border-gray-200 rounded hover:bg-gray-50"
+                    >
+                      <Plus className="w-4 h-4 text-gray-600" />
+                    </button>
                   )}
+                </div>
 
-                  {showMilestoneForm && (
-                    <div className="px-4 py-3 space-y-3">
-                      <div className="pt-3">
-                        <span className="text-sm font-semibold text-gray-700">Create milestone</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Milestone name"
-                          value={newMilestone.name}
-                          onChange={(e) => setNewMilestone({ ...newMilestone, name: e.target.value })}
-                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-0 focus:outline-none focus:border-gray-300"
-                        />
-                        <button
-                          className="flex items-center justify-center w-8 h-8 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-                          onClick={() => (document.getElementById('milestone-due-date') as HTMLInputElement)?.showPicker()}
-                        >
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                        </button>
-                        <input
-                          id="milestone-due-date"
-                          type="date"
-                          value={newMilestone.dueDate}
-                          onChange={(e) => setNewMilestone({ ...newMilestone, dueDate: e.target.value })}
-                          className="sr-only"
-                        />
-                      </div>
-
-                      <textarea
-                          placeholder="Description..."
-                          value={newMilestone.description}
-                          onChange={(e) => setNewMilestone({ ...newMilestone, description: e.target.value })}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-0 focus:outline-none focus:border-gray-300 resize-none"
-                          rows={2}
-                        />
-
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setShowMilestoneForm(false);
-                            setNewMilestone({ name: '', description: '', dueDate: '' });
-                          }}
-                          className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowMilestoneForm(false);
-                            setNewMilestone({ name: '', description: '', dueDate: '' });
-                          }}
-                          className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
-                        >
-                          Add milestone
-                        </button>
-                      </div>
+                {/* Milestone List */}
+                <div className="px-4">
+                  {milestones.length > 0 && (
+                    <div className="space-y-0.5">
+                      {milestones.map((milestone) => (
+                        <div key={milestone.id} className="flex items-center justify-between py-1.5">
+                          <span className="text-sm text-gray-800">{milestone.name}</span>
+                          <div className="flex items-center gap-2">
+                            {milestone.dueDate ? (
+                              <span className="text-xs text-gray-500">{milestone.dueDate}</span>
+                            ) : (
+                              <button
+                                onClick={() => (document.getElementById(`milestone-date-${milestone.id}`) as HTMLInputElement)?.showPicker()}
+                                className="p-1 hover:bg-white rounded"
+                              >
+                                <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                              </button>
+                            )}
+                            <input
+                              id={`milestone-date-${milestone.id}`}
+                              type="date"
+                              value={milestone.dueDate}
+                              onChange={(e) => {
+                                setMilestones(prev => prev.map(m => 
+                                  m.id === milestone.id ? { ...m, dueDate: e.target.value } : m
+                                ));
+                              }}
+                              className="sr-only"
+                            />
+                            <button
+                              onClick={() => {
+                                setMilestones(prev => prev.filter(m => m.id !== milestone.id));
+                              }}
+                              className="p-1 hover:bg-white rounded"
+                            >
+                              <X className="w-3.5 h-3.5 text-gray-400" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Dialog Footer */}
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
-                <button
-                  onClick={() => setShowCreateDialog(false)}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateProject}
-                  className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
-                >
-                  Create project
-                </button>
+                {/* Milestone Form */}
+                {showMilestoneForm && (
+                  <div className="px-4 py-3 space-y-3 border-t border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Milestone name"
+                        value={newMilestone.name}
+                        onChange={(e) => setNewMilestone({ ...newMilestone, name: e.target.value })}
+                        className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-0 focus:outline-none focus:border-gray-300"
+                      />
+                      <button
+                        className="flex items-center justify-center w-8 h-8 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                        onClick={() => (document.getElementById('new-milestone-due-date') as HTMLInputElement)?.showPicker()}
+                      >
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                      </button>
+                      <input
+                        id="new-milestone-due-date"
+                        type="date"
+                        value={newMilestone.dueDate}
+                        onChange={(e) => setNewMilestone({ ...newMilestone, dueDate: e.target.value })}
+                        className="sr-only"
+                      />
+                    </div>
+
+                    <textarea
+                      placeholder="Description..."
+                      value={newMilestone.description}
+                      onChange={(e) => setNewMilestone({ ...newMilestone, description: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-0 focus:outline-none focus:border-gray-300 resize-none"
+                      rows={2}
+                    />
+
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setShowMilestoneForm(false);
+                          setNewMilestone({ name: '', description: '', dueDate: '' });
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (!newMilestone.name.trim()) {
+                            addToast('error', 'Please enter a milestone name');
+                            return;
+                          }
+                          const newMilestoneItem = {
+                            id: Date.now().toString(),
+                            name: newMilestone.name,
+                            dueDate: newMilestone.dueDate,
+                            description: newMilestone.description,
+                          };
+                          setMilestones(prev => [...prev, newMilestoneItem]);
+                          setShowMilestoneForm(false);
+                          setNewMilestone({ name: '', description: '', dueDate: '' });
+                        }}
+                        className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+                      >
+                        Add milestone
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        )}
+
+          {/* Dialog Footer */}
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+            <button
+              onClick={() => setShowCreateDialog(false)}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateProject}
+              className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+            >
+              Create project
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
       </div>
     </Layout>
   );
