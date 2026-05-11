@@ -10,46 +10,32 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "projects")
+@Table(name = "milestones")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Project {
+public class Milestone {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "project_id", nullable = false)
+    private Long projectId;
+
     @Column(nullable = false, length = 255)
     private String name;
-
-    @Column(length = 500)
-    private String summary;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private Integer status = 1;
+    @Column(name = "due_date")
+    private LocalDate dueDate;
 
     @Column(nullable = false)
     @Builder.Default
-    private Integer priority = 0;
-
-    @Column(name = "leader_id")
-    private Long leaderId;
-
-    @Column(name = "start_date")
-    private LocalDate startDate;
-
-    @Column(name = "end_date")
-    private LocalDate endDate;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private Integer progress = 0;
+    private Boolean completed = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

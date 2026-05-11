@@ -81,7 +81,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
       if (response.status === 400) {
         throw new Error(errorMessage || 'Invalid input data');
       } else if (response.status === 401) {
-        throw new Error(errorMessage || 'Invalid credentials or token expired');
+        throw new Error(errorMessage || 'Invalid credentials');
       } else if (response.status === 403) {
         throw new Error(errorMessage || 'Access denied: You don\'t have permission to perform this action');
       } else if (response.status === 409) {
@@ -99,6 +99,13 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
     return data;
   } catch (error) {
     console.error('API request failed:', error);
+    if (error instanceof Error) {
+      if (error.message.includes('Failed to fetch') || 
+          error.message.includes('ERR_CONNECTION') || 
+          error.message.includes('ETIMEDOUT')) {
+        throw new Error('Could not connect to server. Please check if the backend server is running.');
+      }
+    }
     throw error;
   }
 }
@@ -203,14 +210,60 @@ export const teamApi = {
   },
 };
 
+export interface MilestoneResponse {
+  id: number;
+  projectId: number;
+  name: string;
+  description: string;
+  dueDate: string | null;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LabelResponse {
+  id: number;
+  name: string;
+  color: string;
+  description: string;
+  createdAt: string;
+}
+
 export interface ProjectResponse {
   id: number;
   name: string;
+  summary: string;
   description: string;
-  startDate: string;
-  endDate: string;
-  status: string;
+  status: number;
+  statusLabel: string;
+  priority: number;
+  priorityLabel: string;
   leaderId: number;
+  leaderName: string;
+  startDate: string | null;
+  endDate: string | null;
+  progress: number;
+  memberCount: number;
+  issueCount: number;
+  openIssues: number;
+  labels: LabelResponse[];
+  milestones: MilestoneResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProjectRequest {
+  name: string;
+  summary: string;
+  description: string;
+  status: number;
+  priority: number;
+  leaderId: number;
+  memberIds?: number[];
+  startDate?: string;
+  endDate?: string;
+  labels?: Array<{ id?: number; name?: string; color?: string }>;
+  milestones?: Array<{ name: string; description?: string; dueDate?: string }>;
 }
 
 export const projectApi = {
@@ -222,14 +275,14 @@ export const projectApi = {
     return fetchApi<ProjectResponse>(`/projects/${id}`);
   },
 
-  createProject: async (projectData: { name: string; description: string; startDate: string; endDate: string; status: string; leaderId: number }): Promise<ProjectResponse> => {
+  createProject: async (projectData: CreateProjectRequest): Promise<ProjectResponse> => {
     return fetchApi<ProjectResponse>('/projects', {
       method: 'POST',
       body: JSON.stringify(projectData),
     });
   },
 
-  updateProject: async (id: number, projectData: { name?: string; description?: string; startDate?: string; endDate?: string; status?: string; leaderId?: number }): Promise<ProjectResponse> => {
+  updateProject: async (id: number, projectData: { name?: string; summary?: string; description?: string; status?: number; priority?: number; leaderId?: number; startDate?: string; endDate?: string; progress?: number }): Promise<ProjectResponse> => {
     return fetchApi<ProjectResponse>(`/projects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(projectData),
@@ -238,6 +291,96 @@ export const projectApi = {
 
   deleteProject: async (id: number): Promise<void> => {
     return fetchApi<void>(`/projects/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  addMember: async (projectId: number, userId: number): Promise<void> => {
+    return fetchApi<void>(`/projects/${projectId}/members?userId=${userId}`, {
+      method: 'POST',
+    });
+  },
+
+  removeMember: async (projectId: number, userId: number): Promise<void> => {
+    return fetchApi<void>(`/projects/${projectId}/members/${userId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+export const milestoneApi = {
+  getMilestones: async (projectId: number): Promise<MilestoneResponse[]> => {
+    return fetchApi<MilestoneResponse[]>(`/projects/${projectId}/milestones`);
+  },
+
+  getMilestoneById: async (projectId: number, milestoneId: number): Promise<MilestoneResponse> => {
+    return fetchApi<MilestoneResponse>(`/projects/${projectId}/milestones/${milestoneId}`);
+  },
+
+  createMilestone: async (projectId: number, milestoneData: { name: string; description?: string; dueDate?: string }): Promise<MilestoneResponse> => {
+    return fetchApi<MilestoneResponse>(`/projects/${projectId}/milestones`, {
+      method: 'POST',
+      body: JSON.stringify(milestoneData),
+    });
+  },
+
+  updateMilestone: async (projectId: number, milestoneId: number, milestoneData: { name: string; description?: string; dueDate?: string }): Promise<MilestoneResponse> => {
+    return fetchApi<MilestoneResponse>(`/projects/${projectId}/milestones/${milestoneId}`, {
+      method: 'PUT',
+      body: JSON.stringify(milestoneData),
+    });
+  },
+
+  deleteMilestone: async (projectId: number, milestoneId: number): Promise<void> => {
+    return fetchApi<void>(`/projects/${projectId}/milestones/${milestoneId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  completeMilestone: async (projectId: number, milestoneId: number): Promise<MilestoneResponse> => {
+    return fetchApi<MilestoneResponse>(`/projects/${projectId}/milestones/${milestoneId}/complete`, {
+      method: 'PUT',
+    });
+  },
+};
+
+export const labelApi = {
+  getAllLabels: async (): Promise<LabelResponse[]> => {
+    return fetchApi<LabelResponse[]>('/labels');
+  },
+
+  getLabelById: async (id: number): Promise<LabelResponse> => {
+    return fetchApi<LabelResponse>(`/labels/${id}`);
+  },
+
+  createLabel: async (labelData: { name: string; color?: string; description?: string }): Promise<LabelResponse> => {
+    return fetchApi<LabelResponse>('/labels', {
+      method: 'POST',
+      body: JSON.stringify(labelData),
+    });
+  },
+
+  updateLabel: async (id: number, labelData: { name: string; color?: string; description?: string }): Promise<LabelResponse> => {
+    return fetchApi<LabelResponse>(`/labels/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(labelData),
+    });
+  },
+
+  deleteLabel: async (id: number): Promise<void> => {
+    return fetchApi<void>(`/labels/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  assignLabelToProject: async (projectId: number, labelId: number): Promise<void> => {
+    return fetchApi<void>(`/labels/${labelId}/projects/${projectId}`, {
+      method: 'POST',
+    });
+  },
+
+  removeLabelFromProject: async (projectId: number, labelId: number): Promise<void> => {
+    return fetchApi<void>(`/labels/${labelId}/projects/${projectId}`, {
       method: 'DELETE',
     });
   },

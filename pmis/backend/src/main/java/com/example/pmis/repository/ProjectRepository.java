@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByLeaderId(Long leaderId);
-    List<Project> findByStatus(String status);
+    List<Project> findByStatus(Integer status);
+    List<Project> findByPriority(Integer priority);
 }

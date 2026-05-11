@@ -1,6 +1,8 @@
 package com.example.pmis.controller;
 
+import com.example.pmis.dto.CreateProjectRequest;
 import com.example.pmis.dto.ProjectDTO;
+import com.example.pmis.dto.UpdateProjectRequest;
 import com.example.pmis.service.ProjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -40,20 +42,34 @@ public class ProjectController {
 
     @PostMapping
     @Operation(summary = "Create a new project")
-    public ResponseEntity<ProjectDTO> createProject(@Valid @RequestBody ProjectDTO projectDTO) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(projectService.createProject(projectDTO));
+    public ResponseEntity<ProjectDTO> createProject(@Valid @RequestBody CreateProjectRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(projectService.createProject(request));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a project")
-    public ResponseEntity<ProjectDTO> updateProject(@PathVariable Long id, @Valid @RequestBody ProjectDTO projectDTO) {
-        return ResponseEntity.ok(projectService.updateProject(id, projectDTO));
+    public ResponseEntity<ProjectDTO> updateProject(@PathVariable Long id, @Valid @RequestBody UpdateProjectRequest request) {
+        return ResponseEntity.ok(projectService.updateProject(id, request));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a project")
     public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
         projectService.deleteProject(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/members")
+    @Operation(summary = "Add member to project")
+    public ResponseEntity<Void> addMember(@PathVariable Long id, @RequestParam Long userId) {
+        projectService.addMember(id, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}/members/{userId}")
+    @Operation(summary = "Remove member from project")
+    public ResponseEntity<Void> removeMember(@PathVariable Long id, @PathVariable Long userId) {
+        projectService.removeMember(id, userId);
         return ResponseEntity.noContent().build();
     }
 }

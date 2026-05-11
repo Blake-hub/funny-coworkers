@@ -4,7 +4,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import Layout from '@/components/Layout/Layout';
 import RichTextEditor from '@/components/RichTextEditor';
-import { mockProjects, mockUsers } from '@/data/mockData';
+import { mockUsers } from '@/data/mockData';
+import { projectApi, milestoneApi, userApi, type ProjectResponse, type UserResponse } from '@/services/api';
 import { Plus, Filter, ChevronDown, Settings, Check, X, Calendar, User, Users, Tag, Inbox, Clock, Play, AlertCircle, Minus, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
@@ -44,6 +45,9 @@ export default function Projects() {
   });
   const [milestones, setMilestones] = useState<Array<{ id: string; name: string; dueDate: string; description: string }>>([]);
   const [projectDescriptionRows, setProjectDescriptionRows] = useState(3);
+  const [projects, setProjects] = useState<ProjectResponse[]>([]);
+  const [users, setUsers] = useState<UserResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const milestoneRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +84,11 @@ export default function Projects() {
   }, [isAuthenticated, router]);
 
   useEffect(() => {
+    fetchProjects();
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
     const closeDropdowns = () => {
       setShowStatusDropdown(false);
       setShowPriorityDropdown(false);
@@ -99,6 +108,30 @@ export default function Projects() {
     }
   }, [showMilestoneForm]);
 
+  const fetchProjects = async () => {
+    try {
+      const data = await projectApi.getAllProjects();
+      setProjects(data);
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
+      if (error instanceof Error) {
+        addToast('error', error.message);
+      }
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const data = await userApi.getAllUsers();
+      setUsers(data);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      if (error instanceof Error) {
+        addToast('error', error.message);
+      }
+    }
+  };
+
   const chipOptions = [
     { id: 'all', label: 'All projects' },
     { id: 'milestone', label: 'Has milestone' },
@@ -112,10 +145,7 @@ export default function Projects() {
     { id: 'paused', label: 'Paused' },
   ];
 
-  const creatorOptions = [
-    { id: '1', label: 'John Doe' },
-    { id: '2', label: 'Sarah Smith' },
-  ];
+  const creatorOptions = users.map(user => ({ id: user.id.toString(), label: user.name }));
 
   const columnOptions = [
     { id: 'name', label: 'Name' },
@@ -141,14 +171,14 @@ export default function Projects() {
     { id: 'low', label: 'Low', value: 4, icon: ArrowDown },
   ];
 
-  const filteredProjects = mockProjects.filter(project => {
+  const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesChip = selectedChip === 'all' || 
-      (selectedChip === 'milestone' && project.progress > 0) ||
-      (selectedChip === 'no-milestone' && project.progress === 0) ||
-      (selectedChip === 'archived' && project.progress === 100);
-    const matchesStatus = !selectedStatus || (selectedStatus === 'completed' ? project.progress === 100 : project.progress < 100);
-    const matchesCreator = !selectedCreator || project.leaderId === selectedCreator;
+      (selectedChip === 'milestone' && project.milestones.length > 0) ||
+      (selectedChip === 'no-milestone' && project.milestones.length === 0) ||
+      (selectedChip === 'archived' && project.status === 4);
+    const matchesStatus = !selectedStatus || (selectedStatus === 'completed' ? project.status === 4 : project.status !== 4);
+    const matchesCreator = !selectedCreator || project.leaderId.toString() === selectedCreator;
     return matchesSearch && matchesChip && matchesStatus && matchesCreator;
   });
 
@@ -168,21 +198,91 @@ export default function Projects() {
     }));
   };
 
-  const handleCreateProject = () => {
-    // Create new project logic here
-    setShowCreateDialog(false);
-    setNewProject({
-      name: '',
-      summary: '',
-      description: '',
-      status: 'backlog',
-      priority: 'no_priority',
-      leaderId: '1',
-      memberIds: [],
-      startDate: '',
-      endDate: '',
-      labels: [],
-    });
+  const handleCreateProject = async () => {
+    if (!newProject.name.trim()) {
+      addToast('error', 'Please enter a project name');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const statusOption = projectStatusOptions.find(s => s.id === newProject.status);
+      const priorityOption = projectPriorityOptions.find(p => p.id === newProject.priority);
+
+      const milestoneData = milestones.map(m => ({
+        name: m.name,
+        description: m.description,
+        dueDate: m.dueDate || undefined,
+      }));
+
+      const projectData = {
+        name: newProject.name,
+        summary: newProject.summary,
+        description: newProject.description,
+        status: statusOption?.value || 1,
+        priority: priorityOption?.value || 0,
+        leaderId: parseInt(newProject.leaderId),
+        memberIds: newProject.memberIds.map(id => parseInt(id)),
+        startDate: newProject.startDate || undefined,
+        endDate: newProject.endDate || undefined,
+        milestones: milestoneData.length > 0 ? milestoneData : undefined,
+      };
+
+      await projectApi.createProject(projectData);
+      addToast('success', 'Project created successfully');
+      
+      setShowCreateDialog(false);
+      setNewProject({
+        name: '',
+        summary: '',
+        description: '',
+        status: 'backlog',
+        priority: 'no_priority',
+        leaderId: '1',
+        memberIds: [],
+        startDate: '',
+        endDate: '',
+        labels: [],
+      });
+      setMilestones([]);
+      fetchProjects();
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      if (error instanceof Error) {
+        addToast('error', error.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteMilestone = (milestoneId: string) => {
+    setMilestones(prev => prev.filter(m => m.id !== milestoneId));
+  };
+
+  const handleAddMilestone = () => {
+    if (!newMilestone.name.trim()) {
+      addToast('error', 'Please enter a milestone name');
+      return;
+    }
+    const newMilestoneItem = {
+      id: Date.now().toString(),
+      name: newMilestone.name,
+      dueDate: newMilestone.dueDate,
+      description: newMilestone.description,
+    };
+    setMilestones(prev => [...prev, newMilestoneItem]);
+    setShowMilestoneForm(false);
+    setNewMilestone({ name: '', description: '', dueDate: '' });
+  };
+
+  const getStatusIcon = (status: number) => {
+    const option = projectStatusOptions.find(s => s.value === status);
+    if (option) {
+      const Icon = option.icon;
+      return <Icon className="w-3 h-3" />;
+    }
+    return null;
   };
 
   return (
@@ -414,7 +514,7 @@ export default function Projects() {
                     )}
                     {enabledColumns.description && (
                       <td className="px-3 py-2">
-                        <span className="text-sm text-gray-500">{project.description}</span>
+                        <span className="text-sm text-gray-500">{project.summary || project.description || 'No description'}</span>
                       </td>
                     )}
                     {enabledColumns.progress && (
@@ -444,6 +544,11 @@ export default function Projects() {
                 ))}
               </tbody>
             </table>
+            {filteredProjects.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No projects found
+              </div>
+            )}
           </div>
         </div>
 
@@ -606,20 +711,20 @@ export default function Projects() {
                       className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs hover:bg-gray-200"
                     >
                       <User className="w-3 h-3" />
-                      Leader
+                      {users.find(u => u.id.toString() === newProject.leaderId)?.name || 'Leader'}
                       <ChevronDown className="w-3 h-3" />
                     </button>
                     {showLeaderDropdown && (
                       <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                        {mockUsers.map((user) => (
+                        {users.map((user) => (
                           <button
                             key={user.id}
                             onClick={() => {
-                              setNewProject({ ...newProject, leaderId: user.id });
+                              setNewProject({ ...newProject, leaderId: user.id.toString() });
                               setShowLeaderDropdown(false);
                             }}
                             className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 ${
-                              newProject.leaderId === user.id ? 'bg-gray-100' : ''
+                              newProject.leaderId === user.id.toString() ? 'bg-gray-100' : ''
                             }`}
                           >
                             {user.name}
@@ -642,17 +747,17 @@ export default function Projects() {
                       className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs hover:bg-gray-200"
                     >
                       <Users className="w-3 h-3" />
-                      Members
+                      Members ({newProject.memberIds.length})
                       <ChevronDown className="w-3 h-3" />
                     </button>
                     {showMembersDropdown && (
                       <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                        {mockUsers.map((user) => (
+                        {users.map((user) => (
                           <label key={user.id} className="flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-gray-100">
                             <input
                               type="checkbox"
-                              checked={newProject.memberIds.includes(user.id)}
-                              onChange={() => toggleMember(user.id)}
+                              checked={newProject.memberIds.includes(user.id.toString())}
+                              onChange={() => toggleMember(user.id.toString())}
                               className="w-4 h-4"
                             />
                             <span className="text-xs">{user.name}</span>
@@ -763,9 +868,7 @@ export default function Projects() {
                               className="sr-only"
                             />
                             <button
-                              onClick={() => {
-                                setMilestones(prev => prev.filter(m => m.id !== milestone.id));
-                              }}
+                              onClick={() => handleDeleteMilestone(milestone.id)}
                               className="p-1 hover:bg-white rounded"
                             >
                               <X className="w-3.5 h-3.5 text-gray-400" />
@@ -823,21 +926,7 @@ export default function Projects() {
                         Cancel
                       </button>
                       <button
-                        onClick={() => {
-                          if (!newMilestone.name.trim()) {
-                            addToast('error', 'Please enter a milestone name');
-                            return;
-                          }
-                          const newMilestoneItem = {
-                            id: Date.now().toString(),
-                            name: newMilestone.name,
-                            dueDate: newMilestone.dueDate,
-                            description: newMilestone.description,
-                          };
-                          setMilestones(prev => [...prev, newMilestoneItem]);
-                          setShowMilestoneForm(false);
-                          setNewMilestone({ name: '', description: '', dueDate: '' });
-                        }}
+                        onClick={handleAddMilestone}
                         className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
                       >
                         Add milestone
@@ -859,9 +948,10 @@ export default function Projects() {
             </button>
             <button
               onClick={handleCreateProject}
-              className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+              disabled={isLoading}
+              className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create project
+              {isLoading ? 'Creating...' : 'Create project'}
             </button>
           </div>
         </div>
