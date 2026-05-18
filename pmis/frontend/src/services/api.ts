@@ -26,7 +26,48 @@ interface AuthResponse {
   token: TokenResponse;
 }
 
-export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, token?: string): Promise<T> {
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshToken(): Promise<string | null> {
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  isRefreshing = true;
+  refreshPromise = new Promise(async (resolve) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newToken = data.token?.token;
+        if (newToken) {
+          localStorage.setItem('pmis-token', newToken);
+          setCookie('pmis-token', newToken);
+          resolve(newToken);
+        } else {
+          resolve(null);
+        }
+      } else {
+        resolve(null);
+      }
+    } catch (error) {
+      console.error('Failed to refresh token:', error);
+      resolve(null);
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  });
+
+  return refreshPromise;
+}
+
+export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, token?: string, retryCount: number = 0): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
   const defaultHeaders: Record<string, string> = {};
@@ -41,6 +82,8 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
     const authToken = getAuthToken();
     if (authToken) {
       defaultHeaders['Authorization'] = `Bearer ${authToken}`;
+    } else {
+      console.warn('No auth token found in cookies or localStorage');
     }
   }
 
@@ -63,6 +106,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
   const config: RequestInit = {
     ...options,
     headers,
+    credentials: 'include',
   };
 
   try {
@@ -81,6 +125,12 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
       if (response.status === 400) {
         throw new Error(errorMessage || 'Invalid input data');
       } else if (response.status === 401) {
+        if (retryCount < 1) {
+          const newToken = await refreshToken();
+          if (newToken) {
+            return fetchApi<T>(endpoint, options, newToken, retryCount + 1);
+          }
+        }
         throw new Error(errorMessage || 'Invalid credentials');
       } else if (response.status === 403) {
         throw new Error(errorMessage || 'Access denied: You don\'t have permission to perform this action');
@@ -116,6 +166,15 @@ function getAuthToken(): string | null {
   }
 
   return getCookie('pmis-token') || localStorage.getItem('pmis-token');
+}
+
+function setCookie(name: string, value: string, days: number = 1) {
+  if (typeof window === 'undefined') return;
+
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = `expires=${date.toUTCString()}`;
+  document.cookie = `${name}=${value};${expires};path=/;SameSite=Strict`;
 }
 
 function getCookie(name: string): string | null {
@@ -304,6 +363,25 @@ export const projectApi = {
   removeMember: async (projectId: number, userId: number): Promise<void> => {
     return fetchApi<void>(`/projects/${projectId}/members/${userId}`, {
       method: 'DELETE',
+    });
+  },
+
+  assignLabel: async (projectId: number, labelId: number): Promise<void> => {
+    return fetchApi<void>(`/projects/${projectId}/labels/${labelId}`, {
+      method: 'POST',
+    });
+  },
+
+  removeLabel: async (projectId: number, labelId: number): Promise<void> => {
+    return fetchApi<void>(`/projects/${projectId}/labels/${labelId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  updateLabels: async (projectId: number, labelIds: number[]): Promise<void> => {
+    return fetchApi<void>(`/projects/${projectId}/labels`, {
+      method: 'PUT',
+      body: JSON.stringify({ labelIds }),
     });
   },
 };

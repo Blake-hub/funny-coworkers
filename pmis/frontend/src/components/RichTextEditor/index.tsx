@@ -5,9 +5,10 @@ interface RichTextEditorProps {
   onChange: (content: string) => void;
   placeholder?: string;
   className?: string;
+  onBlur?: () => void;
 }
 
-function RichTextEditorClient({ value, onChange, placeholder, className }: RichTextEditorProps) {
+function RichTextEditorClient({ value, onChange, placeholder, className, onBlur }: RichTextEditorProps) {
   const { useEditor, EditorContent } = require('@tiptap/react');
   const StarterKit = require('@tiptap/starter-kit').default;
   const Image = require('@tiptap/extension-image').default;
@@ -39,6 +40,7 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
   const [menuVisible, setMenuVisible] = useState(false);
   const selectedIndexRef = useRef(0);
   const menuVisibleRef = useRef(false);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [floatingToolbarPosition, setFloatingToolbarPosition] = useState({ x: 0, y: 0 });
@@ -97,6 +99,32 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
       }
     },
   });
+
+  useEffect(() => {
+    if (!editor || !onBlur) return;
+
+    const handleBlur = () => {
+      onBlur();
+    };
+
+    editor.on('blur', handleBlur);
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const editorElement = editor.view.dom;
+      
+      if (editorElement && !editorElement.contains(target)) {
+        onBlur();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      editor.off('blur', handleBlur);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [editor, onBlur]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -631,7 +659,7 @@ function RichTextEditorClient({ value, onChange, placeholder, className }: RichT
   );
 }
 
-export default function RichTextEditor({ value, onChange, placeholder = 'Start writing...', className = '' }: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange, placeholder = 'Start writing...', className = '', onBlur }: RichTextEditorProps) {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -642,5 +670,5 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Start w
     return null;
   }
 
-  return <RichTextEditorClient value={value} onChange={onChange} placeholder={placeholder} className={className} />;
+  return <RichTextEditorClient value={value} onChange={onChange} placeholder={placeholder} className={className} onBlur={onBlur} />;
 }

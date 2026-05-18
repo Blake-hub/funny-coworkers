@@ -3,6 +3,7 @@ package com.example.pmis.controller;
 import com.example.pmis.dto.CreateProjectRequest;
 import com.example.pmis.dto.ProjectDTO;
 import com.example.pmis.dto.UpdateProjectRequest;
+import com.example.pmis.service.LabelService;
 import com.example.pmis.service.ProjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -71,5 +72,27 @@ public class ProjectController {
     public ResponseEntity<Void> removeMember(@PathVariable Long id, @PathVariable Long userId) {
         projectService.removeMember(id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/labels/{labelId}")
+    @Operation(summary = "Assign label to project")
+    public ResponseEntity<Void> assignLabel(@PathVariable Long id, @PathVariable Long labelId) {
+        projectService.assignLabel(id, labelId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}/labels/{labelId}")
+    @Operation(summary = "Remove label from project")
+    public ResponseEntity<Void> removeLabel(@PathVariable Long id, @PathVariable Long labelId) {
+        projectService.removeLabel(id, labelId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/labels")
+    @Operation(summary = "Update project labels")
+    public ResponseEntity<Void> updateLabels(@PathVariable Long id, @RequestBody java.util.Map<String, List<Long>> request) {
+        List<Long> labelIds = request.get("labelIds");
+        projectService.updateLabels(id, labelIds);
+        return ResponseEntity.ok().build();
     }
 }

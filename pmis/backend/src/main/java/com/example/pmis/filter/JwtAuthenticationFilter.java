@@ -3,6 +3,7 @@ package com.example.pmis.filter;
 import com.example.pmis.entity.User;
 import com.example.pmis.repository.UserRepository;
 import com.example.pmis.util.JwtUtil;
+import io.jsonwebtoken.ExpiredJwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,24 +40,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String extractedEmail = null;
         String jwtToken = null;
 
+        logger.info("Processing request: {} {}", request.getMethod(), request.getRequestURI());
+        logger.info("Authorization header present: {}", authorizationHeader != null);
+        
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             jwtToken = authorizationHeader.substring(7);
+            logger.info("Token extracted: {} characters", jwtToken != null ? jwtToken.length() : 0);
             try {
                 extractedEmail = jwtUtil.getEmailFromToken(jwtToken);
-                logger.debug("Extracted email from token: {}", extractedEmail);
+                logger.info("Extracted email from token: {}", extractedEmail);
 
                 if (!jwtUtil.validateToken(jwtToken)) {
-                    logger.debug("Token validation failed");
+                    logger.warn("Token validation failed for request: {} {}", request.getMethod(), request.getRequestURI());
                     SecurityContextHolder.clearContext();
                     extractedEmail = null;
                 }
+            } catch (ExpiredJwtException e) {
+                logger.warn("Token expired: {}", e.getMessage());
+                SecurityContextHolder.clearContext();
+                extractedEmail = null;
             } catch (Exception e) {
-                logger.debug("Invalid token: {}", e.getMessage());
+                logger.warn("Token processing error: {}", e.getMessage());
                 SecurityContextHolder.clearContext();
                 extractedEmail = null;
             }
         } else {
-            logger.debug("No Authorization header provided");
+            logger.warn("No Authorization header provided for: {} {}", request.getMethod(), request.getRequestURI());
             SecurityContextHolder.clearContext();
         }
 
@@ -68,7 +77,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         user, null, Collections.singletonList(authority));
                 authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-                logger.debug("Set authentication for: {}", finalEmail);
+                logger.info("Successfully authenticated user: {}", finalEmail);
             });
         }
 

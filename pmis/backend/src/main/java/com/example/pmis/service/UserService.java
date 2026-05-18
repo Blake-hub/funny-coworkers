@@ -132,6 +132,33 @@ public class UserService {
         return response;
     }
 
+    @Transactional(readOnly = true)
+    public Map<String, Object> refreshToken(String token) {
+        try {
+            String email = jwtUtil.getEmailFromToken(token);
+            if (email == null) {
+                throw new RuntimeException("Invalid token");
+            }
+            
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            String newToken = jwtUtil.generateToken(user.getEmail());
+            TokenResponse tokenResponse = TokenResponse.builder()
+                    .token(newToken)
+                    .tokenType("Bearer")
+                    .expiresIn(expirationMs)
+                    .build();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", tokenResponse);
+            
+            return response;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to refresh token: " + e.getMessage());
+        }
+    }
+
     private UserDTO convertToDTO(User user) {
         return UserDTO.builder()
                 .id(user.getId())

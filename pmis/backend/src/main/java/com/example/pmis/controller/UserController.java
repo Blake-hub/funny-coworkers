@@ -74,4 +74,14 @@ public class UserController {
         userService.changePassword(id, currentPassword, newPassword);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Refresh JWT token")
+    public ResponseEntity<Map<String, Object>> refresh(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        if (token == null || token.isEmpty()) {
+            throw new RuntimeException("Token is required");
+        }
+        return ResponseEntity.ok(userService.refreshToken(token));
+    }
 }

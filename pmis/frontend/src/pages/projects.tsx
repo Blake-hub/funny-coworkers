@@ -506,7 +506,11 @@ export default function Projects() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredProjects.map((project) => (
-                  <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+                  <tr 
+                    key={project.id} 
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                  >
                     {enabledColumns.name && (
                       <td className="px-3 py-2">
                         <span className="text-sm font-medium text-gray-800">{project.name}</span>

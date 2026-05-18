@@ -197,6 +197,46 @@ public class ProjectService {
         projectMemberRepository.delete(member);
     }
 
+    @Transactional
+    public void assignLabel(Long projectId, Long labelId) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new RuntimeException("Project not found with id: " + projectId);
+        }
+        if (!labelDefinitionRepository.existsById(labelId)) {
+            throw new RuntimeException("Label not found with id: " + labelId);
+        }
+        if (projectLabelAssignmentRepository.existsByProjectIdAndLabelId(projectId, labelId)) {
+            throw new RuntimeException("Label is already assigned to this project");
+        }
+        ProjectLabelAssignment assignment = ProjectLabelAssignment.builder()
+                .projectId(projectId)
+                .labelId(labelId)
+                .build();
+        projectLabelAssignmentRepository.save(assignment);
+    }
+
+    @Transactional
+    public void removeLabel(Long projectId, Long labelId) {
+        ProjectLabelAssignment assignment = projectLabelAssignmentRepository
+                .findByProjectIdAndLabelId(projectId, labelId)
+                .orElseThrow(() -> new RuntimeException("Label assignment not found"));
+        projectLabelAssignmentRepository.delete(assignment);
+    }
+
+    @Transactional
+    public void updateLabels(Long projectId, List<Long> labelIds) {
+        projectLabelAssignmentRepository.deleteByProjectId(projectId);
+        if (labelIds != null) {
+            for (Long labelId : labelIds) {
+                ProjectLabelAssignment assignment = ProjectLabelAssignment.builder()
+                        .projectId(projectId)
+                        .labelId(labelId)
+                        .build();
+                projectLabelAssignmentRepository.save(assignment);
+            }
+        }
+    }
+
     private ProjectDTO convertToDTO(Project project) {
         String leaderName = userRepository.findById(project.getLeaderId())
                 .map(User::getName)
