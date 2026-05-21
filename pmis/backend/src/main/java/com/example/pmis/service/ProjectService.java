@@ -271,7 +271,7 @@ public class ProjectService {
 
         long memberCount = projectMemberRepository.countByProjectId(project.getId());
         long issueCount = issueRepository.countByProjectId(project.getId());
-        long openIssues = issueRepository.countByProjectIdAndStatusNot(project.getId(), "closed");
+        long openIssues = issueRepository.countByProjectIdAndStatusIdNot(project.getId(), 4);
 
         return ProjectDTO.builder()
                 .id(project.getId())

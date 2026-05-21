@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8088/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 interface LoginData {
   email: string;
@@ -150,8 +150,8 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
   } catch (error) {
     console.error('API request failed:', error);
     if (error instanceof Error) {
-      if (error.message.includes('Failed to fetch') || 
-          error.message.includes('ERR_CONNECTION') || 
+      if (error.message.includes('Failed to fetch') ||
+          error.message.includes('ERR_CONNECTION') ||
           error.message.includes('ETIMEDOUT')) {
         throw new Error('Could not connect to server. Please check if the backend server is running.');
       }
@@ -466,39 +466,64 @@ export const labelApi = {
 
 export interface IssueResponse {
   id: number;
-  type: string;
+  projectId: number | null;
   title: string;
-  description: string;
-  status: string;
-  priority: string;
-  dueDate: string;
-  assigneeId: number;
-  projectId: number;
-  parentId: number | null;
-  rootId: number;
-  labels: string[];
-  storyPoints: number | null;
-  severity: string | null;
-  acceptanceCriteria: string | null;
+  description: string | null;
+  statusId: number;
+  sortOrder: number;
+  assigneeId: number | null;
+  assigneeName: string | null;
+  reporterId: number | null;
+  reporterName: string | null;
+  priorityId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IssueStatusResponse {
+  id: number;
+  name: string;
+  color: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface CreateIssueRequest {
+  projectId?: number;
+  title: string;
+  description?: string;
+  statusId?: number;
+  assigneeId?: number;
+  reporterId?: number;
+  priorityId?: number;
+}
+
+export interface UpdateIssueRequest {
+  title?: string;
+  description?: string;
+  statusId?: number;
+  assigneeId?: number;
+  priorityId?: number;
 }
 
 export const issueApi = {
-  getAllIssues: async (): Promise<IssueResponse[]> => {
-    return fetchApi<IssueResponse[]>('/issues');
+  getAllIssues: async (projectId?: number): Promise<IssueResponse[]> => {
+    const endpoint = projectId ? `/issues?projectId=${projectId}` : '/issues';
+    return fetchApi<IssueResponse[]>(endpoint);
   },
 
   getIssueById: async (id: number): Promise<IssueResponse> => {
     return fetchApi<IssueResponse>(`/issues/${id}`);
   },
 
-  createIssue: async (issueData: { type: string; title: string; description: string; status: string; priority: string; dueDate: string; assigneeId: number; projectId: number; parentId?: number; rootId: number; labels: string[]; storyPoints?: number; severity?: string; acceptanceCriteria?: string }): Promise<IssueResponse> => {
+  createIssue: async (issueData: CreateIssueRequest): Promise<IssueResponse> => {
     return fetchApi<IssueResponse>('/issues', {
       method: 'POST',
       body: JSON.stringify(issueData),
     });
   },
 
-  updateIssue: async (id: number, issueData: { type?: string; title?: string; description?: string; status?: string; priority?: string; dueDate?: string; assigneeId?: number; projectId?: number; parentId?: number; rootId?: number; labels?: string[]; storyPoints?: number; severity?: string; acceptanceCriteria?: string }): Promise<IssueResponse> => {
+  updateIssue: async (id: number, issueData: UpdateIssueRequest): Promise<IssueResponse> => {
     return fetchApi<IssueResponse>(`/issues/${id}`, {
       method: 'PUT',
       body: JSON.stringify(issueData),
@@ -508,6 +533,61 @@ export const issueApi = {
   deleteIssue: async (id: number): Promise<void> => {
     return fetchApi<void>(`/issues/${id}`, {
       method: 'DELETE',
+    });
+  },
+
+  updateIssueStatus: async (id: number, statusId: number, sortOrder?: number): Promise<IssueResponse> => {
+    const requestBody: { statusId: number; sortOrder?: number } = { statusId };
+    if (sortOrder !== undefined) {
+      requestBody.sortOrder = sortOrder;
+    }
+    return fetchApi<IssueResponse>(`/issues/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
+  },
+
+  updateIssueSortOrder: async (id: number, sortOrder: number): Promise<IssueResponse> => {
+    return fetchApi<IssueResponse>(`/issues/${id}/order`, {
+      method: 'PUT',
+      body: JSON.stringify({ sortOrder }),
+    });
+  },
+};
+
+export const issueStatusApi = {
+  getAllStatuses: async (): Promise<IssueStatusResponse[]> => {
+    return fetchApi<IssueStatusResponse[]>('/issue-statuses');
+  },
+
+  getActiveStatuses: async (): Promise<IssueStatusResponse[]> => {
+    return fetchApi<IssueStatusResponse[]>('/issue-statuses/active');
+  },
+
+  createStatus: async (statusData: { name: string; color?: string; displayOrder?: number; isActive?: boolean }): Promise<IssueStatusResponse> => {
+    return fetchApi<IssueStatusResponse>('/issue-statuses', {
+      method: 'POST',
+      body: JSON.stringify(statusData),
+    });
+  },
+
+  updateStatus: async (id: number, statusData: { name?: string; color?: string; displayOrder?: number; isActive?: boolean }): Promise<IssueStatusResponse> => {
+    return fetchApi<IssueStatusResponse>(`/issue-statuses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(statusData),
+    });
+  },
+
+  deleteStatus: async (id: number): Promise<void> => {
+    return fetchApi<void>(`/issue-statuses/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  reorderStatuses: async (statusIds: number[]): Promise<void> => {
+    return fetchApi<void>('/issue-statuses/order', {
+      method: 'PUT',
+      body: JSON.stringify({ statusIds }),
     });
   },
 };

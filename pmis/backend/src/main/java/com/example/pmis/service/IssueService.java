@@ -1,8 +1,14 @@
 package com.example.pmis.service;
 
+import com.example.pmis.dto.CreateIssueDTO;
 import com.example.pmis.dto.IssueDTO;
+import com.example.pmis.dto.UpdateIssueDTO;
 import com.example.pmis.entity.Issue;
+import com.example.pmis.entity.Project;
+import com.example.pmis.entity.User;
 import com.example.pmis.repository.IssueRepository;
+import com.example.pmis.repository.ProjectRepository;
+import com.example.pmis.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,64 +21,88 @@ import java.util.stream.Collectors;
 public class IssueService {
 
     private final IssueRepository issueRepository;
-
-    @Transactional(readOnly = true)
-    public List<IssueDTO> getAllIssues() {
-        return issueRepository.findAll().stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public IssueDTO getIssueById(Long id) {
-        return issueRepository.findById(id)
-                .map(this::convertToDTO)
-                .orElseThrow(() -> new RuntimeException("Issue not found with id: " + id));
-    }
-
-    @Transactional(readOnly = true)
-    public List<IssueDTO> getIssuesByAssignee(Long assigneeId) {
-        return issueRepository.findByAssigneeId(assigneeId).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
+    private final ProjectRepository projectRepository;
+    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public List<IssueDTO> getIssuesByProject(Long projectId) {
-        return issueRepository.findByProjectId(projectId).stream()
+        List<Issue> issues;
+        if (projectId != null) {
+            issues = issueRepository.findByProjectIdOrderByStatusIdAscSortOrderAsc(projectId);
+        } else {
+            issues = issueRepository.findAll();
+        }
+        return issues.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
-    @Transactional
-    public IssueDTO createIssue(IssueDTO issueDTO) {
-        Issue issue = convertToEntity(issueDTO);
-        Issue savedIssue = issueRepository.save(issue);
-        return convertToDTO(savedIssue);
+    @Transactional(readOnly = true)
+    public IssueDTO getIssue(Long id) {
+        Issue issue = issueRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Issue not found with id: " + id));
+        return convertToDTO(issue);
     }
 
     @Transactional
-    public IssueDTO updateIssue(Long id, IssueDTO issueDTO) {
-        Issue existingIssue = issueRepository.findById(id)
+    public IssueDTO createIssue(CreateIssueDTO dto) {
+        Issue issue = Issue.builder()
+                .title(dto.getTitle())
+                .description(dto.getDescription())
+                .statusId(dto.getStatusId() != null ? dto.getStatusId() : 1)
+                .priorityId(dto.getPriorityId())
+                .build();
+
+        if (dto.getProjectId() != null) {
+            Project project = projectRepository.findById(dto.getProjectId())
+                    .orElseThrow(() -> new RuntimeException("Project not found with id: " + dto.getProjectId()));
+            issue.setProject(project);
+        }
+
+        if (dto.getAssigneeId() != null) {
+            User assignee = userRepository.findById(dto.getAssigneeId())
+                    .orElseThrow(() -> new RuntimeException("User not found with id: " + dto.getAssigneeId()));
+            issue.setAssignee(assignee);
+        }
+
+        if (dto.getReporterId() != null) {
+            User reporter = userRepository.findById(dto.getReporterId())
+                    .orElseThrow(() -> new RuntimeException("User not found with id: " + dto.getReporterId()));
+            issue.setReporter(reporter);
+        }
+
+        Integer maxSortOrder = issueRepository.findMaxSortOrderByStatusId(issue.getStatusId()).orElse(-1);
+        issue.setSortOrder(maxSortOrder + 1);
+
+        Issue saved = issueRepository.save(issue);
+        return convertToDTO(saved);
+    }
+
+    @Transactional
+    public IssueDTO updateIssue(Long id, UpdateIssueDTO dto) {
+        Issue issue = issueRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Issue not found with id: " + id));
 
-        existingIssue.setType(issueDTO.getType());
-        existingIssue.setTitle(issueDTO.getTitle());
-        existingIssue.setDescription(issueDTO.getDescription());
-        existingIssue.setStatus(issueDTO.getStatus());
-        existingIssue.setPriority(issueDTO.getPriority());
-        existingIssue.setDueDate(issueDTO.getDueDate());
-        existingIssue.setAssigneeId(issueDTO.getAssigneeId());
-        existingIssue.setProjectId(issueDTO.getProjectId());
-        existingIssue.setParentId(issueDTO.getParentId());
-        existingIssue.setRootId(issueDTO.getRootId());
-        existingIssue.setLabels(issueDTO.getLabels());
-        existingIssue.setStoryPoints(issueDTO.getStoryPoints());
-        existingIssue.setSeverity(issueDTO.getSeverity());
-        existingIssue.setAcceptanceCriteria(issueDTO.getAcceptanceCriteria());
+        if (dto.getTitle() != null) {
+            issue.setTitle(dto.getTitle());
+        }
+        if (dto.getDescription() != null) {
+            issue.setDescription(dto.getDescription());
+        }
+        if (dto.getStatusId() != null) {
+            issue.setStatusId(dto.getStatusId());
+        }
+        if (dto.getAssigneeId() != null) {
+            User assignee = userRepository.findById(dto.getAssigneeId())
+                    .orElseThrow(() -> new RuntimeException("User not found with id: " + dto.getAssigneeId()));
+            issue.setAssignee(assignee);
+        }
+        if (dto.getPriorityId() != null) {
+            issue.setPriorityId(dto.getPriorityId());
+        }
 
-        Issue updatedIssue = issueRepository.save(existingIssue);
-        return convertToDTO(updatedIssue);
+        Issue saved = issueRepository.save(issue);
+        return convertToDTO(saved);
     }
 
     @Transactional
@@ -83,42 +113,48 @@ public class IssueService {
         issueRepository.deleteById(id);
     }
 
-    private IssueDTO convertToDTO(Issue issue) {
-        return IssueDTO.builder()
-                .id(issue.getId())
-                .type(issue.getType())
-                .title(issue.getTitle())
-                .description(issue.getDescription())
-                .status(issue.getStatus())
-                .priority(issue.getPriority())
-                .dueDate(issue.getDueDate())
-                .assigneeId(issue.getAssigneeId())
-                .projectId(issue.getProjectId())
-                .parentId(issue.getParentId())
-                .rootId(issue.getRootId())
-                .labels(issue.getLabels())
-                .storyPoints(issue.getStoryPoints())
-                .severity(issue.getSeverity())
-                .acceptanceCriteria(issue.getAcceptanceCriteria())
-                .build();
+    @Transactional
+    public IssueDTO updateIssueStatus(Long id, Integer statusId, Integer sortOrder) {
+        Issue issue = issueRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Issue not found with id: " + id));
+
+        issue.setStatusId(statusId);
+        if (sortOrder != null) {
+            issue.setSortOrder(sortOrder);
+        } else {
+            Integer maxSortOrder = issueRepository.findMaxSortOrderByStatusId(statusId).orElse(-1);
+            issue.setSortOrder(maxSortOrder + 1);
+        }
+
+        Issue saved = issueRepository.save(issue);
+        return convertToDTO(saved);
     }
 
-    private Issue convertToEntity(IssueDTO issueDTO) {
-        return Issue.builder()
-                .type(issueDTO.getType())
-                .title(issueDTO.getTitle())
-                .description(issueDTO.getDescription())
-                .status(issueDTO.getStatus())
-                .priority(issueDTO.getPriority())
-                .dueDate(issueDTO.getDueDate())
-                .assigneeId(issueDTO.getAssigneeId())
-                .projectId(issueDTO.getProjectId())
-                .parentId(issueDTO.getParentId())
-                .rootId(issueDTO.getRootId())
-                .labels(issueDTO.getLabels())
-                .storyPoints(issueDTO.getStoryPoints())
-                .severity(issueDTO.getSeverity())
-                .acceptanceCriteria(issueDTO.getAcceptanceCriteria())
+    @Transactional
+    public IssueDTO updateIssueSortOrder(Long id, Integer sortOrder) {
+        Issue issue = issueRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Issue not found with id: " + id));
+
+        issue.setSortOrder(sortOrder);
+        Issue saved = issueRepository.save(issue);
+        return convertToDTO(saved);
+    }
+
+    private IssueDTO convertToDTO(Issue entity) {
+        return IssueDTO.builder()
+                .id(entity.getId())
+                .projectId(entity.getProject() != null ? entity.getProject().getId() : null)
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .statusId(entity.getStatusId())
+                .sortOrder(entity.getSortOrder())
+                .assigneeId(entity.getAssignee() != null ? entity.getAssignee().getId() : null)
+                .assigneeName(entity.getAssignee() != null ? entity.getAssignee().getName() : null)
+                .reporterId(entity.getReporter() != null ? entity.getReporter().getId() : null)
+                .reporterName(entity.getReporter() != null ? entity.getReporter().getName() : null)
+                .priorityId(entity.getPriorityId())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 }

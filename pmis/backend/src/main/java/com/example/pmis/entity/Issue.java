@@ -1,64 +1,61 @@
 package com.example.pmis.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "issue")
+@Table(name = "issues")
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Issue {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 50)
-    private String type;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
 
-    @Column(nullable = false, length = 200)
+    @Column(nullable = false)
     private String title;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false, length = 50)
-    private String status;
+    @Column(name = "status_id", nullable = false)
+    @Builder.Default
+    private Integer statusId = 1;
 
-    @Column(nullable = false, length = 50)
-    private String priority;
+    @Column(name = "sort_order", nullable = false)
+    @Builder.Default
+    private Integer sortOrder = 0;
 
-    @Column(name = "due_date")
-    private LocalDate dueDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
 
-    @Column(name = "assignee_id")
-    private Long assigneeId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reporter_id")
+    private User reporter;
 
-    @Column(name = "project_id")
-    private Long projectId;
+    @Column(name = "priority_id")
+    private Integer priorityId;
 
-    @Column(name = "parent_id")
-    private Long parentId;
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 
-    @Column(name = "root_id")
-    private Long rootId;
-
-    @Column(columnDefinition = "json")
-    private String labels;
-
-    @Column(name = "story_points")
-    private Integer storyPoints;
-
-    @Column(length = 50)
-    private String severity;
-
-    @Column(name = "acceptance_criteria", length = 1000)
-    private String acceptanceCriteria;
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

@@ -3,7 +3,6 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import { issueApi, projectApi, type IssueResponse, type ProjectResponse } from '@/services/api';
-import { mockData, statusLabels, priorityLabels, typeLabels } from '@/data/mockData';
 import { Plus, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
@@ -64,35 +63,45 @@ function validateToken(token: string): { isValid: boolean; reason: string } {
   }
 }
 
-const statusColors: Record<string, string> = {
-  backlog: 'bg-gray-100 text-gray-600',
-  todo: 'bg-yellow-100 text-yellow-700',
-  in_progress: 'bg-blue-100 text-blue-700',
-  testing: 'bg-purple-100 text-purple-700',
-  done: 'bg-green-100 text-green-700',
-  canceled: 'bg-red-100 text-red-700',
-  duplicate: 'bg-gray-100 text-gray-600',
-  reported: 'bg-orange-100 text-orange-700',
-  triaged: 'bg-cyan-100 text-cyan-700',
-  resolved: 'bg-green-100 text-green-700',
-  draft: 'bg-gray-100 text-gray-600',
-  review: 'bg-yellow-100 text-yellow-700',
-  approved: 'bg-blue-100 text-blue-700',
-  implemented: 'bg-green-100 text-green-700',
+const statusColors: Record<number, string> = {
+  1: 'bg-gray-100 text-gray-600',
+  2: 'bg-yellow-100 text-yellow-700',
+  3: 'bg-blue-100 text-blue-700',
+  4: 'bg-green-100 text-green-700',
+  5: 'bg-red-100 text-red-700',
+  6: 'bg-gray-100 text-gray-600',
 };
 
-const priorityColors: Record<string, string> = {
-  low: 'bg-gray-100 text-gray-600',
-  medium: 'bg-yellow-100 text-yellow-700',
-  high: 'bg-orange-100 text-orange-700',
-  critical: 'bg-red-100 text-red-700',
+const priorityColors: Record<number, string> = {
+  0: 'bg-gray-100 text-gray-600',
+  1: 'bg-red-100 text-red-700',
+  2: 'bg-orange-100 text-orange-700',
+  3: 'bg-yellow-100 text-yellow-700',
+  4: 'bg-blue-100 text-blue-700',
+};
+
+const statusLabels: Record<number, string> = {
+  1: 'Backlog',
+  2: 'Todo',
+  3: 'In Progress',
+  4: 'Done',
+  5: 'Canceled',
+  6: 'Duplicated',
+};
+
+const priorityLabels: Record<number, string> = {
+  0: 'No Priority',
+  1: 'Urgent',
+  2: 'High',
+  3: 'Medium',
+  4: 'Low',
 };
 
 export default function Dashboard() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading, logout } = useAuth();
   const [issues, setIssues] = useState<IssueResponse[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -122,8 +131,8 @@ export default function Dashboard() {
             return;
           }
 
-          setIssues(mockData.mockIssues);
-          setProjects(mockData.mockProjects);
+          setIssues([]);
+          setProjects([]);
         } finally {
           setLoading(false);
         }
@@ -140,6 +149,9 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const inProgressCount = issues.filter(i => i.statusId === 3).length;
+  const doneCount = issues.filter(i => i.statusId === 4).length;
 
   return (
     <Layout>
@@ -167,7 +179,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm text-gray-500">In Progress</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {issues.filter(i => i.status === 'in_progress').length}
+                  {inProgressCount}
                 </p>
               </div>
               <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -181,7 +193,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm text-gray-500">Completed</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {issues.filter(i => i.status === 'done').length}
+                  {doneCount}
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -220,18 +232,15 @@ export default function Dashboard() {
                   <div key={issue.id} className="p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className={`px-2 py-1 text-xs font-medium rounded ${typeLabels[issue.type] || 'bg-gray-100 text-gray-600'}`}>
-                          {issue.type}
-                        </span>
                         <span className="font-medium text-gray-900">{issue.title}</span>
                       </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded ${statusColors[issue.status] || 'bg-gray-100 text-gray-600'}`}>
-                        {issue.status.replace('_', ' ')}
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${statusColors[issue.statusId] || 'bg-gray-100 text-gray-600'}`}>
+                        {statusLabels[issue.statusId] || 'Unknown'}
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                      <span>Priority: <span className={`px-1.5 py-0.5 rounded ${priorityColors[issue.priority] || 'bg-gray-100 text-gray-600'}`}>{issue.priority}</span></span>
-                      <span>Due: {issue.dueDate ? new Date(issue.dueDate).toLocaleDateString() : 'No due date'}</span>
+                      <span>Priority: <span className={`px-1.5 py-0.5 rounded ${priorityColors[issue.priorityId || 0] || 'bg-gray-100 text-gray-600'}`}>{priorityLabels[issue.priorityId || 0] || 'No Priority'}</span></span>
+                      <span>Assignee: {issue.assigneeName || 'Unassigned'}</span>
                     </div>
                   </div>
                 ))
@@ -255,12 +264,12 @@ export default function Dashboard() {
                   <div key={project.id} className="p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-gray-900">{project.name}</span>
-                      <span className="text-sm text-gray-500">{project.status}</span>
+                      <span className="text-sm text-gray-500">{project.statusLabel}</span>
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">{project.description}</p>
+                    <p className="mt-1 text-sm text-gray-500">{project.summary}</p>
                     <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                      <span>Start: {new Date(project.startDate).toLocaleDateString()}</span>
-                      <span>End: {new Date(project.endDate).toLocaleDateString()}</span>
+                      <span>Leader: {project.leaderName}</span>
+                      <span>Issues: {project.issueCount}</span>
                     </div>
                   </div>
                 ))

@@ -29,7 +29,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function ProjectDetail({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { addToast } = useToast();
   
   const [project, setProject] = useState<ProjectResponse | null>(null);
@@ -61,16 +61,18 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   const [isColorMode, setIsColorMode] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    fetchProject();
-    fetchUsers();
-    fetchLabels();
-  }, [projectId]);
+    if (!authLoading && isAuthenticated) {
+      fetchProject();
+      fetchUsers();
+      fetchLabels();
+    }
+  }, [projectId, authLoading, isAuthenticated]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -428,7 +430,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   const completedMilestones = milestones.filter(m => m.completed).length;
   const progressPercent = milestones.length > 0 ? Math.round((completedMilestones / milestones.length) * 100) : 0;
 
-  if (isLoading || !project) {
+  if (authLoading || isLoading || !project) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">

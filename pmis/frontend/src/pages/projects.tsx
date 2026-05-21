@@ -28,7 +28,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function Projects() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChip, setSelectedChip] = useState('all');
@@ -78,15 +78,17 @@ export default function Projects() {
   const [showMembersDropdown, setShowMembersDropdown] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    fetchProjects();
-    fetchUsers();
-  }, []);
+    if (!authLoading && isAuthenticated) {
+      fetchProjects();
+      fetchUsers();
+    }
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     const closeDropdowns = () => {
