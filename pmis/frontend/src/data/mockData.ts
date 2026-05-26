@@ -42,6 +42,7 @@ export interface Team {
   description: string;
   memberCount: number;
   leadName: string;
+  ownerName: string;
 }
 
 export interface User {
@@ -214,6 +215,7 @@ export const mockTeams: Team[] = [
     description: 'Core development team',
     memberCount: 12,
     leadName: 'Mike Johnson',
+    ownerName: 'Mike Johnson',
   },
   {
     id: '2',
@@ -222,6 +224,7 @@ export const mockTeams: Team[] = [
     description: 'Quality assurance team',
     memberCount: 5,
     leadName: 'Lisa Anderson',
+    ownerName: 'Lisa Anderson',
   },
   {
     id: '3',
@@ -230,6 +233,7 @@ export const mockTeams: Team[] = [
     description: 'Product management team',
     memberCount: 4,
     leadName: 'Emily Davis',
+    ownerName: 'Emily Davis',
   },
 ];
 

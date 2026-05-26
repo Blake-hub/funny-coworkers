@@ -257,9 +257,7 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
               {/* Description */}
               <div>
                 <span
-                  className="text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-700"
-                  onClick={() => editingField === 'description' ? handleCancelEdit() : handleStartEdit('description', issue.description || '')}
-                >
+                  className="text-xs font-semibold text-gray-500 ">
                   Description
                 </span>
                 <div className="min-h-[80px] py-2">
@@ -270,6 +268,7 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                       onBlur={() => handleSaveEdit()}
                       placeholder="Write a description for this issue..."
                       className="border-0"
+                      data-testid="issue-description-editor"
                     />
                   ) : (
                     <div

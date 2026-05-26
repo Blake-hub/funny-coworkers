@@ -209,7 +209,7 @@ export default function Settings() {
     );
   }
 
-  const isAdmin = user?.role === 'Project Manager' || user?.role === 'Admin';
+  const isAdmin = user?.role === 'ADMIN';
 
   const tabs = [
     { id: 'profile' as TabType, label: 'Profile', enabled: true },

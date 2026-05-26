@@ -16,7 +16,6 @@ export interface UserResponse {
   email: string;
   name: string;
   role: string;
-  teamId: number;
   organizationId?: number;
   departmentId?: number;
 }
@@ -82,8 +81,9 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
     const authToken = getAuthToken();
     if (authToken) {
       defaultHeaders['Authorization'] = `Bearer ${authToken}`;
+      console.debug(`Sending request to ${endpoint} with auth token (length: ${authToken.length})`);
     } else {
-      console.warn('No auth token found in cookies or localStorage');
+      console.warn(`No auth token found for request: ${endpoint}`);
     }
   }
 
@@ -125,13 +125,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
       if (response.status === 400) {
         throw new Error(errorMessage || 'Invalid input data');
       } else if (response.status === 401) {
-        if (retryCount < 1) {
-          const newToken = await refreshToken();
-          if (newToken) {
-            return fetchApi<T>(endpoint, options, newToken, retryCount + 1);
-          }
-        }
-        throw new Error(errorMessage || 'Invalid credentials');
+        throw new Error(errorMessage || 'Unauthorized access');
       } else if (response.status === 403) {
         throw new Error(errorMessage || 'Access denied: You don\'t have permission to perform this action');
       } else if (response.status === 409) {
@@ -141,7 +135,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
       throw new Error(errorMessage || `API error: ${response.status} ${response.statusText}`);
     }
 
-    if (response.status === 204) {
+    if (response.status === 201 || response.status === 204) {
       return {} as T;
     }
 
@@ -165,7 +159,14 @@ function getAuthToken(): string | null {
     return null;
   }
 
-  return getCookie('pmis-token') || localStorage.getItem('pmis-token');
+  const cookieToken = getCookie('pmis-token');
+  const localStorageToken = localStorage.getItem('pmis-token');
+  
+  if (!cookieToken && !localStorageToken) {
+    console.warn('No auth token found in cookies or localStorage');
+  }
+  
+  return cookieToken || localStorageToken;
 }
 
 function setCookie(name: string, value: string, days: number = 1) {
@@ -178,6 +179,8 @@ function setCookie(name: string, value: string, days: number = 1) {
 }
 
 function getCookie(name: string): string | null {
+  if (typeof window === 'undefined') return null;
+  
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
@@ -202,14 +205,28 @@ export const userApi = {
     return fetchApi<UserResponse>(`/users/${id}`);
   },
 
-  createUser: async (userData: { email: string; password: string; name: string; role: string; teamId: number }): Promise<UserResponse> => {
+  createUser: async (userData: { 
+    email: string; 
+    password: string; 
+    name: string; 
+    role: string; 
+    organizationId?: number;
+    departmentId?: number;
+  }): Promise<UserResponse> => {
     return fetchApi<UserResponse>('/users', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
   },
 
-  updateUser: async (id: number, userData: { email?: string; password?: string; name?: string; role?: string; teamId?: number }): Promise<UserResponse> => {
+  updateUser: async (id: number, userData: { 
+    email?: string; 
+    password?: string; 
+    name?: string; 
+    role?: string; 
+    organizationId?: number;
+    departmentId?: number;
+  }): Promise<UserResponse> => {
     return fetchApi<UserResponse>(`/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(userData),
@@ -237,6 +254,8 @@ export interface TeamResponse {
   description: string;
   memberCount: number;
   leadName: string;
+  ownerName: string;
+  ownerId: number;
 }
 
 export const teamApi = {
@@ -248,7 +267,11 @@ export const teamApi = {
     return fetchApi<TeamResponse>(`/teams/${id}`);
   },
 
-  createTeam: async (teamData: { identifier: string; name: string; description: string; memberCount: number; leadName: string }): Promise<TeamResponse> => {
+  getTeamByIdentifier: async (identifier: string): Promise<TeamResponse> => {
+    return fetchApi<TeamResponse>(`/teams/identifier/${identifier}`);
+  },
+
+  createTeam: async (teamData: { identifier: string; name: string; description: string; memberCount: number; leadName: string; ownerId?: number }): Promise<TeamResponse> => {
     return fetchApi<TeamResponse>('/teams', {
       method: 'POST',
       body: JSON.stringify(teamData),
@@ -265,6 +288,45 @@ export const teamApi = {
   deleteTeam: async (id: number): Promise<void> => {
     return fetchApi<void>(`/teams/${id}`, {
       method: 'DELETE',
+    });
+  },
+
+  getTeamMembers: async (teamId: number): Promise<UserResponse[]> => {
+    return fetchApi<UserResponse[]>(`/teams/${teamId}/members`);
+  },
+
+  getTeamsForUser: async (userId: number): Promise<TeamResponse[]> => {
+    return fetchApi<TeamResponse[]>(`/teams/user/${userId}`);
+  },
+
+  getUserRoleInTeam: async (teamId: number, userId: number): Promise<string> => {
+    return fetchApi<string>(`/teams/${teamId}/user/${userId}/role`);
+  },
+
+  addTeamMember: async (teamId: number, userId: number, role: string): Promise<void> => {
+    return fetchApi<void>(`/teams/${teamId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, role }),
+    });
+  },
+
+  removeTeamMember: async (teamId: number, userId: number): Promise<void> => {
+    return fetchApi<void>(`/teams/${teamId}/members/${userId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  updateTeamMemberRole: async (teamId: number, userId: number, role: string): Promise<void> => {
+    return fetchApi<void>(`/teams/${teamId}/members/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+  },
+
+  transferOwnership: async (teamId: number, newOwnerId: number): Promise<TeamResponse> => {
+    return fetchApi<TeamResponse>(`/teams/${teamId}/owner`, {
+      method: 'PUT',
+      body: JSON.stringify({ newOwnerId }),
     });
   },
 };

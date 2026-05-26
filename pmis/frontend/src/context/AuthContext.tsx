@@ -56,7 +56,8 @@ function validateToken(token: string): { isValid: boolean; reason: string } {
       payloadStr += '=';
     }
 
-    const payload = JSON.parse(Buffer.from(payloadStr, 'base64').toString('utf-8'));
+    const decodedPayload = atob(payloadStr);
+    const payload = JSON.parse(decodedPayload);
 
     if (!payload || !payload.sub || typeof payload.exp !== 'number') {
       return { isValid: false, reason: 'invalid-token' };
@@ -68,7 +69,8 @@ function validateToken(token: string): { isValid: boolean; reason: string } {
     }
 
     return { isValid: true, reason: 'valid' };
-  } catch {
+  } catch (error) {
+    console.error('Token validation error:', error);
     return { isValid: false, reason: 'invalid-token' };
   }
 }

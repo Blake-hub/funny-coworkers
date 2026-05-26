@@ -13,15 +13,19 @@ test.describe('Issue Detail - Description Editor', () => {
   });
 
   test('should enter edit mode with single click, save on outside click, show one toast', async ({ page }) => {
-    const editor = page.locator('.tiptap-editor');
+    const editor = page.locator('[data-testid="issue-description-editor"]');
 
     await page.goto('/issues');
     await page.waitForTimeout(1000);
     await page.goto('/issues/6');
     await page.waitForSelector('text=Description', { timeout: 1000 });
 
-    await page.click('div:has-text("Write a description for this issue...")', { force: true });
-    await expect(editor).toBeFocused();
+    await editor.waitFor({ state: 'visible', timeout: 5000 });
+    const editorContent = page.locator('[data-testid="issue-description-editor"] .ProseMirror');
+    await editorContent.waitFor({ state: 'visible', timeout: 5000 });
+    await editorContent.click();
+    await page.waitForTimeout(500);
+    await expect(editorContent).toBeFocused();
 
     await page.keyboard.type('extra text');
 
@@ -69,7 +73,7 @@ test.describe('Issue Detail - Description Editor', () => {
   });
 
   test('should exit edit mode without saving when clicking outside left edge', async ({ page }) => {
-    const editor = page.locator('.tiptap-editor');
+    const editor = page.locator('[data-testid="issue-description-editor"]');
 
     await page.goto('/issues');
     await page.waitForTimeout(1000);
@@ -98,7 +102,7 @@ test.describe('Issue Detail - Description Editor', () => {
   });
 
   test('should exit edit mode without saving when clicking outside top edge', async ({ page }) => {
-    const editor = page.locator('.tiptap-editor');
+    const editor = page.locator('[data-testid="issue-description-editor"]');
 
     await page.goto('/issues');
     await page.waitForTimeout(1000);
@@ -127,7 +131,7 @@ test.describe('Issue Detail - Description Editor', () => {
   });
 
   test('should exit edit mode without saving when clicking outside bottom edge', async ({ page }) => {
-    const editor = page.locator('.tiptap-editor');
+    const editor = page.locator('[data-testid="issue-description-editor"]');
 
     await page.goto('/issues');
     await page.waitForTimeout(1000);
@@ -156,7 +160,7 @@ test.describe('Issue Detail - Description Editor', () => {
   });
 
   test('should exit edit mode without saving when clicking outside right edge', async ({ page }) => {
-    const editor = page.locator('.tiptap-editor');
+    const editor = page.locator('[data-testid="issue-description-editor"]');
 
     await page.goto('/issues');
     await page.waitForTimeout(1000);
@@ -185,7 +189,7 @@ test.describe('Issue Detail - Description Editor', () => {
   });
 
   test('should enter edit mode with single click', async ({ page }) => {
-    const editor = page.locator('.tiptap-editor');
+    const editor = page.locator('[data-testid="issue-description-editor"]');
 
     await page.goto('/issues');
     await page.waitForTimeout(1000);

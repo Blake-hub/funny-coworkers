@@ -6,6 +6,7 @@ import com.example.pmis.dto.UserDTO;
 import com.example.pmis.entity.Department;
 import com.example.pmis.entity.Organization;
 import com.example.pmis.entity.User;
+import com.example.pmis.entity.enumeration.Role;
 import com.example.pmis.repository.DepartmentRepository;
 import com.example.pmis.repository.OrganizationRepository;
 import com.example.pmis.repository.UserRepository;
@@ -99,6 +100,22 @@ public class OrganizationService {
         if (!departmentRepository.existsById(id)) {
             throw new RuntimeException("Department not found with id: " + id);
         }
+        deleteDepartmentRecursively(id);
+    }
+
+    private void deleteDepartmentRecursively(Long id) {
+        // First delete all child departments
+        List<Department> children = departmentRepository.findByParentDepartmentId(id);
+        for (Department child : children) {
+            deleteDepartmentRecursively(child.getId());
+        }
+        // Then unassign all users from this department
+        List<User> usersInDepartment = userRepository.findByDepartmentId(id);
+        for (User user : usersInDepartment) {
+            user.setDepartmentId(null);
+            userRepository.save(user);
+        }
+        // Then delete the department itself
         departmentRepository.deleteById(id);
     }
 
@@ -157,7 +174,6 @@ public class OrganizationService {
                 .email(user.getEmail())
                 .name(user.getName())
                 .role(user.getRole())
-                .teamId(user.getTeamId())
                 .organizationId(user.getOrganizationId())
                 .departmentId(user.getDepartmentId())
                 .build();

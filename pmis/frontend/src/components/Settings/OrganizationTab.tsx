@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { organizationApi, type OrganizationResponse, type DepartmentResponse, type UserResponse } from '@/services/api';
+import { organizationApi, userApi, type OrganizationResponse, type DepartmentResponse, type UserResponse } from '@/services/api';
 import { Building2, Users, Network, Plus, Pencil, Trash2, ChevronRight, ChevronDown, X } from 'lucide-react';
 import { useRouter } from 'next/router';
 
@@ -28,6 +28,10 @@ export default function OrganizationTab() {
   const [showDeptModal, setShowDeptModal] = useState(false);
   const [editingDept, setEditingDept] = useState<DepartmentTreeNode | null>(null);
   const [deptForm, setDeptForm] = useState({ name: '', description: '', parentDepartmentId: undefined as number | undefined });
+  const [showEmpModal, setShowEmpModal] = useState(false);
+  const [editingEmp, setEditingEmp] = useState<UserResponse | null>(null);
+  const [empForm, setEmpForm] = useState({ 
+    name: '', email: '', password: '', departmentId: undefined as number | undefined });
 
   const ORG_ID = 1;
 
@@ -75,6 +79,43 @@ export default function OrganizationTab() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveEmp = async () => {
+    try {
+      if (editingEmp) {
+        await userApi.updateUser(editingEmp.id, { ...empForm, organizationId: ORG_ID });
+      } else {
+        await userApi.createUser({ ...empForm, organizationId: ORG_ID, role: 'TEAM_MEMBER' });
+      }
+      setShowEmpModal(false);
+      setEditingEmp(null);
+      setEmpForm({ name: '', email: '', password: '', departmentId: undefined });
+      loadData();
+    } catch (error) {
+      console.error('Failed to save employee:', error);
+    }
+  };
+
+  const handleDeleteEmp = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this employee?')) return;
+    try {
+      await userApi.deleteUser(id);
+      loadData();
+    } catch (error) {
+      console.error('Failed to delete employee:', error);
+    }
+  };
+
+  const openEditEmp = (emp: UserResponse) => {
+    setEditingEmp(emp);
+    setEmpForm({
+      name: emp.name,
+      email: emp.email,
+      password: '',
+      departmentId: emp.departmentId || undefined,
+    });
+    setShowEmpModal(true);
   };
 
   const buildTree = (depts: DepartmentResponse[]): DepartmentTreeNode[] => {
@@ -334,10 +375,23 @@ export default function OrganizationTab() {
       </section>
 
       <section>
-        <div className="flex items-center gap-2 mb-4">
-          <Users className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-800">Employees</h2>
-          <span className="text-sm text-gray-500">({employees.length})</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-gray-600" />
+            <h2 className="text-lg font-semibold text-gray-800">Employees</h2>
+            <span className="text-sm text-gray-500">({employees.length})</span>
+          </div>
+          <button
+            onClick={() => {
+              setEditingEmp(null);
+              setEmpForm({ name: '', email: '', password: '', departmentId: undefined });
+              setShowEmpModal(true);
+            }}
+            className="flex items-center gap-1 text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            Add Employee
+          </button>
         </div>
 
         <div className="bg-gray-50 rounded-lg p-4">
@@ -351,6 +405,7 @@ export default function OrganizationTab() {
                     <th className="pb-2 font-medium">Name</th>
                     <th className="pb-2 font-medium">Email</th>
                     <th className="pb-2 font-medium">Role</th>
+                    <th className="pb-2 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -369,6 +424,16 @@ export default function OrganizationTab() {
                         <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded-full text-xs">
                           {emp.role}
                         </span>
+                      </td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => openEditEmp(emp)} className="p-1 text-gray-400 hover:text-blue-600">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteEmp(emp.id)} className="p-1 text-gray-400 hover:text-red-600">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -438,6 +503,83 @@ export default function OrganizationTab() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {editingDept ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEmpModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">
+                {editingEmp ? 'Edit Employee' : 'Add Employee'}
+              </h3>
+              <button onClick={() => setShowEmpModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={empForm.name}
+                  onChange={(e) => setEmpForm({ ...empForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Employee name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={empForm.email}
+                  onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="employee@example.com"
+                />
+              </div>
+              {!editingEmp && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={empForm.password}
+                    onChange={(e) => setEmpForm({ ...empForm, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Minimum 6 characters"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Department (Optional)</label>
+                <select
+                  value={empForm.departmentId || ''}
+                  onChange={(e) => setEmpForm({ ...empForm, departmentId: e.target.value ? Number(e.target.value) : undefined })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">No department</option>
+                  {getAllDepartments(departments).map(dept => (
+                    <option key={dept.id} value={dept.id}>{dept.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowEmpModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEmp}
+                disabled={!empForm.name.trim() || !empForm.email.trim() || (!editingEmp && !empForm.password.trim())}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {editingEmp ? 'Update' : 'Create'}
               </button>
             </div>
           </div>

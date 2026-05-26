@@ -7,9 +7,10 @@ interface RichTextEditorProps {
   className?: string;
   onBlur?: () => void;
   style?: React.CSSProperties;
+  'data-testid'?: string;
 }
 
-function RichTextEditorClient({ value, onChange, placeholder, className, onBlur, style }: RichTextEditorProps) {
+function RichTextEditorClient({ value, onChange, placeholder, className, onBlur, style, 'data-testid': dataTestId }: RichTextEditorProps) {
   const { useEditor, EditorContent } = require('@tiptap/react');
   const StarterKit = require('@tiptap/starter-kit').default;
   const Image = require('@tiptap/extension-image').default;
@@ -78,7 +79,6 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
       Color,
       TextStyle,
       Link.configure({ openOnClick: false }),
-      UnderlineExtension,
     ],
     content: value,
     immediatelyRender: false,
@@ -583,7 +583,7 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
         }
       `}</style>
 
-      <EditorContent editor={editor} className="tiptap-editor" />
+      <EditorContent editor={editor} className="tiptap-editor" data-testid={dataTestId} />
 
       {!hasContent && !editor.getText().trim() && (
         <div className="editor-placeholder">{placeholder || 'Start typing...'}</div>

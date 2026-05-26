@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, ReactNode } from 'rea
 
 export interface Toast {
   id: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 }
 

@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Info } from 'lucide-react';
+import { CheckCircle, XCircle, Info, AlertTriangle } from 'lucide-react';
 import { Toast, useToast } from '@/context/ToastContext';
 
 interface ToastItemProps {
@@ -9,12 +9,14 @@ const icons = {
   success: CheckCircle,
   error: XCircle,
   info: Info,
+  warning: AlertTriangle,
 };
 
 const colors = {
   success: 'bg-green-500',
   error: 'bg-red-500',
   info: 'bg-blue-500',
+  warning: 'bg-yellow-500',
 };
 
 export default function ToastItem({ toast }: ToastItemProps) {

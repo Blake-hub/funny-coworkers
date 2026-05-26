@@ -1,7 +1,9 @@
 package com.example.pmis.dto;
 
+import com.example.pmis.entity.enumeration.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,17 +27,13 @@ public class UserDTO {
     @Size(max = 100, message = "Name must be less than 100 characters")
     private String name;
 
-    @NotBlank(message = "Role is required")
-    @Size(max = 50, message = "Role must be less than 50 characters")
-    private String role;
-
-    private Long teamId;
+    @NotNull(message = "Role is required")
+    private Role role;
 
     private Long organizationId;
 
     private Long departmentId;
 
-    @NotBlank(message = "Password is required")
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
 }

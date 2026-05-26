@@ -77,8 +77,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         user, null, Collections.singletonList(authority));
                 authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-                logger.info("Successfully authenticated user: {}", finalEmail);
+                logger.info("Successfully authenticated user: {} with role: {}", finalEmail, user.getRole());
             });
+        } else if (finalEmail == null) {
+            logger.warn("Email extraction failed for request: {} {}", request.getMethod(), request.getRequestURI());
+        } else if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            logger.info("Security context already has authentication for: {}", request.getRequestURI());
         }
 
         filterChain.doFilter(request, response);

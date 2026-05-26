@@ -4,6 +4,7 @@ import com.example.pmis.dto.AuthDTO;
 import com.example.pmis.dto.TokenResponse;
 import com.example.pmis.dto.UserDTO;
 import com.example.pmis.entity.User;
+import com.example.pmis.entity.enumeration.Role;
 import com.example.pmis.repository.UserRepository;
 import com.example.pmis.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -73,7 +74,6 @@ public class UserService {
         existingUser.setEmail(userDTO.getEmail());
         existingUser.setName(userDTO.getName());
         existingUser.setRole(userDTO.getRole());
-        existingUser.setTeamId(userDTO.getTeamId());
         existingUser.setOrganizationId(userDTO.getOrganizationId());
         existingUser.setDepartmentId(userDTO.getDepartmentId());
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
@@ -165,7 +165,6 @@ public class UserService {
                 .email(user.getEmail())
                 .name(user.getName())
                 .role(user.getRole())
-                .teamId(user.getTeamId())
                 .organizationId(user.getOrganizationId())
                 .departmentId(user.getDepartmentId())
                 .build();
@@ -176,7 +175,6 @@ public class UserService {
                 .email(userDTO.getEmail())
                 .name(userDTO.getName())
                 .role(userDTO.getRole())
-                .teamId(userDTO.getTeamId())
                 .organizationId(userDTO.getOrganizationId())
                 .departmentId(userDTO.getDepartmentId())
                 .build();

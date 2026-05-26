@@ -1,5 +1,6 @@
 package com.example.pmis.entity;
 
+import com.example.pmis.entity.enumeration.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,11 +25,9 @@ public class User {
     @Column(nullable = false, length = 100)
     private String name;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String role;
-
-    @Column(name = "team_id")
-    private Long teamId;
+    private Role role;
 
     @Column(name = "organization_id")
     private Long organizationId;

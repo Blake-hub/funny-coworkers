@@ -30,4 +30,8 @@ public class TeamDTO {
 
     @Size(max = 100, message = "Lead name must be less than 100 characters")
     private String leadName;
+
+    private String ownerName;
+    
+    private Long ownerId;
 }

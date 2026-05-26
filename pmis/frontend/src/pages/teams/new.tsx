@@ -86,6 +86,7 @@ export default function CreateTeam() {
         description: formData.description.trim() || 'No description provided',
         memberCount: 0,
         leadName: '',
+        ownerId: user?.id ? Number(user.id) : undefined,
       });
 
       addToast('success', 'Team created successfully!');

@@ -59,6 +59,13 @@ public class Project {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    @Column(name = "team_id", nullable = false)
+    private Long teamId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id", insertable = false, updatable = false)
+    private Team team;
+
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();

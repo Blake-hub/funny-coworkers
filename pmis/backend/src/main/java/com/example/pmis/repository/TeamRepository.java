@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface TeamRepository extends JpaRepository<Team, Long> {
     Optional<Team> findByIdentifier(String identifier);
     boolean existsByIdentifier(String identifier);
+    boolean existsByIdAndOwnerId(Long id, Long ownerId);
 }

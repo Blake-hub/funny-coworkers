@@ -32,4 +32,11 @@ public class Team {
 
     @Column(name = "lead_name", length = 100)
     private String leadName;
+
+    @Column(name = "owner_id", nullable = false)
+    private Long ownerId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", insertable = false, updatable = false)
+    private User owner;
 }
