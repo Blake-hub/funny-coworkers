@@ -39,4 +39,6 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
     void incrementSortOrdersFrom(@Param("statusId") Integer statusId, @Param("sortOrder") Integer sortOrder, @Param("excludeId") Long excludeId);
 
     long countByStatusId(Integer statusId);
+
+    List<Issue> findByTeamIdIn(List<Long> teamIds);
 }

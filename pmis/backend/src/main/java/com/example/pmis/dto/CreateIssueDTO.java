@@ -11,6 +11,7 @@ import lombok.Builder;
 @Builder
 public class CreateIssueDTO {
     private Long projectId;
+    private Long teamId;
     private String title;
     private String description;
     private Integer statusId;

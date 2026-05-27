@@ -56,16 +56,20 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   useEffect(() => {
     const fetchTeams = async () => {
+      if (!user?.id) return;
+      
       try {
-        const teamsData = await teamApi.getAllTeams();
+        const teamsData = await teamApi.getTeamsForUser(Number(user.id));
         setTeams(teamsData);
       } catch (error) {
         console.error('Failed to fetch teams:', error);
       }
     };
 
-    fetchTeams();
-  }, []);
+    if (user?.id) {
+      fetchTeams();
+    }
+  }, [user?.id]);
   
   const handleLogout = () => {
     logout();

@@ -5,14 +5,21 @@ import com.example.pmis.dto.IssueDTO;
 import com.example.pmis.dto.UpdateIssueDTO;
 import com.example.pmis.entity.Issue;
 import com.example.pmis.entity.Project;
+import com.example.pmis.entity.Team;
+import com.example.pmis.entity.TeamMember;
 import com.example.pmis.entity.User;
+import com.example.pmis.entity.enumeration.Role;
 import com.example.pmis.repository.IssueRepository;
 import com.example.pmis.repository.ProjectRepository;
+import com.example.pmis.repository.TeamMemberRepository;
+import com.example.pmis.repository.TeamRepository;
 import com.example.pmis.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,7 +29,9 @@ public class IssueService {
 
     private final IssueRepository issueRepository;
     private final ProjectRepository projectRepository;
+    private final TeamRepository teamRepository;
     private final UserRepository userRepository;
+    private final TeamMemberRepository teamMemberRepository;
 
     @Transactional(readOnly = true)
     public List<IssueDTO> getIssuesByProject(Long projectId) {
@@ -33,6 +42,39 @@ public class IssueService {
             issues = issueRepository.findAll();
         }
         return issues.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<IssueDTO> getIssuesForUser(Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return new ArrayList<>();
+        }
+
+        if (user.getRole() == Role.ADMIN) {
+            return issueRepository.findAll().stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+        }
+
+        List<Long> memberTeamIds = teamMemberRepository.findByUserId(userId).stream()
+                .map(TeamMember::getTeamId)
+                .collect(Collectors.toList());
+
+        List<Long> ownedTeamIds = teamRepository.findByOwnerId(userId).stream()
+                .map(Team::getId)
+                .collect(Collectors.toList());
+
+        List<Long> allTeamIds = new ArrayList<>(new HashSet<>(memberTeamIds));
+        allTeamIds.addAll(ownedTeamIds);
+
+        if (allTeamIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return issueRepository.findByTeamIdIn(allTeamIds).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -57,6 +99,12 @@ public class IssueService {
             Project project = projectRepository.findById(dto.getProjectId())
                     .orElseThrow(() -> new RuntimeException("Project not found with id: " + dto.getProjectId()));
             issue.setProject(project);
+        }
+
+        if (dto.getTeamId() != null) {
+            Team team = teamRepository.findById(dto.getTeamId())
+                    .orElseThrow(() -> new RuntimeException("Team not found with id: " + dto.getTeamId()));
+            issue.setTeam(team);
         }
 
         if (dto.getAssigneeId() != null) {
@@ -144,6 +192,8 @@ public class IssueService {
         return IssueDTO.builder()
                 .id(entity.getId())
                 .projectId(entity.getProject() != null ? entity.getProject().getId() : null)
+                .teamId(entity.getTeam() != null ? entity.getTeam().getId() : null)
+                .teamIdentifier(entity.getTeam() != null ? entity.getTeam().getIdentifier() : null)
                 .title(entity.getTitle())
                 .description(entity.getDescription())
                 .statusId(entity.getStatusId())

@@ -26,6 +26,10 @@ public class Issue {
     @JoinColumn(name = "project_id")
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id")
+    private Team team;
+
     @Column(nullable = false)
     private String title;
 

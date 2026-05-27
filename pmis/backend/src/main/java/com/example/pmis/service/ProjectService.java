@@ -24,10 +24,44 @@ public class ProjectService {
     private final ProjectLabelAssignmentRepository projectLabelAssignmentRepository;
     private final UserRepository userRepository;
     private final IssueRepository issueRepository;
+    private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
 
     @Transactional(readOnly = true)
     public List<ProjectDTO> getAllProjects() {
         return projectRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProjectDTO> getProjectsForUser(Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return new ArrayList<>();
+        }
+        
+        if (user.getRole() == com.example.pmis.entity.enumeration.Role.ADMIN) {
+            return projectRepository.findAll().stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        List<Long> memberTeamIds = teamMemberRepository.findByUserId(userId).stream()
+                .map(tm -> tm.getTeamId())
+                .collect(Collectors.toList());
+        
+        List<Long> ownedTeamIds = teamRepository.findByOwnerId(userId).stream()
+                .map(Team::getId)
+                .collect(Collectors.toList());
+        
+        List<Long> allTeamIds = new ArrayList<>(new java.util.HashSet<>(memberTeamIds));
+        allTeamIds.addAll(ownedTeamIds);
+        
+        final List<Long> finalTeamIds = allTeamIds;
+        
+        return projectRepository.findAll().stream()
+                .filter(project -> project.getTeamId() != null && finalTeamIds.contains(project.getTeamId()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -57,6 +91,7 @@ public class ProjectService {
                 .leaderId(request.getLeaderId())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
+                .teamId(request.getTeamId())
                 .progress(0)
                 .build();
 

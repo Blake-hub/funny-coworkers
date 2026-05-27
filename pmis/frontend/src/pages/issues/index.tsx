@@ -5,7 +5,7 @@ import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/ad
 import Layout from '@/components/Layout/Layout';
 import StatusGroup from '@/components/StatusGroup';
 import CreateIssueDialog, { CreateIssueData } from '@/components/CreateIssueDialog';
-import { issueApi, issueStatusApi, userApi, projectApi, labelApi, CreateIssueRequest, IssueResponse, IssueStatusResponse, UserResponse, ProjectResponse, LabelResponse } from '@/services/api';
+import { issueApi, issueStatusApi, userApi, projectApi, labelApi, teamApi, CreateIssueRequest, IssueResponse, IssueStatusResponse, UserResponse, ProjectResponse, LabelResponse, TeamResponse } from '@/services/api';
 import { toast } from 'react-hot-toast';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { useRouter } from 'next/router';
@@ -31,12 +31,13 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function IssuesPage() {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [issues, setIssues] = useState<IssueResponse[]>([]);
   const [statuses, setStatuses] = useState<IssueStatusResponse[]>([]);
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [labels, setLabels] = useState<LabelResponse[]>([]);
+  const [teams, setTeams] = useState<TeamResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggingIssueId, setDraggingIssueId] = useState<number | null>(null);
   const [highlightedIssueId, setHighlightedIssueId] = useState<number | null>(null);
@@ -60,27 +61,35 @@ export default function IssuesPage() {
   }, [isAuthenticated, authLoading, router]);
 
   const fetchData = useCallback(async () => {
+    if (!user?.id) return;
+    
     try {
       setLoading(true);
-      const [issuesData, statusesData, usersData, projectsData, labelsData] = await Promise.all([
-        issueApi.getAllIssues(),
+      const [issuesData, statusesData, usersData, projectsData, labelsData, teamsData] = await Promise.all([
+        issueApi.getIssuesForUser(Number(user.id)),
         issueStatusApi.getActiveStatuses(),
         userApi.getAllUsers(),
-        projectApi.getAllProjects(),
+        projectApi.getProjectsForUser(Number(user.id)),
         labelApi.getAllLabels(),
+        teamApi.getTeamsForUser(Number(user.id)),
       ]);
       setIssues(issuesData);
       setStatuses(statusesData);
       setUsers(usersData);
       setProjects(projectsData);
       setLabels(labelsData);
+      setTeams(teamsData);
+      console.log('IssuesPage - user:', user);
+      console.log('IssuesPage - user.id:', user?.id);
+      console.log('IssuesPage - teams fetched:', teamsData);
+      console.log('IssuesPage - first team identifier:', teamsData.length > 0 ? teamsData[0].identifier : 'no teams');
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -225,6 +234,7 @@ export default function IssuesPage() {
       priorityId: data.priorityId,
       assigneeId: data.assigneeId || undefined,
       projectId: data.projectId || undefined,
+      teamId: data.teamId || undefined,
       reporterId: currentUser.id,
     };
 
@@ -496,6 +506,8 @@ export default function IssuesPage() {
         projects={projects}
         labels={labels}
         onCreate={handleCreateIssue}
+        teamIdentifier={teams.length > 0 ? teams[0].identifier : undefined}
+        teamId={teams.length > 0 ? teams[0].id : undefined}
       />
     </Layout>
   );

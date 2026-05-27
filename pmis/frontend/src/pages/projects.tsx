@@ -5,8 +5,8 @@ import { useToast } from '@/context/ToastContext';
 import Layout from '@/components/Layout/Layout';
 import RichTextEditor from '@/components/RichTextEditor';
 import { mockUsers } from '@/data/mockData';
-import { projectApi, milestoneApi, userApi, type ProjectResponse, type UserResponse } from '@/services/api';
-import { Plus, Filter, ChevronDown, Settings, Check, X, Calendar, User, Users, Tag, Inbox, Clock, Play, AlertCircle, Minus, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
+import { projectApi, milestoneApi, userApi, teamApi, type ProjectResponse, type UserResponse, type TeamResponse } from '@/services/api';
+import { Plus, Filter, ChevronDown, ChevronRight, Settings, Check, X, Calendar, User, Users, Tag, Inbox, Clock, Play, AlertCircle, Minus, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
@@ -28,7 +28,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function Projects() {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChip, setSelectedChip] = useState('all');
@@ -47,6 +47,7 @@ export default function Projects() {
   const [projectDescriptionRows, setProjectDescriptionRows] = useState(3);
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [users, setUsers] = useState<UserResponse[]>([]);
+  const [teams, setTeams] = useState<TeamResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const milestoneRef = useRef<HTMLDivElement>(null);
@@ -66,6 +67,7 @@ export default function Projects() {
     status: 'backlog',
     priority: 'no_priority',
     leaderId: '1',
+    teamId: '',
     memberIds: [] as string[],
     startDate: '',
     endDate: '',
@@ -74,6 +76,7 @@ export default function Projects() {
 
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [showLeaderDropdown, setShowLeaderDropdown] = useState(false);
   const [showMembersDropdown, setShowMembersDropdown] = useState(false);
 
@@ -87,13 +90,22 @@ export default function Projects() {
     if (!authLoading && isAuthenticated) {
       fetchProjects();
       fetchUsers();
+      fetchTeams();
     }
   }, [authLoading, isAuthenticated]);
+
+  useEffect(() => {
+    if (showCreateDialog && teams.length > 0 && !newProject.teamId) {
+      console.log('Setting teamId from useEffect:', teams[0].id);
+      setNewProject(prev => ({ ...prev, teamId: teams[0].id.toString() }));
+    }
+  }, [showCreateDialog, teams, newProject.teamId]);
 
   useEffect(() => {
     const closeDropdowns = () => {
       setShowStatusDropdown(false);
       setShowPriorityDropdown(false);
+      setShowTeamDropdown(false);
       setShowLeaderDropdown(false);
       setShowMembersDropdown(false);
     };
@@ -111,8 +123,10 @@ export default function Projects() {
   }, [showMilestoneForm]);
 
   const fetchProjects = async () => {
+    if (!user?.id) return;
+    
     try {
-      const data = await projectApi.getAllProjects();
+      const data = await projectApi.getProjectsForUser(Number(user.id));
       setProjects(data);
     } catch (error) {
       console.error('Failed to fetch projects:', error);
@@ -128,6 +142,20 @@ export default function Projects() {
       setUsers(data);
     } catch (error) {
       console.error('Failed to fetch users:', error);
+      if (error instanceof Error) {
+        addToast('error', error.message);
+      }
+    }
+  };
+
+  const fetchTeams = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const data = await teamApi.getTeamsForUser(Number(user.id));
+      setTeams(data);
+    } catch (error) {
+      console.error('Failed to fetch teams:', error);
       if (error instanceof Error) {
         addToast('error', error.message);
       }
@@ -206,6 +234,12 @@ export default function Projects() {
       return;
     }
 
+    const selectedTeam = teams.find(t => t.id.toString() === newProject.teamId) || teams[0];
+    if (!selectedTeam) {
+      addToast('error', 'Please select a team');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const statusOption = projectStatusOptions.find(s => s.id === newProject.status);
@@ -217,6 +251,8 @@ export default function Projects() {
         dueDate: m.dueDate || undefined,
       }));
 
+      const teamId = selectedTeam.id;
+
       const projectData = {
         name: newProject.name,
         summary: newProject.summary,
@@ -224,6 +260,7 @@ export default function Projects() {
         status: statusOption?.value || 1,
         priority: priorityOption?.value || 0,
         leaderId: parseInt(newProject.leaderId),
+        teamId,
         memberIds: newProject.memberIds.map(id => parseInt(id)),
         startDate: newProject.startDate || undefined,
         endDate: newProject.endDate || undefined,
@@ -241,6 +278,7 @@ export default function Projects() {
         status: 'backlog',
         priority: 'no_priority',
         leaderId: '1',
+        teamId: '',
         memberIds: [],
         startDate: '',
         endDate: '',
@@ -295,7 +333,12 @@ export default function Projects() {
           <h1 className="text-base font-semibold text-gray-800">Projects</h1>
           <div className="relative group">
             <button
-              onClick={() => setShowCreateDialog(true)}
+              onClick={() => {
+                if (teams.length > 0) {
+                  setNewProject(prev => ({ ...prev, teamId: teams[0].id.toString() }));
+                }
+                setShowCreateDialog(true);
+              }}
               className="flex items-center justify-center w-6 h-6 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -564,7 +607,39 @@ export default function Projects() {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl h-[80vh] flex flex-col">
               {/* Dialog Header - Fixed */}
               <div className="flex items-center justify-between px-6 py-3">
-                <h2 className="text-base font-semibold text-gray-800">Create new project</h2>
+                <div className="flex items-center gap-1">
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowTeamDropdown(!showTeamDropdown);
+                      }}
+                      className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      {teams.find(t => t.id.toString() === newProject.teamId)?.identifier || teams[0]?.identifier || 'Select team'}
+                    </button>
+                    {showTeamDropdown && (
+                      <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                        {teams.map((team) => (
+                          <button
+                            key={team.id}
+                            onClick={() => {
+                              setNewProject({ ...newProject, teamId: team.id.toString() });
+                              setShowTeamDropdown(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 ${
+                              newProject.teamId === team.id.toString() ? 'bg-gray-100' : ''
+                            }`}
+                          >
+                            {team.identifier} - {team.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight className="w-3 h-3 text-gray-400" />
+                  <span className="text-sm font-semibold text-gray-800">Create new project</span>
+                </div>
                 <button
                   onClick={() => setShowCreateDialog(false)}
                   className="text-gray-400 hover:text-gray-600"

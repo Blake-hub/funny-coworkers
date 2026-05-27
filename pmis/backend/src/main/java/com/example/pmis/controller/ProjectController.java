@@ -29,6 +29,12 @@ public class ProjectController {
         return ResponseEntity.ok(projectService.getAllProjects());
     }
 
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "Get projects for a user based on their team membership")
+    public ResponseEntity<List<ProjectDTO>> getProjectsForUser(@PathVariable Long userId) {
+        return ResponseEntity.ok(projectService.getProjectsForUser(userId));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get project by ID")
     public ResponseEntity<ProjectDTO> getProjectById(@PathVariable Long id) {

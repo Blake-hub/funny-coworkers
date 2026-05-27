@@ -380,6 +380,7 @@ export interface CreateProjectRequest {
   status: number;
   priority: number;
   leaderId: number;
+  teamId: number;
   memberIds?: number[];
   startDate?: string;
   endDate?: string;
@@ -390,6 +391,10 @@ export interface CreateProjectRequest {
 export const projectApi = {
   getAllProjects: async (): Promise<ProjectResponse[]> => {
     return fetchApi<ProjectResponse[]>('/projects');
+  },
+
+  getProjectsForUser: async (userId: number): Promise<ProjectResponse[]> => {
+    return fetchApi<ProjectResponse[]>(`/projects/user/${userId}`);
   },
 
   getProjectById: async (id: number): Promise<ProjectResponse> => {
@@ -529,6 +534,8 @@ export const labelApi = {
 export interface IssueResponse {
   id: number;
   projectId: number | null;
+  teamId: number | null;
+  teamIdentifier: string | null;
   title: string;
   description: string | null;
   statusId: number;
@@ -552,6 +559,7 @@ export interface IssueStatusResponse {
 
 export interface CreateIssueRequest {
   projectId?: number;
+  teamId?: number;
   title: string;
   description?: string;
   statusId?: number;
@@ -572,6 +580,10 @@ export const issueApi = {
   getAllIssues: async (projectId?: number): Promise<IssueResponse[]> => {
     const endpoint = projectId ? `/issues?projectId=${projectId}` : '/issues';
     return fetchApi<IssueResponse[]>(endpoint);
+  },
+
+  getIssuesForUser: async (userId: number): Promise<IssueResponse[]> => {
+    return fetchApi<IssueResponse[]>(`/issues/user/${userId}`);
   },
 
   getIssueById: async (id: number): Promise<IssueResponse> => {

@@ -27,6 +27,12 @@ public class IssueController {
         return ResponseEntity.ok(issueService.getIssuesByProject(projectId));
     }
 
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "Get issues for a specific user (filtered by team membership)")
+    public ResponseEntity<List<IssueDTO>> getIssuesForUser(@PathVariable Long userId) {
+        return ResponseEntity.ok(issueService.getIssuesForUser(userId));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get a single issue by ID")
     public ResponseEntity<IssueDTO> getIssue(@PathVariable Long id) {

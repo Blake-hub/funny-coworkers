@@ -99,7 +99,7 @@ const priorityLabels: Record<number, string> = {
 
 export default function Dashboard() {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading, logout } = useAuth();
+  const { isAuthenticated, loading: authLoading, logout, user } = useAuth();
   const [issues, setIssues] = useState<IssueResponse[]>([]);
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,10 +112,12 @@ export default function Dashboard() {
 
     if (!authLoading && isAuthenticated) {
       const fetchData = async () => {
+        if (!user?.id) return;
+        
         try {
           const [issuesData, projectsData] = await Promise.all([
-            issueApi.getAllIssues(),
-            projectApi.getAllProjects(),
+            issueApi.getIssuesForUser(Number(user.id)),
+            projectApi.getProjectsForUser(Number(user.id)),
           ]);
           setIssues(issuesData);
           setProjects(projectsData);

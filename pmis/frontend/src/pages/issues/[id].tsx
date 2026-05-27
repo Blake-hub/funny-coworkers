@@ -37,7 +37,7 @@ const priorityConfig: Record<number, { label: string; color: string; icon: typeo
 
 export default function IssueDetail({ issueId }: { issueId: string }) {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { addToast } = useToast();
 
   const [issue, setIssue] = useState<IssueResponse | null>(null);
@@ -96,8 +96,10 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
   };
 
   const fetchProjects = async () => {
+    if (!user?.id) return;
+    
     try {
-      const data = await projectApi.getAllProjects();
+      const data = await projectApi.getProjectsForUser(Number(user.id));
       setProjects(data);
     } catch (error) {
       console.error('Failed to fetch projects:', error);

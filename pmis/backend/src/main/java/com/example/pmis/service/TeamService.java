@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -149,11 +150,23 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public List<TeamDTO> getTeamsForUser(Long userId) {
-        return teamMemberRepository.findByUserId(userId).stream()
-                .map(tm -> teamRepository.findById(tm.getTeamId())
-                        .map(this::convertToDTO)
-                        .orElse(null))
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null && user.getRole() == Role.ADMIN) {
+            return teamRepository.findAll().stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        List<Team> memberTeams = teamMemberRepository.findByUserId(userId).stream()
+                .map(tm -> teamRepository.findById(tm.getTeamId()).orElse(null))
                 .filter(t -> t != null)
+                .collect(Collectors.toList());
+        
+        List<Team> ownedTeams = teamRepository.findByOwnerId(userId);
+        
+        return Stream.concat(memberTeams.stream(), ownedTeams.stream())
+                .distinct()
+                .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 

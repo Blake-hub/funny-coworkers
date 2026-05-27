@@ -26,7 +26,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function Teams() {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [teams, setTeams] = useState<TeamResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,8 +46,10 @@ export default function Teams() {
 
   useEffect(() => {
     const fetchTeams = async () => {
+      if (!user?.id) return;
+      
       try {
-        const data = await teamApi.getAllTeams();
+        const data = await teamApi.getTeamsForUser(Number(user.id));
         setTeams(data);
       } catch (error) {
         console.error('Failed to fetch teams:', error);
@@ -56,8 +58,10 @@ export default function Teams() {
       }
     };
 
-    fetchTeams();
-  }, []);
+    if (!authLoading && isAuthenticated && user?.id) {
+      fetchTeams();
+    }
+  }, [authLoading, isAuthenticated, user?.id]);
 
   const openMembersModal = async (team: TeamResponse) => {
     setSelectedTeam(team);

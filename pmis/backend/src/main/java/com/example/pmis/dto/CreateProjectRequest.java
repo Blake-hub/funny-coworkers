@@ -1,5 +1,6 @@
 package com.example.pmis.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -34,6 +35,10 @@ public class CreateProjectRequest {
 
     @NotNull(message = "Leader ID is required")
     private Long leaderId;
+
+    @NotNull(message = "Team ID is required")
+    @JsonProperty("teamId")
+    private Long teamId;
 
     private List<Long> memberIds;
 

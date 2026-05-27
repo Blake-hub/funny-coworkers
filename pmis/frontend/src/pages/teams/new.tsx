@@ -26,7 +26,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function CreateTeam() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { addToast } = useToast();
   const [formData, setFormData] = useState({
     name: '',

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, ChevronDown, FileText, AlertCircle, User, FolderKanban, Tag, Calendar, Paperclip, SlidersHorizontal } from 'lucide-react';
+import { X, ChevronDown, FileText, AlertCircle, User, FolderKanban, Tag, Calendar, Paperclip, SlidersHorizontal, ChevronRight } from 'lucide-react';
 import RichTextEditor from '@/components/RichTextEditor';
 import type { IssueStatusResponse, UserResponse, ProjectResponse, LabelResponse } from '@/services/api';
 
@@ -13,6 +13,8 @@ interface CreateIssueDialogProps {
   projects: ProjectResponse[];
   labels: LabelResponse[];
   onCreate: (data: CreateIssueData) => void;
+  teamIdentifier?: string;
+  teamId?: number;
 }
 
 export interface CreateIssueData {
@@ -22,6 +24,7 @@ export interface CreateIssueData {
   priorityId: number;
   assigneeId: number | null;
   projectId: number | null;
+  teamId: number | null;
   labelIds: number[];
   dueDate: string;
 }
@@ -42,7 +45,11 @@ export default function CreateIssueDialog({
   projects,
   labels,
   onCreate,
+  teamIdentifier,
+  teamId,
 }: CreateIssueDialogProps) {
+  console.log('CreateIssueDialog - teamIdentifier:', teamIdentifier);
+  
   const [newIssue, setNewIssue] = useState({
     title: '',
     description: '',
@@ -50,6 +57,7 @@ export default function CreateIssueDialog({
     priorityId: 0,
     assigneeId: null as number | null,
     projectId: null as number | null,
+    teamId: null as number | null,
     labelIds: [] as number[],
     dueDate: '',
   });
@@ -109,7 +117,7 @@ export default function CreateIssueDialog({
 
   const handleSubmit = () => {
     if (!newIssue.title.trim()) return;
-    onCreate({ ...newIssue });
+    onCreate({ ...newIssue, teamId: teamId || null });
     
     if (!createMore) {
       onClose();
@@ -121,6 +129,7 @@ export default function CreateIssueDialog({
         priorityId: 0,
         assigneeId: null,
         projectId: null,
+        teamId: null,
         labelIds: [],
         dueDate: '',
       });
@@ -146,7 +155,15 @@ export default function CreateIssueDialog({
         }}
       >
         <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
-          <h2 className="text-sm font-semibold text-gray-800">New issue</h2>
+          <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-1">
+            {teamIdentifier && (
+              <>
+                <span className="text-gray-500">{teamIdentifier}</span>
+                <ChevronRight className="w-3 h-3 text-gray-400" />
+              </>
+            )}
+            New issue
+          </h2>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded transition-colors"

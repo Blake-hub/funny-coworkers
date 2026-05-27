@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 public class IssueDTO {
     private Long id;
     private Long projectId;
+    private Long teamId;
+    private String teamIdentifier;
     private String title;
     private String description;
     private Integer statusId;
