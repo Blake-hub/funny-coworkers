@@ -536,6 +536,7 @@ export interface IssueResponse {
   projectId: number | null;
   teamId: number | null;
   teamIdentifier: string | null;
+  teamIssueNumber: number | null;
   title: string;
   description: string | null;
   statusId: number;

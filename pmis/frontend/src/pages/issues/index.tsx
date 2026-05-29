@@ -506,8 +506,7 @@ export default function IssuesPage() {
         projects={projects}
         labels={labels}
         onCreate={handleCreateIssue}
-        teamIdentifier={teams.length > 0 ? teams[0].identifier : undefined}
-        teamId={teams.length > 0 ? teams[0].id : undefined}
+        teams={teams}
       />
     </Layout>
   );

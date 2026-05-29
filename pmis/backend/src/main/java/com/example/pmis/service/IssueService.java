@@ -11,9 +11,11 @@ import com.example.pmis.entity.User;
 import com.example.pmis.entity.enumeration.Role;
 import com.example.pmis.repository.IssueRepository;
 import com.example.pmis.repository.ProjectRepository;
+import com.example.pmis.repository.TeamIssueCounterRepository;
 import com.example.pmis.repository.TeamMemberRepository;
 import com.example.pmis.repository.TeamRepository;
 import com.example.pmis.repository.UserRepository;
+import com.example.pmis.entity.TeamIssueCounter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,7 @@ public class IssueService {
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamIssueCounterRepository teamIssueCounterRepository;
 
     @Transactional(readOnly = true)
     public List<IssueDTO> getIssuesByProject(Long projectId) {
@@ -101,8 +104,9 @@ public class IssueService {
             issue.setProject(project);
         }
 
+        Team team = null;
         if (dto.getTeamId() != null) {
-            Team team = teamRepository.findById(dto.getTeamId())
+            team = teamRepository.findById(dto.getTeamId())
                     .orElseThrow(() -> new RuntimeException("Team not found with id: " + dto.getTeamId()));
             issue.setTeam(team);
         }
@@ -117,6 +121,21 @@ public class IssueService {
             User reporter = userRepository.findById(dto.getReporterId())
                     .orElseThrow(() -> new RuntimeException("User not found with id: " + dto.getReporterId()));
             issue.setReporter(reporter);
+        }
+
+        if (team != null) {
+            TeamIssueCounter counter = teamIssueCounterRepository.findByTeamIdWithLock(team.getId())
+                    .orElseGet(() -> {
+                        TeamIssueCounter newCounter = TeamIssueCounter.builder()
+                                .teamId(team.getId())
+                                .nextIssueNumber(1)
+                                .build();
+                        return teamIssueCounterRepository.save(newCounter);
+                    });
+            
+            issue.setTeamIssueNumber(counter.getNextIssueNumber());
+            counter.setNextIssueNumber(counter.getNextIssueNumber() + 1);
+            teamIssueCounterRepository.save(counter);
         }
 
         Integer maxSortOrder = issueRepository.findMaxSortOrderByStatusId(issue.getStatusId()).orElse(-1);
@@ -194,6 +213,7 @@ public class IssueService {
                 .projectId(entity.getProject() != null ? entity.getProject().getId() : null)
                 .teamId(entity.getTeam() != null ? entity.getTeam().getId() : null)
                 .teamIdentifier(entity.getTeam() != null ? entity.getTeam().getIdentifier() : null)
+                .teamIssueNumber(entity.getTeamIssueNumber())
                 .title(entity.getTitle())
                 .description(entity.getDescription())
                 .statusId(entity.getStatusId())

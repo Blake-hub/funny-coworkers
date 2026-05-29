@@ -55,6 +55,9 @@ public class Issue {
     @Column(name = "priority_id")
     private Integer priorityId;
 
+    @Column(name = "team_issue_number")
+    private Integer teamIssueNumber;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

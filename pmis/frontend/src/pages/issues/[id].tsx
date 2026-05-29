@@ -235,7 +235,9 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
             <div className="px-8 py-6 space-y-4">
               {/* Issue Title */}
               <div className="flex items-start gap-3">
-                <span className="text-sm text-gray-400 font-mono mt-1">#{issue.id}</span>
+                <span className="text-sm text-gray-400 font-mono mt-1">
+                {issue.teamIdentifier && issue.teamIssueNumber ? `${issue.teamIdentifier}-${issue.teamIssueNumber}` : `#${issue.id}`}
+              </span>
                 {editingField === 'title' ? (
                   <input
                     type="text"

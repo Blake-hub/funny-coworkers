@@ -80,6 +80,11 @@ const mockLabels = [
   { id: 2, name: 'Feature', color: '#10b981', description: 'New feature', createdAt: '2024-01-01T00:00:00Z' },
 ];
 
+const mockTeams = [
+  { id: 1, identifier: 'DMC', name: 'Damachy' },
+  { id: 2, identifier: 'LIB', name: 'Library' },
+];
+
 describe('CreateIssueDialog', () => {
   const mockOnClose = jest.fn();
   const mockOnCreate = jest.fn();
@@ -99,6 +104,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const dialog = screen.getByTestId('create-issue-dialog');
@@ -124,6 +130,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const dialog = screen.getByTestId('create-issue-dialog');
@@ -140,6 +147,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const dialog = screen.getByTestId('create-issue-dialog');
@@ -158,6 +166,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const titleInput = screen.getByTestId('issue-title-input');
@@ -177,6 +186,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const descInput = screen.getByTestId('rich-text-editor-input');
@@ -196,6 +206,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const editorContainer = screen.getByTestId('editor-container');
@@ -214,6 +225,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const descInput = screen.getByTestId('rich-text-editor-input');
@@ -235,6 +247,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const statusChip = screen.getByTestId('status-chip');
@@ -258,6 +271,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const dialog = screen.getByTestId('create-issue-dialog');
@@ -276,6 +290,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const dialog = screen.getByTestId('create-issue-dialog');
@@ -295,6 +310,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
 
@@ -319,6 +335,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const closeButton = screen.getByTestId('close-dialog-button');
@@ -338,6 +355,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const createButton = screen.getByTestId('create-issue-button');
@@ -357,6 +375,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const titleInput = screen.getByTestId('issue-title-input');
@@ -385,6 +404,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const statusChip = screen.getByTestId('status-chip');
@@ -402,6 +422,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const priorityChip = screen.getByTestId('priority-chip');
@@ -419,6 +440,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const assigneeChip = screen.getByTestId('assignee-chip');
@@ -436,6 +458,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const projectChip = screen.getByTestId('project-chip');
@@ -453,6 +476,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const labelsChip = screen.getByTestId('labels-chip');
@@ -470,6 +494,7 @@ describe('CreateIssueDialog', () => {
           projects={mockProjects}
           labels={mockLabels}
           onCreate={mockOnCreate}
+          teams={mockTeams}
         />
       );
       const dueDateChip = screen.getByTestId('due-date-chip');

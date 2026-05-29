@@ -143,8 +143,8 @@ export const IssueCard: React.FC<IssueCardProps> = ({
             />
           )}
           
-          {issue.teamIdentifier ? (
-            <span className="text-xs text-gray-400 font-mono flex-shrink-0">{issue.teamIdentifier}-{issue.id}</span>
+          {issue.teamIdentifier && issue.teamIssueNumber ? (
+            <span className="text-xs text-gray-400 font-mono flex-shrink-0">{issue.teamIdentifier}-{issue.teamIssueNumber}</span>
           ) : (
             <span className="text-xs text-gray-400 font-mono flex-shrink-0">#{issue.id}</span>
           )}

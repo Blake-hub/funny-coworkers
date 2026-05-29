@@ -1,5 +1,6 @@
 package com.example.pmis.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -16,6 +17,8 @@ public class IssueDTO {
     private Long projectId;
     private Long teamId;
     private String teamIdentifier;
+    @JsonProperty("teamIssueNumber")
+    private Integer teamIssueNumber;
     private String title;
     private String description;
     private Integer statusId;

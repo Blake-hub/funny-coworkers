@@ -5,6 +5,12 @@ import { X, ChevronDown, FileText, AlertCircle, User, FolderKanban, Tag, Calenda
 import RichTextEditor from '@/components/RichTextEditor';
 import type { IssueStatusResponse, UserResponse, ProjectResponse, LabelResponse } from '@/services/api';
 
+interface TeamResponse {
+  id: number;
+  identifier: string;
+  name: string;
+}
+
 interface CreateIssueDialogProps {
   show: boolean;
   onClose: () => void;
@@ -13,8 +19,7 @@ interface CreateIssueDialogProps {
   projects: ProjectResponse[];
   labels: LabelResponse[];
   onCreate: (data: CreateIssueData) => void;
-  teamIdentifier?: string;
-  teamId?: number;
+  teams: TeamResponse[];
 }
 
 export interface CreateIssueData {
@@ -45,10 +50,9 @@ export default function CreateIssueDialog({
   projects,
   labels,
   onCreate,
-  teamIdentifier,
-  teamId,
+  teams,
 }: CreateIssueDialogProps) {
-  console.log('CreateIssueDialog - teamIdentifier:', teamIdentifier);
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   
   const [newIssue, setNewIssue] = useState({
     title: '',
@@ -57,7 +61,7 @@ export default function CreateIssueDialog({
     priorityId: 0,
     assigneeId: null as number | null,
     projectId: null as number | null,
-    teamId: null as number | null,
+    teamId: teams.length > 0 ? teams[0].id : null as number | null,
     labelIds: [] as number[],
     dueDate: '',
   });
@@ -117,7 +121,7 @@ export default function CreateIssueDialog({
 
   const handleSubmit = () => {
     if (!newIssue.title.trim()) return;
-    onCreate({ ...newIssue, teamId: teamId || null });
+    onCreate({ ...newIssue, teamId: newIssue.teamId || null });
     
     if (!createMore) {
       onClose();
@@ -129,7 +133,7 @@ export default function CreateIssueDialog({
         priorityId: 0,
         assigneeId: null,
         projectId: null,
-        teamId: null,
+        teamId: teams.length > 0 ? teams[0].id : null,
         labelIds: [],
         dueDate: '',
       });
@@ -154,16 +158,40 @@ export default function CreateIssueDialog({
           minHeight: `${MIN_HEIGHT}px`
         }}
       >
-        <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
-          <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-1">
-            {teamIdentifier && (
-              <>
-                <span className="text-gray-500">{teamIdentifier}</span>
-                <ChevronRight className="w-3 h-3 text-gray-400" />
-              </>
-            )}
-            New issue
-          </h2>
+        <div className="flex items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-1">
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTeamDropdown(!showTeamDropdown);
+                }}
+                className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                {teams.find(t => t.id === newIssue.teamId)?.identifier || teams[0]?.identifier || 'Select team'}
+              </button>
+              {showTeamDropdown && (
+                <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                  {teams.map((team) => (
+                    <button
+                      key={team.id}
+                      onClick={() => {
+                        setNewIssue({ ...newIssue, teamId: team.id });
+                        setShowTeamDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 ${
+                        newIssue.teamId === team.id ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      {team.identifier} - {team.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <ChevronRight className="w-3 h-3 text-gray-400" />
+            <span className="text-sm font-semibold text-gray-800">New issue</span>
+          </div>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded transition-colors"
