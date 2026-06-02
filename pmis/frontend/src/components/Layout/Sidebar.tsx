@@ -43,6 +43,7 @@ export default function Sidebar({ width, isCollapsed }: SidebarProps) {
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
   const [teams, setTeams] = useState<TeamResponse[]>([]);
+  const [showWikiMenu, setShowWikiMenu] = useState(false);
 
   const getMenuItems = () => [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
@@ -276,6 +277,82 @@ export default function Sidebar({ width, isCollapsed }: SidebarProps) {
                       })}
                     </div>
                   )}
+                </div>
+              );
+            }
+            
+            if (item.id === 'wiki') {
+              return (
+                <div key={item.id} className="relative">
+                  <div 
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out cursor-pointer ${
+                      isActive 
+                        ? 'bg-gray-500 text-white shadow-md' 
+                        : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
+                    }`}
+                    onClick={() => router.push(item.href!)}
+                  >
+                    <Icon className="w-4 h-4 transition-transform duration-200" />
+                    {!isCollapsed && (
+                      <div className="flex-1 flex items-center justify-between">
+                        <span className="flex-1 text-left">{item.label}</span>
+                        <div className="relative">
+                          <button
+                            className={`p-1 rounded transition-colors duration-200 ${
+                              isActive 
+                                ? 'hover:bg-white/20' 
+                                : 'hover:bg-gray-300'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowWikiMenu(!showWikiMenu);
+                            }}
+                            title="Add to Wiki"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                          
+                          {showWikiMenu && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-40"
+                                onClick={() => setShowWikiMenu(false)}
+                              />
+                              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50">
+                                <button
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowWikiMenu(false);
+                                    router.push('/wiki/new-document');
+                                  }}
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  <span>Document</span>
+                                </button>
+                                <button
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowWikiMenu(false);
+                                    console.log('Create new folder');
+                                  }}
+                                >
+                                  <FolderOpen className="w-4 h-4" />
+                                  <span>Folder</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {isCollapsed && item.badge && (
+                      <span className="bg-gray-200 text-gray-700 w-4 h-4 rounded-full flex items-center justify-center text-xs">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             }
