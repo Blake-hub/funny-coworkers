@@ -10,7 +10,6 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  ChevronLeft,
   ChevronRight,
   ChevronDown,
   ChevronRight as ChevronRightIcon,
@@ -25,8 +24,8 @@ import { teamApi, type TeamResponse } from '@/services/api';
 import { mockIssues, mockProjects } from '@/data/mockData';
 
 interface SidebarProps {
-  collapsed: boolean;
-  onToggle: () => void;
+  width: number;
+  isCollapsed: boolean;
 }
 
 interface MenuItem {
@@ -37,7 +36,7 @@ interface MenuItem {
   badge?: number;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ width, isCollapsed }: SidebarProps) {
   const router = useRouter();
   const { logout, user } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -89,9 +88,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside 
-      className={`fixed left-0 top-0 h-screen bg-gray-100 transition-all duration-300 z-40 ${
-        collapsed ? 'w-20' : 'w-64'
-      }`}
+      className="h-screen bg-gray-100 transition-all duration-300 flex-shrink-0"
+      style={{ width: `${width}px` }}
     >
       <div className="h-full flex flex-col">
         {/* User Profile & Actions - Same Row */}
@@ -103,7 +101,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
                   {user?.name ? user.name.charAt(0) : '?'}
                 </div>
-                {!collapsed && (
+                {!isCollapsed && (
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{user?.name || 'Unknown User'}</p>
                     <p className="text-xs text-gray-500 truncate">{user?.role || 'Unknown Role'}</p>
@@ -134,7 +132,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     )}
                   </button>
                   
-                  {showNotifications && !collapsed && (
+                  {showNotifications && !isCollapsed && (
                     <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50">
                       <div className="p-2 border-b border-gray-200">
                         <h4 className="text-xs font-semibold text-gray-700">Notifications</h4>
@@ -166,7 +164,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm`}
             >
               <ArrowLeft className="w-4 h-4" />
-              {!collapsed && <span>Back to app</span>}
+              {!isCollapsed && <span>Back to app</span>}
             </button>
           ) : (
             getMenuItems().map((item) => {
@@ -185,7 +183,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     onClick={handleTeamsClick}
                   >
                     <Icon className="w-4 h-4 transition-transform duration-200" />
-                    {!collapsed && (
+                    {!isCollapsed && (
                       <div className="flex-1 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span>{item.label}</span>
@@ -218,14 +216,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </div>
                       </div>
                     )}
-                    {collapsed && item.badge && (
+                    {isCollapsed && item.badge && (
                       <span className="bg-gray-200 text-gray-700 w-4 h-4 rounded-full flex items-center justify-center text-xs">
                         {item.badge}
                       </span>
                     )}
                   </div>
                   
-                  {!collapsed && expandedMenu === 'teams' && (
+                  {!isCollapsed && expandedMenu === 'teams' && (
                     <div className="ml-4 mt-0.5 space-y-0.5">
                       {teams.map((team) => {
                         const teamId = String(team.id);
@@ -293,7 +291,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 }`}
               >
                 <Icon className="w-4 h-4 transition-transform duration-200" />
-                {!collapsed && (
+                {!isCollapsed && (
                   <>
                     <span className="flex-1 text-left">{item.label}</span>
                     {item.badge && (
@@ -305,7 +303,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     )}
                   </>
                 )}
-                {collapsed && item.badge && (
+                {isCollapsed && item.badge && (
                   <span className="bg-gray-200 text-gray-700 w-4 h-4 rounded-full flex items-center justify-center text-xs">
                     {item.badge}
                   </span>
@@ -322,33 +320,24 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <button
               onClick={() => router.push('/settings/')}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
-                collapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
+                isCollapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
               }`}
               title="Settings"
             >
               <Settings className="w-4 h-4" />
-              {!collapsed && <span>Settings</span>}
+              {!isCollapsed && <span>Settings</span>}
             </button>
             <button 
               onClick={handleLogout}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
-                collapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
+                isCollapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
               }`}
               title="Logout">
               <LogOut className="w-4 h-4" />
-              {!collapsed && <span>Logout</span>}
+              {!isCollapsed && <span>Logout</span>}
             </button>
           </div>
         )}
-
-        {/* Toggle Button */}
-        <button
-          onClick={onToggle}
-          className="absolute -right-3 top-20 bg-white border border-gray-300 rounded-full p-1.5 hover:bg-gray-100 hover:shadow-md hover:scale-110 transition-all duration-200 ease-in-out"
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4 text-gray-600" /> : <ChevronLeft className="w-4 h-4 text-gray-600" />}
-        </button>
       </div>
     </aside>
   );

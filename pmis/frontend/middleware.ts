@@ -39,7 +39,13 @@ export function middleware(request: NextRequest) {
   }
 
   if (token && isLoginPage) {
-    return NextResponse.redirect(new URL('/', request.url));
+    if (isValidToken(token)) {
+      return NextResponse.redirect(new URL('/', request.url));
+    } else {
+      const response = NextResponse.next();
+      response.cookies.delete('pmis-token');
+      return response;
+    }
   }
 
   return NextResponse.next();

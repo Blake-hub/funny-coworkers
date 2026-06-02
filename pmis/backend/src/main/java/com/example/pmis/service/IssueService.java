@@ -124,10 +124,11 @@ public class IssueService {
         }
 
         if (team != null) {
-            TeamIssueCounter counter = teamIssueCounterRepository.findByTeamIdWithLock(team.getId())
+            final Long teamId = team.getId();
+            TeamIssueCounter counter = teamIssueCounterRepository.findByTeamIdWithLock(teamId)
                     .orElseGet(() -> {
                         TeamIssueCounter newCounter = TeamIssueCounter.builder()
-                                .teamId(team.getId())
+                                .teamId(teamId)
                                 .nextIssueNumber(1)
                                 .build();
                         return teamIssueCounterRepository.save(newCounter);
