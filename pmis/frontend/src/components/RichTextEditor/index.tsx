@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, memo, forwardRef } from 'react';
 
 interface RichTextEditorProps {
   value: string;
@@ -8,9 +8,467 @@ interface RichTextEditorProps {
   onBlur?: () => void;
   style?: React.CSSProperties;
   'data-testid'?: string;
+  showToolbar?: boolean;
 }
 
-function RichTextEditorClient({ value, onChange, placeholder, className, onBlur, style, 'data-testid': dataTestId }: RichTextEditorProps) {
+const slashCommands = [
+  { id: 'bold', label: 'Bold', command: 'toggleBold', group: 'text' },
+  { id: 'italic', label: 'Italic', command: 'toggleItalic', group: 'text' },
+  { id: 'underline', label: 'Underline', command: 'toggleUnderline', group: 'text' },
+  { id: 'strike', label: 'Strikethrough', command: 'toggleStrike', group: 'text' },
+  { id: 'h1', label: 'Heading 1', command: 'toggleHeading', params: { level: 1 }, group: 'heading' },
+  { id: 'h2', label: 'Heading 2', command: 'toggleHeading', params: { level: 2 }, group: 'heading' },
+  { id: 'bulletList', label: 'Bullet List', command: 'toggleBulletList', group: 'list' },
+  { id: 'orderedList', label: 'Ordered List', command: 'toggleOrderedList', group: 'list' },
+  { id: 'code', label: 'Inline Code', command: 'toggleCode', group: 'code' },
+  { id: 'codeBlock', label: 'Code Block', command: 'toggleCodeBlock', group: 'code' },
+  { id: 'link', label: 'Insert Link', command: 'insertLink', group: 'insert' },
+  { id: 'image', label: 'Insert Image', command: 'insertImage', group: 'insert' },
+  { id: 'file', label: 'Attach File', command: 'attachFile', group: 'insert' },
+];
+
+interface SlashMenuProps {
+  show: boolean; 
+  position: { x: number; y: number; maxHeight: number }; 
+  onSelectCommand: (command: string, params?: any) => void;
+  selectedIndex: number;
+  onClose: () => void;
+}
+
+const SlashMenuComponent = forwardRef<HTMLDivElement, SlashMenuProps>(({ 
+  show, 
+  position, 
+  onSelectCommand, 
+  selectedIndex,
+  onClose 
+}, ref) => {
+  const { Bold, Italic, Underline, Strikethrough, Heading1, Heading2, List, ListOrdered, Code, Type, Link2, ImageIcon, FileText, Search } = require('lucide-react');
+  
+  const iconMap: Record<string, any> = {
+    bold: Bold,
+    italic: Italic,
+    underline: Underline,
+    strike: Strikethrough,
+    h1: Heading1,
+    h2: Heading2,
+    bulletList: List,
+    orderedList: ListOrdered,
+    code: Code,
+    codeBlock: Type,
+    link: Link2,
+    image: ImageIcon,
+    file: FileText,
+  };
+
+  if (!show) return null;
+
+  return (
+    <div
+      ref={ref}
+      className="slash-menu"
+      style={{
+        left: position.x,
+        top: position.y,
+        maxHeight: position.maxHeight,
+        overflowY: 'auto',
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 mb-2">
+        <Search className="w-4 h-4 text-gray-400" />
+        <span className="text-sm text-gray-400">Search commands...</span>
+      </div>
+      {slashCommands.map((cmd, index) => {
+        const Icon = iconMap[cmd.id] || Type;
+        return (
+          <button
+            key={cmd.id}
+            data-command-index={index}
+            className={`slash-menu-item ${selectedIndex === index ? 'selected' : ''}`}
+            onClick={() => onSelectCommand(cmd.command, cmd.params)}
+          >
+            <div className="slash-menu-item-icon">
+              <Icon className="w-4 h-4 text-gray-600" />
+            </div>
+            <span className="slash-menu-item-label">{cmd.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+const SlashMenu = memo(SlashMenuComponent);
+
+const FloatingToolbar = memo(({ 
+  show, 
+  position, 
+  editor 
+}: { 
+  show: boolean; 
+  position: { x: number; y: number }; 
+  editor: any;
+}) => {
+  if (!show || !editor) return null;
+
+  const { Bold, Italic, Underline, Heading1, Heading2, List, ListOrdered, Code, Link2 } = require('lucide-react');
+
+  return (
+    <div
+      className="floating-toolbar"
+      style={{
+        left: position.x,
+        top: position.y,
+      }}
+    >
+      <button
+        className={editor.isActive('bold') ? 'active' : ''}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        title="Bold"
+      >
+        <Bold className="w-4 h-4" />
+      </button>
+      <button
+        className={editor.isActive('italic') ? 'active' : ''}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        title="Italic"
+      >
+        <Italic className="w-4 h-4" />
+      </button>
+      <button
+        className={editor.isActive('underline') ? 'active' : ''}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        title="Underline"
+      >
+        <Underline className="w-4 h-4" />
+      </button>
+      <div className="w-px h-6 bg-gray-200 mx-1"></div>
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        title="Heading 1"
+      >
+        <Heading1 className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        title="Heading 2"
+      >
+        <Heading2 className="w-4 h-4" />
+      </button>
+      <div className="w-px h-6 bg-gray-200 mx-1"></div>
+      <button
+        className={editor.isActive('bulletList') ? 'active' : ''}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        title="Bullet List"
+      >
+        <List className="w-4 h-4" />
+      </button>
+      <button
+        className={editor.isActive('orderedList') ? 'active' : ''}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        title="Ordered List"
+      >
+        <ListOrdered className="w-4 h-4" />
+      </button>
+      <div className="w-px h-6 bg-gray-200 mx-1"></div>
+      <button
+        className={editor.isActive('code') ? 'active' : ''}
+        onClick={() => editor.chain().focus().toggleCode().run()}
+        title="Inline Code"
+      >
+        <Code className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().extendMarkRange('link').toggleLink().run()}
+        title="Insert Link"
+      >
+        <Link2 className="w-4 h-4" />
+      </button>
+    </div>
+  );
+});
+
+const Toolbar = memo(({ editor }: { editor: any }) => {
+  if (!editor) return null;
+
+  const { 
+    Bold, Italic, Underline, Strikethrough, Heading1, Heading2, 
+    List, ListOrdered, Quote, Code, Type, Link2, ImageIcon, FileText, 
+    AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo, Redo, Highlighter
+  } = require('lucide-react');
+
+  return (
+    <div className="toolbar">
+      <div className="toolbar-group">
+        <button
+          className={editor.isActive('bold') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          title="Bold (Ctrl+B)"
+        >
+          <Bold className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive('italic') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          title="Italic (Ctrl+I)"
+        >
+          <Italic className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive('underline') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          title="Underline (Ctrl+U)"
+        >
+          <Underline className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive('strike') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          title="Strikethrough"
+        >
+          <Strikethrough className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive('highlight') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleHighlight().run()}
+          title="Highlight"
+        >
+          <Highlighter className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="toolbar-divider"></div>
+
+      <div className="toolbar-group">
+        <button
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          title="Heading 1"
+        >
+          <Heading1 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          title="Heading 2"
+        >
+          <Heading2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="toolbar-divider"></div>
+
+      <div className="toolbar-group">
+        <button
+          className={editor.isActive('bulletList') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          title="Bullet List"
+        >
+          <List className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive('orderedList') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          title="Ordered List"
+        >
+          <ListOrdered className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive('blockquote') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          title="Quote"
+        >
+          <Quote className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="toolbar-divider"></div>
+
+      <div className="toolbar-group">
+        <button
+          className={editor.isActive('code') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          title="Inline Code"
+        >
+          <Code className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive('codeBlock') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          title="Code Block"
+        >
+          <Type className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="toolbar-divider"></div>
+
+      <div className="toolbar-group">
+        <button
+          onClick={() => editor.chain().focus().extendMarkRange('link').toggleLink().run()}
+          title="Insert Link"
+        >
+          <Link2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e: any) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (event: any) => {
+                  editor?.chain().focus().setImage({ src: event.target?.result }).run();
+                };
+                reader.readAsDataURL(file);
+              }
+            };
+            input.click();
+          }}
+          title="Insert Image"
+        >
+          <ImageIcon className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.click();
+          }}
+          title="Attach File"
+        >
+          <FileText className="w-4 h-4" />
+        </button>
+        </div>
+
+      <div className="toolbar-divider"></div>
+
+      <div className="toolbar-group">
+        <button
+          className={editor.isActive({ textAlign: 'left' }) ? 'active' : ''}
+          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+          title="Align Left"
+        >
+          <AlignLeft className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive({ textAlign: 'center' }) ? 'active' : ''}
+          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+          title="Align Center"
+        >
+          <AlignCenter className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive({ textAlign: 'right' }) ? 'active' : ''}
+          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          title="Align Right"
+        >
+          <AlignRight className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive({ textAlign: 'justify' }) ? 'active' : ''}
+          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+          title="Justify"
+        >
+          <AlignJustify className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="toolbar-divider"></div>
+
+      <div className="toolbar-group">
+        <button
+          onClick={() => editor.chain().focus().undo().run()}
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().redo().run()}
+          title="Redo (Ctrl+Shift+Z)"
+        >
+          <Redo className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+});
+
+const LinkModal = memo(({ 
+  show, 
+  onInsert, 
+  onCancel 
+}: { 
+  show: boolean; 
+  onInsert: (url: string) => void; 
+  onCancel: () => void; 
+}) => {
+  const [url, setUrl] = useState('');
+
+  useEffect(() => {
+    if (show) {
+      setUrl('');
+    }
+  }, [show]);
+
+  const handleInsert = () => {
+    if (url) {
+      onInsert(url);
+      setUrl('');
+    }
+  };
+
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-4 w-96">
+        <h3 className="text-sm font-medium text-gray-800 mb-3">Insert Link</h3>
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Enter URL"
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-300"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleInsert();
+            }
+          }}
+        />
+        <div className="flex justify-end gap-2 mt-3">
+          <button
+            onClick={() => {
+              onCancel();
+              setUrl('');
+            }}
+            className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleInsert}
+            className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+          >
+            Insert
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+function RichTextEditorClient({ 
+  value, 
+  onChange, 
+  placeholder, 
+  className, 
+  onBlur, 
+  style, 
+  'data-testid': dataTestId,
+  showToolbar = true
+}: RichTextEditorProps) {
   const { useEditor, EditorContent } = require('@tiptap/react');
   const StarterKit = require('@tiptap/starter-kit').default;
   const Image = require('@tiptap/extension-image').default;
@@ -19,54 +477,46 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
   const { TextStyle } = require('@tiptap/extension-text-style');
   const Link = require('@tiptap/extension-link').default;
   const UnderlineExtension = require('@tiptap/extension-underline').default;
-  const {
-    Bold,
-    Italic,
-    UnderlineIcon,
-    Strikethrough,
-    Heading1,
-    Heading2,
-    List,
-    ListOrdered,
-    Code,
-    Link2,
-    ImageIcon,
-    Type,
-    FileText,
-    AtSign,
-    Search,
-  } = require('lucide-react');
+  const Highlight = require('@tiptap/extension-highlight').default;
+  const TextAlign = require('@tiptap/extension-text-align').default;
+  
 
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0, maxHeight: 520 });
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
+  const [floatingToolbarPosition, setFloatingToolbarPosition] = useState({ x: 0, y: 0 });
+  const [showLinkModal, setShowLinkModal] = useState(false);
   const [hasContent, setHasContent] = useState(false);
+
   const selectedIndexRef = useRef(0);
   const menuVisibleRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
-  const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
-  const [floatingToolbarPosition, setFloatingToolbarPosition] = useState({ x: 0, y: 0 });
-  const [linkUrl, setLinkUrl] = useState('');
-  const [showLinkModal, setShowLinkModal] = useState(false);
   const blurTimeoutRef = useRef<number | null>(null);
 
-  const slashCommands = [
-    { id: 'bold', label: 'Bold', icon: Bold, command: 'toggleBold', group: 'text' },
-    { id: 'italic', label: 'Italic', icon: Italic, command: 'toggleItalic', group: 'text' },
-    { id: 'underline', label: 'Underline', icon: UnderlineIcon, command: 'toggleUnderline', group: 'text' },
-    { id: 'strike', label: 'Strikethrough', icon: Strikethrough, command: 'toggleStrike', group: 'text' },
-    { id: 'h1', label: 'Heading 1', icon: Heading1, command: 'toggleHeading', params: { level: 1 }, group: 'heading' },
-    { id: 'h2', label: 'Heading 2', icon: Heading2, command: 'toggleHeading', params: { level: 2 }, group: 'heading' },
-    { id: 'bulletList', label: 'Bullet List', icon: List, command: 'toggleBulletList', group: 'list' },
-    { id: 'orderedList', label: 'Ordered List', icon: ListOrdered, command: 'toggleOrderedList', group: 'list' },
-    { id: 'code', label: 'Inline Code', icon: Code, command: 'toggleCode', group: 'code' },
-    { id: 'codeBlock', label: 'Code Block', icon: Type, command: 'toggleCodeBlock', group: 'code' },
-    { id: 'link', label: 'Insert Link', icon: Link2, command: 'insertLink', group: 'insert' },
-    { id: 'image', label: 'Insert Image', icon: ImageIcon, command: 'insertImage', group: 'insert' },
-    { id: 'file', label: 'Attach File', icon: FileText, command: 'attachFile', group: 'insert' },
-  ];
+  const handleUpdate = useCallback(({ editor }: { editor: any }) => {
+    onChange(editor.getHTML());
+    setHasContent(editor.getText().trim().length > 0);
+  }, [onChange]);
+
+  const handleSelectionUpdate = useCallback(({ editor }: { editor: any }) => {
+    const selection = editor.state.selection;
+    if (selection && !selection.empty) {
+      const domSelection = window.getSelection();
+      if (domSelection && domSelection.rangeCount > 0) {
+        const range = domSelection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        setFloatingToolbarPosition({
+          x: rect.left + rect.width / 2,
+          y: rect.top - 50,
+        });
+        setShowFloatingToolbar(true);
+      }
+    } else {
+      setShowFloatingToolbar(false);
+    }
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -77,32 +527,21 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
       Image.configure({ inline: true }),
       CodeBlock,
       Color,
-      TextStyle,
+      TextStyle.configure({
+        types: ['heading', 'paragraph'],
+      }),
       Link.configure({ openOnClick: false }),
+      UnderlineExtension,
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      
     ],
     content: value,
     immediatelyRender: false,
-    onUpdate: ({ editor }: { editor: any }) => {
-      onChange(editor.getHTML());
-      setHasContent(editor.getText().trim().length > 0);
-    },
-    onSelectionUpdate: ({ editor }: { editor: any }) => {
-      const selection = editor.state.selection;
-      if (selection && !selection.empty) {
-        const domSelection = window.getSelection();
-        if (domSelection && domSelection.rangeCount > 0) {
-          const range = domSelection.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
-          setFloatingToolbarPosition({
-            x: rect.left + rect.width / 2,
-            y: rect.top - 50,
-          });
-          setShowFloatingToolbar(true);
-        }
-      } else {
-        setShowFloatingToolbar(false);
-      }
-    },
+    onUpdate: handleUpdate,
+    onSelectionUpdate: handleSelectionUpdate,
   });
 
   useEffect(() => {
@@ -128,50 +567,33 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
   }, [editor, onBlur]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuVisibleRef.current && slashMenuRef.current) {
-        if (!slashMenuRef.current.contains(e.target as Node)) {
-          menuVisibleRef.current = false;
-          setShowSlashMenu(false);
-          setMenuVisible(false);
-        }
-      }
-    };
+    if (!editor) return;
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!editor) return;
-      
       if (e.key === '/') {
         const selection = editor.state.selection;
         const $from = selection.$from;
         const textBeforeCursor = $from.nodeBefore?.textContent || '';
         const lastSpaceIndex = textBeforeCursor.lastIndexOf(' ');
         const textAfterLastSpace = textBeforeCursor.substring(lastSpaceIndex + 1);
-        
+
         if (textAfterLastSpace === '') {
           e.preventDefault();
           const domSelection = window.getSelection();
           if (domSelection && domSelection.rangeCount > 0) {
             const range = domSelection.getRangeAt(0);
             let rect = range.getBoundingClientRect();
-            
+
             if (rect.width === 0 && rect.height === 0) {
               const selectionNode = range.commonAncestorContainer;
               const parentElement = selectionNode.nodeType === Node.TEXT_NODE 
                 ? selectionNode.parentElement 
                 : selectionNode as HTMLElement;
-              
+
               if (parentElement) {
                 const parentRect = parentElement.getBoundingClientRect();
                 const editorElement = parentElement.closest('.tiptap-editor');
-                
+
                 if (editorElement) {
                   const editorRect = editorElement.getBoundingClientRect();
                   rect = {
@@ -188,66 +610,64 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
                 }
               }
             }
-            
+
             const menuWidth = 256;
             const menuHeight = 520;
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
             const safeMargin = 32;
-            
+
             let menuX = rect.left;
             let menuY = rect.bottom;
             let maxMenuHeight = menuHeight;
-            
+
             if (menuX + menuWidth > viewportWidth - safeMargin) {
               menuX = viewportWidth - menuWidth - safeMargin;
             }
-            
+
             if (menuX < safeMargin) {
               menuX = safeMargin;
             }
-            
+
             const spaceBelow = viewportHeight - rect.bottom - safeMargin;
             const spaceAbove = rect.top - safeMargin;
-            
+
             let shouldFlip = false;
             let targetHeight = menuHeight;
-            
+
             if (spaceBelow < targetHeight && spaceAbove > spaceBelow) {
               shouldFlip = true;
               targetHeight = Math.min(targetHeight, spaceAbove);
             } else if (spaceBelow < targetHeight) {
               targetHeight = Math.max(100, spaceBelow);
             }
-            
+
             maxMenuHeight = targetHeight;
-            
+
             if (shouldFlip) {
               menuY = rect.top - maxMenuHeight;
             }
-            
+
             if (menuY < safeMargin) {
               menuY = safeMargin;
               maxMenuHeight = Math.max(100, Math.min(maxMenuHeight, viewportHeight - safeMargin * 2));
             }
-            
+
             setSlashMenuPosition({ x: menuX, y: menuY, maxHeight: maxMenuHeight });
             selectedIndexRef.current = 0;
             menuVisibleRef.current = true;
             setSelectedCommandIndex(0);
             setShowSlashMenu(true);
-            setMenuVisible(true);
           }
         }
       }
-      
+
       if (e.key === 'Escape') {
         menuVisibleRef.current = false;
         setShowSlashMenu(false);
-        setMenuVisible(false);
         return;
       }
-      
+
       if (menuVisibleRef.current) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -257,7 +677,7 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
             : 0;
           selectedIndexRef.current = nextIndex;
           setSelectedCommandIndex(nextIndex);
-          
+
           setTimeout(() => {
             const menu = slashMenuRef.current;
             if (menu) {
@@ -277,7 +697,7 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
             : slashCommands.length - 1;
           selectedIndexRef.current = nextIndex;
           setSelectedCommandIndex(nextIndex);
-          
+
           setTimeout(() => {
             const menu = slashMenuRef.current;
             if (menu) {
@@ -298,7 +718,6 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
           }
           menuVisibleRef.current = false;
           setShowSlashMenu(false);
-          setMenuVisible(false);
           return;
         }
       }
@@ -309,7 +728,6 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
       if (!target.closest('.slash-menu') && !target.closest('.tiptap-editor')) {
         menuVisibleRef.current = false;
         setShowSlashMenu(false);
-        setMenuVisible(false);
       }
     };
 
@@ -320,9 +738,9 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
       document.removeEventListener('keydown', handleKeyDown, true);
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [editor, menuVisible]);
+  }, [editor]);
 
-  const executeCommand = (command: string, params?: any) => {
+  const executeCommand = useCallback((command: string, params?: any) => {
     if (!editor) return;
     editor.view.focus();
 
@@ -367,9 +785,11 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
         break;
     }
     setShowSlashMenu(false);
-  };
+  }, [editor]);
 
-  const handleImageUpload = () => {
+  const handleImageUpload = useCallback(() => {
+    if (!editor) return;
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -384,25 +804,68 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
       }
     };
     input.click();
-  };
+  }, [editor]);
 
-  const handleLinkInsert = () => {
+  const handleLinkInsert = useCallback((linkUrl: string) => {
     if (linkUrl && editor) {
       editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl }).run();
       setShowLinkModal(false);
-      setLinkUrl('');
     }
-  };
+  }, [editor]);
 
   if (!editor) return null;
 
   return (
     <div 
       ref={editorContainerRef}
-      className={`relative rounded-lg overflow-hidden focus:outline-none focus:border-transparent focus:ring-0 ${className}`} 
+      className={`relative rounded-lg overflow-hidden focus:outline-none focus:border-transparent focus:ring-0 ${className} ${showToolbar ? 'with-toolbar' : ''}`} 
       style={{ outline: 'none !important', boxShadow: 'none !important', border: 'none !important', cursor: 'text', ...style }}
     >
       <style>{`
+        .toolbar {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          padding: 8px 12px;
+          background: #f9fafb;
+          border-bottom: 1px solid #e5e7eb;
+          border-radius: 8px 8px 0 0;
+          flex-wrap: wrap;
+        }
+        .toolbar-group {
+          display: flex;
+          align-items: center;
+          gap: 1px;
+        }
+        .toolbar-divider {
+          width: 1px;
+          height: 24px;
+          background: #e5e7eb;
+          margin: 0 4px;
+        }
+        .toolbar button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 6px 8px;
+          border: none;
+          background: transparent;
+          border-radius: 4px;
+          cursor: pointer;
+          color: #4b5563;
+          transition: all 0.15s;
+        }
+        .toolbar button:hover {
+          background: #e5e7eb;
+          color: #1f2937;
+        }
+        .toolbar button.active {
+          background: #d1d5db;
+          color: #1f2937;
+        }
+        .toolbar button:active {
+          background: #9ca3af;
+        }
         .tiptap-editor [contenteditable="true"]:focus {
           outline: none !important;
           box-shadow: none !important;
@@ -425,11 +888,19 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
         }
         .editor-placeholder {
           position: absolute;
-          top: 8px;
-          left: 8px;
+          top: 16px;
+          left: 16px;
           color: #9ca3af;
           pointer-events: none;
           user-select: none;
+          line-height: 1.5;
+          font-size: 14px;
+        }
+        .with-toolbar .editor-placeholder {
+          top: 64px;
+        }
+        .with-toolbar .tiptap-editor .ProseMirror {
+          padding-top: 16px;
         }
         .tiptap-editor h1 {
           font-size: 2em;
@@ -504,7 +975,7 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
           margin: 1em 0;
         }
         .tiptap-editor p {
-          margin: 0;
+          margin: 0.5em 0;
           line-height: 1.5;
         }
         .tiptap-editor strong {
@@ -512,6 +983,66 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
         }
         .tiptap-editor em {
           font-style: italic;
+        }
+        .tiptap-editor br {
+          line-height: 1.5;
+        }
+        .tiptap-editor .hard-break {
+          line-height: 1.5;
+        }
+        .tiptap-editor mark {
+          background-color: #fef08a;
+          border-radius: 2px;
+          padding: 0 2px;
+        }
+        .tiptap-editor .text-left {
+          text-align: left;
+        }
+        .tiptap-editor .text-center {
+          text-align: center;
+        }
+        .tiptap-editor .text-right {
+          text-align: right;
+        }
+        .tiptap-editor .text-justify {
+          text-align: justify;
+        }
+        .tiptap-editor table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 1em 0;
+          border: 1px solid #e5e7eb;
+        }
+        .tiptap-editor th,
+        .tiptap-editor td {
+          border: 1px solid #e5e7eb;
+          padding: 10px 14px;
+          text-align: left;
+          min-width: 50px;
+        }
+        .tiptap-editor th {
+          background-color: #f3f4f6;
+          font-weight: 600;
+          color: #374151;
+        }
+        .tiptap-editor tr:hover td {
+          background-color: #f9fafb;
+        }
+        .tiptap-editor table .selectedCell {
+          background-color: #dbeafe;
+        }
+        .tiptap-editor table .column-resize-handle {
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          background-color: #3b82f6;
+          cursor: col-resize;
+          z-index: 10;
+        }
+        .tiptap-editor table-wrapper {
+          overflow-x: auto;
         }
         .slash-menu {
           position: fixed;
@@ -583,160 +1114,35 @@ function RichTextEditorClient({ value, onChange, placeholder, className, onBlur,
         }
       `}</style>
 
+      {showToolbar && <Toolbar editor={editor} />}
       <EditorContent editor={editor} className="tiptap-editor" data-testid={dataTestId} />
 
       {!hasContent && !editor.getText().trim() && (
         <div className="editor-placeholder">{placeholder || 'Start typing...'}</div>
       )}
 
-      {showSlashMenu && (
-        <div
-          ref={slashMenuRef}
-          className="slash-menu"
-          style={{
-            left: slashMenuPosition.x,
-            top: slashMenuPosition.y,
-            maxHeight: slashMenuPosition.maxHeight,
-            overflowY: 'auto',
-          }}
-        >
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 mb-2">
-            <Search className="w-4 h-4 text-gray-400" />
-            <span className="text-sm text-gray-400">Search commands...</span>
-          </div>
-          {slashCommands.map((cmd, index) => (
-            <button
-              key={cmd.id}
-              data-command-index={index}
-              className={`slash-menu-item ${selectedCommandIndex === index ? 'selected' : ''}`}
-              onClick={() => {
-                executeCommand(cmd.command, cmd.params);
-              }}
-            >
-              <div className="slash-menu-item-icon">
-                <cmd.icon className="w-4 h-4 text-gray-600" />
-              </div>
-              <span className="slash-menu-item-label">{cmd.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <SlashMenu
+        show={showSlashMenu}
+        position={slashMenuPosition}
+        onSelectCommand={executeCommand}
+        selectedIndex={selectedCommandIndex}
+        onClose={() => setShowSlashMenu(false)}
+        ref={slashMenuRef}
+      />
 
-      {showFloatingToolbar && (
-        <div
-          className="floating-toolbar"
-          style={{
-            left: floatingToolbarPosition.x,
-            top: floatingToolbarPosition.y,
-          }}
-        >
-          <button
-            className={editor.isActive('bold') ? 'active' : ''}
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            title="Bold"
-          >
-            <Bold className="w-4 h-4" />
-          </button>
-          <button
-            className={editor.isActive('italic') ? 'active' : ''}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            title="Italic"
-          >
-            <Italic className="w-4 h-4" />
-          </button>
-          <button
-            className={editor.isActive('underline') ? 'active' : ''}
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
-            title="Underline"
-          >
-            <UnderlineIcon className="w-4 h-4" />
-          </button>
-          <div className="w-px h-6 bg-gray-200 mx-1"></div>
-          <button
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            title="Heading 1"
-          >
-            <Heading1 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            title="Heading 2"
-          >
-            <Heading2 className="w-4 h-4" />
-          </button>
-          <div className="w-px h-6 bg-gray-200 mx-1"></div>
-          <button
-            className={editor.isActive('bulletList') ? 'active' : ''}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            title="Bullet List"
-          >
-            <List className="w-4 h-4" />
-          </button>
-          <button
-            className={editor.isActive('orderedList') ? 'active' : ''}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            title="Ordered List"
-          >
-            <ListOrdered className="w-4 h-4" />
-          </button>
-          <div className="w-px h-6 bg-gray-200 mx-1"></div>
-          <button
-            className={editor.isActive('code') ? 'active' : ''}
-            onClick={() => editor.chain().focus().toggleCode().run()}
-            title="Inline Code"
-          >
-            <Code className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setShowLinkModal(true)}
-            title="Insert Link"
-          >
-            <Link2 className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <FloatingToolbar
+        show={showFloatingToolbar}
+        position={floatingToolbarPosition}
+        editor={editor}
+      />
 
-      {showLinkModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 w-96">
-            <h3 className="text-sm font-medium text-gray-800 mb-3">Insert Link</h3>
-            <input
-              type="url"
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.target.value)}
-              placeholder="Enter URL"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-300"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleLinkInsert();
-                }
-              }}
-            />
-            <div className="flex justify-end gap-2 mt-3">
-              <button
-                onClick={() => {
-                  setShowLinkModal(false);
-                  setLinkUrl('');
-                }}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLinkInsert}
-                className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-              >
-                Insert
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LinkModal
+        show={showLinkModal}
+        onInsert={handleLinkInsert}
+        onCancel={() => setShowLinkModal(false)}
+      />
     </div>
   );
 }
 
-export default function RichTextEditor(props: RichTextEditorProps) {
-  return <RichTextEditorClient {...props} />;
-}
+export default memo(RichTextEditorClient);

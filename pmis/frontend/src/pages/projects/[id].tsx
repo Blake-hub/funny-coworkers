@@ -522,6 +522,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                       onBlur={() => handleSaveEdit()}
                       placeholder="Write a project introduction, or other useful information...."
                       className="border-0"
+                      showToolbar={false}
                     />
                   ) : (
                     <div

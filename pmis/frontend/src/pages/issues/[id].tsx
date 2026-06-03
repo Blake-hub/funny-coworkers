@@ -273,6 +273,7 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                       placeholder="Write a description for this issue..."
                       className="border-0"
                       data-testid="issue-description-editor"
+                      showToolbar={false}
                     />
                   ) : (
                     <div
@@ -357,6 +358,7 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                           placeholder="Leave a comment..."
                           className="border-0"
                           style={{ minHeight: '48px' }}
+                          showToolbar={false}
                         />
                         <div className="flex items-center justify-end gap-3 px-3 pb-2">
                           <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors">
