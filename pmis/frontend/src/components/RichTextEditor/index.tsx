@@ -25,25 +25,26 @@ const slashCommands = [
   { id: 'link', label: 'Insert Link', command: 'insertLink', group: 'insert' },
   { id: 'image', label: 'Insert Image', command: 'insertImage', group: 'insert' },
   { id: 'file', label: 'Attach File', command: 'attachFile', group: 'insert' },
+  { id: 'table', label: 'Insert Table', command: 'insertTable', group: 'insert' },
 ];
 
 interface SlashMenuProps {
-  show: boolean; 
-  position: { x: number; y: number; maxHeight: number }; 
+  show: boolean;
+  position: { x: number; y: number; maxHeight: number };
   onSelectCommand: (command: string, params?: any) => void;
   selectedIndex: number;
   onClose: () => void;
 }
 
-const SlashMenuComponent = forwardRef<HTMLDivElement, SlashMenuProps>(({ 
-  show, 
-  position, 
-  onSelectCommand, 
+const SlashMenuComponent = forwardRef<HTMLDivElement, SlashMenuProps>(({
+  show,
+  position,
+  onSelectCommand,
   selectedIndex,
-  onClose 
+  onClose
 }, ref) => {
   const { Bold, Italic, Underline, Strikethrough, Heading1, Heading2, List, ListOrdered, Code, Type, Link2, ImageIcon, FileText, Search } = require('lucide-react');
-  
+
   const iconMap: Record<string, any> = {
     bold: Bold,
     italic: Italic,
@@ -100,13 +101,13 @@ const SlashMenuComponent = forwardRef<HTMLDivElement, SlashMenuProps>(({
 
 const SlashMenu = memo(SlashMenuComponent);
 
-const FloatingToolbar = memo(({ 
-  show, 
-  position, 
-  editor 
-}: { 
-  show: boolean; 
-  position: { x: number; y: number }; 
+const FloatingToolbar = memo(({
+  show,
+  position,
+  editor
+}: {
+  show: boolean;
+  position: { x: number; y: number };
   editor: any;
 }) => {
   if (!show || !editor) return null;
@@ -188,13 +189,216 @@ const FloatingToolbar = memo(({
   );
 });
 
-const Toolbar = memo(({ editor }: { editor: any }) => {
+const TextAlignDropdown = memo(({ editor }: { editor: any }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const { AlignLeft, AlignCenter, AlignRight, AlignJustify, ChevronDown } = require('lucide-react');
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleOpen = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuPosition({
+        left: rect.left,
+        top: rect.bottom + 4,
+      });
+    }
+    setIsOpen(true);
+  };
+
+  const alignmentOptions = [
+    { align: 'left', icon: AlignLeft, label: 'Align Left' },
+    { align: 'center', icon: AlignCenter, label: 'Align Center' },
+    { align: 'right', icon: AlignRight, label: 'Align Right' },
+    { align: 'justify', icon: AlignJustify, label: 'Justify' },
+  ];
+
+  const getCurrentAlignment = () => {
+    for (const option of alignmentOptions) {
+      if (editor.isActive({ textAlign: option.align })) {
+        return option;
+      }
+    }
+    return alignmentOptions[0];
+  };
+
+  const currentAlignment = getCurrentAlignment();
+
+  return (
+    <div ref={dropdownRef} className="toolbar-dropdown">
+      <button
+        ref={triggerRef}
+        className="toolbar-dropdown-trigger"
+        onClick={handleOpen}
+        title="Text Alignment"
+      >
+        <currentAlignment.icon className="w-4 h-4" />
+        <ChevronDown className="w-3 h-3" />
+      </button>
+      {isOpen && (
+        <div 
+          className="toolbar-dropdown-menu"
+          style={{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }}
+        >
+          {alignmentOptions.map((option) => (
+            <button
+              key={option.align}
+              className={`toolbar-dropdown-item ${editor.isActive({ textAlign: option.align }) ? 'active' : ''}`}
+              onClick={() => {
+                editor.chain().focus().setTextAlign(option.align).run();
+                setIsOpen(false);
+              }}
+              title={option.label}
+            >
+              <span>
+                <option.icon style={{ width: '16px', height: '16px' }} />
+              </span>
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+const TableToolbar = memo(({ editor, show }: { editor: any; show: boolean }) => {
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (!show || !editor) return;
+
+    // Find the table element in the editor
+    const tableElement = document.querySelector('.tiptap-editor table') as HTMLElement;
+    if (tableElement) {
+      const rect = tableElement.getBoundingClientRect();
+      const editorContainer = document.querySelector('.relative.rounded-lg') as HTMLElement;
+      const containerRect = editorContainer?.getBoundingClientRect();
+      
+      setPosition({
+        top: rect.top - (containerRect?.top || 0) - 50,
+        left: rect.left - (containerRect?.left || 0)
+      });
+    }
+  }, [show, editor]);
+
+  if (!show || !editor) return null;
+
+  const {
+    ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Trash2, LayoutGrid, Square, Layout, Minus
+  } = require('lucide-react');
+
+  return (
+    <div 
+      ref={toolbarRef}
+      className="table-toolbar"
+      style={{
+        position: 'absolute',
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        zIndex: 100
+      }}
+    >
+      <div className="table-toolbar-group">
+        <span className="table-toolbar-label">Rows:</span>
+        <button
+          onClick={() => editor.chain().focus().addRowBefore().run()}
+          title="Insert Row Before"
+        >
+          <ArrowUp className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().addRowAfter().run()}
+          title="Insert Row After"
+        >
+          <ArrowDown className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().deleteRow().run()}
+          title="Delete Row"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="table-toolbar-divider"></div>
+
+      <div className="table-toolbar-group">
+        <span className="table-toolbar-label">Columns:</span>
+        <button
+          onClick={() => editor.chain().focus().addColumnBefore().run()}
+          title="Insert Column Before"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().addColumnAfter().run()}
+          title="Insert Column After"
+        >
+          <ArrowRight className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().deleteColumn().run()}
+          title="Delete Column"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="table-toolbar-divider"></div>
+
+      <div className="table-toolbar-group">
+        <button
+          onClick={() => editor.chain().focus().deleteTable().run()}
+          title="Delete Table"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+        <button
+          className={editor.isActive('tableHeader') ? 'active' : ''}
+          onClick={() => editor.chain().focus().toggleHeaderRow().run()}
+          title="Toggle Header Row"
+        >
+          <LayoutGrid className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().mergeCells().run()}
+          title="Merge Cells"
+        >
+          <Square className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().splitCell().run()}
+          title="Split Cell"
+        >
+          <Layout className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+});
+
+const Toolbar = memo(({ editor, insertTable }: { editor: any; insertTable: () => void }) => {
   if (!editor) return null;
 
-  const { 
-    Bold, Italic, Underline, Strikethrough, Heading1, Heading2, 
-    List, ListOrdered, Quote, Code, Type, Link2, ImageIcon, FileText, 
-    AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo, Redo, Highlighter
+  const {
+    Bold, Italic, Underline, Strikethrough, Heading1, Heading2,
+    List, ListOrdered, Quote, Code, Type, Link2, ImageIcon, FileText,
+    Undo, Redo, Highlighter, Table
   } = require('lucide-react');
 
   return (
@@ -339,40 +543,17 @@ const Toolbar = memo(({ editor }: { editor: any }) => {
         >
           <FileText className="w-4 h-4" />
         </button>
-        </div>
+        <button
+          onClick={insertTable}
+          title="Insert Table (3x3)"
+        >
+          <Table className="w-4 h-4" />
+        </button>
+      </div>
 
       <div className="toolbar-divider"></div>
 
-      <div className="toolbar-group">
-        <button
-          className={editor.isActive({ textAlign: 'left' }) ? 'active' : ''}
-          onClick={() => editor.chain().focus().setTextAlign('left').run()}
-          title="Align Left"
-        >
-          <AlignLeft className="w-4 h-4" />
-        </button>
-        <button
-          className={editor.isActive({ textAlign: 'center' }) ? 'active' : ''}
-          onClick={() => editor.chain().focus().setTextAlign('center').run()}
-          title="Align Center"
-        >
-          <AlignCenter className="w-4 h-4" />
-        </button>
-        <button
-          className={editor.isActive({ textAlign: 'right' }) ? 'active' : ''}
-          onClick={() => editor.chain().focus().setTextAlign('right').run()}
-          title="Align Right"
-        >
-          <AlignRight className="w-4 h-4" />
-        </button>
-        <button
-          className={editor.isActive({ textAlign: 'justify' }) ? 'active' : ''}
-          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
-          title="Justify"
-        >
-          <AlignJustify className="w-4 h-4" />
-        </button>
-      </div>
+      <TextAlignDropdown editor={editor} />
 
       <div className="toolbar-divider"></div>
 
@@ -394,14 +575,14 @@ const Toolbar = memo(({ editor }: { editor: any }) => {
   );
 });
 
-const LinkModal = memo(({ 
-  show, 
-  onInsert, 
-  onCancel 
-}: { 
-  show: boolean; 
-  onInsert: (url: string) => void; 
-  onCancel: () => void; 
+const LinkModal = memo(({
+  show,
+  onInsert,
+  onCancel
+}: {
+  show: boolean;
+  onInsert: (url: string) => void;
+  onCancel: () => void;
 }) => {
   const [url, setUrl] = useState('');
 
@@ -459,13 +640,13 @@ const LinkModal = memo(({
   );
 });
 
-function RichTextEditorClient({ 
-  value, 
-  onChange, 
-  placeholder, 
-  className, 
-  onBlur, 
-  style, 
+function RichTextEditorClient({
+  value,
+  onChange,
+  placeholder,
+  className,
+  onBlur,
+  style,
   'data-testid': dataTestId,
   showToolbar = true
 }: RichTextEditorProps) {
@@ -473,13 +654,16 @@ function RichTextEditorClient({
   const StarterKit = require('@tiptap/starter-kit').default;
   const Image = require('@tiptap/extension-image').default;
   const CodeBlock = require('@tiptap/extension-code-block').default;
-  const Color = require('@tiptap/extension-color').default;
+  const { Color } = require('@tiptap/extension-color');
   const { TextStyle } = require('@tiptap/extension-text-style');
   const Link = require('@tiptap/extension-link').default;
   const UnderlineExtension = require('@tiptap/extension-underline').default;
-  const Highlight = require('@tiptap/extension-highlight').default;
-  const TextAlign = require('@tiptap/extension-text-align').default;
-  
+  const { Highlight } = require('@tiptap/extension-highlight');
+  const { TextAlign } = require('@tiptap/extension-text-align');
+  const { Table } = require('@tiptap/extension-table');
+  const { TableRow } = require('@tiptap/extension-table-row');
+  const { TableCell } = require('@tiptap/extension-table-cell');
+  const { TableHeader } = require('@tiptap/extension-table-header');
 
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0, maxHeight: 520 });
@@ -488,6 +672,7 @@ function RichTextEditorClient({
   const [floatingToolbarPosition, setFloatingToolbarPosition] = useState({ x: 0, y: 0 });
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [hasContent, setHasContent] = useState(false);
+  const [isTableSelected, setIsTableSelected] = useState(false);
 
   const selectedIndexRef = useRef(0);
   const menuVisibleRef = useRef(false);
@@ -502,6 +687,9 @@ function RichTextEditorClient({
 
   const handleSelectionUpdate = useCallback(({ editor }: { editor: any }) => {
     const selection = editor.state.selection;
+    const isTableActive = editor.isActive('table');
+    setIsTableSelected(isTableActive);
+    
     if (selection && !selection.empty) {
       const domSelection = window.getSelection();
       if (domSelection && domSelection.rangeCount > 0) {
@@ -524,6 +712,12 @@ function RichTextEditorClient({
         codeBlock: false,
         link: false,
       }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableCell,
+      TableHeader,
       Image.configure({ inline: true }),
       CodeBlock,
       Color,
@@ -536,13 +730,18 @@ function RichTextEditorClient({
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
-      
     ],
     content: value,
     immediatelyRender: false,
     onUpdate: handleUpdate,
     onSelectionUpdate: handleSelectionUpdate,
   });
+
+  const insertTable = useCallback(() => {
+    if (!editor) return;
+
+    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: false }).run();
+  }, [editor]);
 
   useEffect(() => {
     if (!editor || !onBlur) return;
@@ -586,8 +785,8 @@ function RichTextEditorClient({
 
             if (rect.width === 0 && rect.height === 0) {
               const selectionNode = range.commonAncestorContainer;
-              const parentElement = selectionNode.nodeType === Node.TEXT_NODE 
-                ? selectionNode.parentElement 
+              const parentElement = selectionNode.nodeType === Node.TEXT_NODE
+                ? selectionNode.parentElement
                 : selectionNode as HTMLElement;
 
               if (parentElement) {
@@ -672,8 +871,8 @@ function RichTextEditorClient({
         if (e.key === 'ArrowDown') {
           e.preventDefault();
           e.stopPropagation();
-          const nextIndex = selectedIndexRef.current < slashCommands.length - 1 
-            ? selectedIndexRef.current + 1 
+          const nextIndex = selectedIndexRef.current < slashCommands.length - 1
+            ? selectedIndexRef.current + 1
             : 0;
           selectedIndexRef.current = nextIndex;
           setSelectedCommandIndex(nextIndex);
@@ -692,8 +891,8 @@ function RichTextEditorClient({
         if (e.key === 'ArrowUp') {
           e.preventDefault();
           e.stopPropagation();
-          const nextIndex = selectedIndexRef.current > 0 
-            ? selectedIndexRef.current - 1 
+          const nextIndex = selectedIndexRef.current > 0
+            ? selectedIndexRef.current - 1
             : slashCommands.length - 1;
           selectedIndexRef.current = nextIndex;
           setSelectedCommandIndex(nextIndex);
@@ -783,13 +982,16 @@ function RichTextEditorClient({
         input.type = 'file';
         input.click();
         break;
+      case 'insertTable':
+        insertTable();
+        break;
     }
     setShowSlashMenu(false);
-  }, [editor]);
+  }, [editor, insertTable]);
 
   const handleImageUpload = useCallback(() => {
     if (!editor) return;
-    
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -816,9 +1018,9 @@ function RichTextEditorClient({
   if (!editor) return null;
 
   return (
-    <div 
+    <div
       ref={editorContainerRef}
-      className={`relative rounded-lg overflow-hidden focus:outline-none focus:border-transparent focus:ring-0 ${className} ${showToolbar ? 'with-toolbar' : ''}`} 
+      className={`relative rounded-lg focus:outline-none focus:border-transparent focus:ring-0 ${className} ${showToolbar ? 'with-toolbar' : ''}`}
       style={{ outline: 'none !important', boxShadow: 'none !important', border: 'none !important', cursor: 'text', ...style }}
     >
       <style>{`
@@ -843,7 +1045,7 @@ function RichTextEditorClient({
           background: #e5e7eb;
           margin: 0 4px;
         }
-        .toolbar button {
+        .toolbar > .toolbar-group > button {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -855,15 +1057,15 @@ function RichTextEditorClient({
           color: #4b5563;
           transition: all 0.15s;
         }
-        .toolbar button:hover {
+        .toolbar > .toolbar-group > button:hover {
           background: #e5e7eb;
           color: #1f2937;
         }
-        .toolbar button.active {
+        .toolbar > .toolbar-group > button.active {
           background: #d1d5db;
           color: #1f2937;
         }
-        .toolbar button:active {
+        .toolbar > .toolbar-group > button:active {
           background: #9ca3af;
         }
         .tiptap-editor [contenteditable="true"]:focus {
@@ -1012,34 +1214,60 @@ function RichTextEditorClient({
           width: 100%;
           margin: 1em 0;
           border: 1px solid #e5e7eb;
+          table-layout: auto;
         }
         .tiptap-editor th,
         .tiptap-editor td {
           border: 1px solid #e5e7eb;
-          padding: 10px 14px;
+          padding: 12px 16px;
           text-align: left;
-          min-width: 50px;
+          min-width: 80px;
+          vertical-align: top;
+          position: relative;
         }
         .tiptap-editor th {
-          background-color: #f3f4f6;
+          background-color: #1f2937;
           font-weight: 600;
-          color: #374151;
+          color: #ffffff;
+          border-color: #374151;
+        }
+        .tiptap-editor th:first-child {
+          border-left-color: #1f2937;
+        }
+        .tiptap-editor th:last-child {
+          border-right-color: #1f2937;
+        }
+        .tiptap-editor tr:first-child th {
+          border-top-color: #1f2937;
         }
         .tiptap-editor tr:hover td {
           background-color: #f9fafb;
         }
         .tiptap-editor table .selectedCell {
           background-color: #dbeafe;
+          outline: 2px solid #3b82f6;
+          outline-offset: -2px;
         }
         .tiptap-editor table .column-resize-handle {
           position: absolute;
           right: 0;
           top: 0;
           bottom: 0;
-          width: 4px;
-          background-color: #3b82f6;
+          width: 6px;
           cursor: col-resize;
+          background-color: transparent;
           z-index: 10;
+        }
+        .tiptap-editor table .column-resize-handle:hover {
+          background-color: #3b82f6;
+        }
+        .toolbar > .toolbar-group > button.disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .toolbar > .toolbar-group > button.disabled:hover {
+          background: transparent;
+          color: #4b5563;
         }
         .tiptap-editor table-wrapper {
           overflow-x: auto;
@@ -1112,9 +1340,130 @@ function RichTextEditorClient({
         .floating-toolbar button.active {
           background-color: #e5e7eb;
         }
+        .toolbar-dropdown {
+          position: relative;
+          display: inline-block;
+          z-index: 100;
+        }
+        .toolbar-dropdown-trigger {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          padding: 6px 8px;
+          border: none;
+          background: transparent;
+          border-radius: 4px;
+          cursor: pointer;
+          color: #4b5563;
+          transition: all 0.15s;
+        }
+        .toolbar-dropdown-trigger:hover {
+          background: #e5e7eb;
+          color: #1f2937;
+        }
+        .toolbar-dropdown-menu {
+          position: fixed;
+          background: white;
+          border-radius: 6px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          padding: 4px;
+          min-width: 160px;
+          z-index: 2000;
+          margin-top: 4px;
+        }
+        .toolbar-dropdown-item {
+          display: grid;
+          grid-template-columns: 24px 1fr;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
+          border: none;
+          background: transparent;
+          border-radius: 4px;
+          cursor: pointer;
+          color: #4b5563;
+          transition: all 0.15s;
+          width: 100%;
+          text-align: left;
+        }
+        .toolbar-dropdown-item:hover {
+          background: #f3f4f6;
+          color: #1f2937;
+        }
+        .toolbar-dropdown-item.active {
+          background: #e5e7eb;
+          color: #1f2937;
+        }
+        .toolbar-dropdown-item span {
+          font-size: 13px;
+          flex-shrink: 0;
+        }
+        .toolbar-dropdown-icon-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          width: 24px;
+          flex-shrink: 0;
+        }
+        .toolbar-dropdown-item svg {
+          flex-shrink: 0;
+          width: 16px;
+          height: 16px;
+        }
+        .table-toolbar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          background: #fef3c7;
+          border: 1px solid #fcd34d;
+          border-radius: 8px;
+          flex-wrap: wrap;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          width: auto;
+        }
+        .table-toolbar-group {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .table-toolbar-label {
+          font-size: 12px;
+          color: #92400e;
+          font-weight: 500;
+          margin-right: 4px;
+        }
+        .table-toolbar-divider {
+          width: 1px;
+          height: 24px;
+          background: #fcd34d;
+          margin: 0 4px;
+        }
+        .table-toolbar button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 6px 8px;
+          border: none;
+          background: transparent;
+          border-radius: 4px;
+          cursor: pointer;
+          color: #92400e;
+          transition: all 0.15s;
+        }
+        .table-toolbar button:hover {
+          background: #fcd34d;
+          color: #78350f;
+        }
+        .table-toolbar button.active {
+          background: #fcd34d;
+          color: #78350f;
+        }
       `}</style>
 
-      {showToolbar && <Toolbar editor={editor} />}
+      {showToolbar && <Toolbar editor={editor} insertTable={insertTable} />}
+      <TableToolbar editor={editor} show={isTableSelected} />
       <EditorContent editor={editor} className="tiptap-editor" data-testid={dataTestId} />
 
       {!hasContent && !editor.getText().trim() && (
