@@ -20,37 +20,28 @@ function isValidToken(token: string): boolean {
 }
 
 export function middleware(request: NextRequest) {
-  const tokenCookie = request.cookies.get('pmis-token');
-  const token = tokenCookie?.value;
+  const token = request.cookies.get('pmis-token')?.value;
   const isLoginPage = request.nextUrl.pathname === '/login';
 
   if (!token && !isLoginPage) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('reason', 'not-logged-in');
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL('/login?reason=not-logged-in', request.url));
   }
 
   if (token && !isValidToken(token) && !isLoginPage) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('reason', 'session-expired');
-    const response = NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(new URL('/login?reason=session-expired', request.url));
     response.cookies.delete('pmis-token');
     return response;
   }
 
-  if (token && isLoginPage) {
-    if (isValidToken(token)) {
-      return NextResponse.redirect(new URL('/', request.url));
-    } else {
-      const response = NextResponse.next();
-      response.cookies.delete('pmis-token');
-      return response;
-    }
+  if (token && isLoginPage && isValidToken(token)) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/', '/dashboard/:path*', '/issues/:path*', '/projects/:path*', '/teams/:path*', '/wiki/:path*', '/reports/:path*', '/search/:path*', '/settings/:path*', '/login'],
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 };

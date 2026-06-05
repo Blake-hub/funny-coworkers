@@ -82,6 +82,7 @@ export default function NewDocument() {
                   value={content}
                   onChange={setContent}
                   placeholder="Start writing your document... You can add text, create tables, insert images, and more."
+                  data-testid="wiki-document-editor"
                 />
               </div>
             </div>

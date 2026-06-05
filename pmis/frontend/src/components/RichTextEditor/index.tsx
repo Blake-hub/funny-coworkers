@@ -1,4 +1,7 @@
 import { useEffect, useState, useRef, useCallback, memo, forwardRef } from 'react';
+import { common, createLowlight } from 'lowlight';
+
+const lowlight = createLowlight(common);
 
 interface RichTextEditorProps {
   value: string;
@@ -271,6 +274,170 @@ const TextAlignDropdown = memo(({ editor }: { editor: any }) => {
           ))}
         </div>
       )}
+    </div>
+  );
+});
+
+const CodeBlockLanguageDropdown = memo(({ editor, hasCodeBlock }: { editor: any; hasCodeBlock: boolean }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const [isCursorInCodeBlock, setIsCursorInCodeBlock] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const { ChevronDown } = require('lucide-react');
+
+  useEffect(() => {
+    if (!hasCodeBlock || !editor) return;
+
+    const updatePosition = () => {
+      const codeBlockElements = document.querySelectorAll('.tiptap-editor pre');
+      const codeBlocks = Array.from(codeBlockElements) as HTMLElement[];
+      
+      let activeCodeBlock = null;
+      let isCursorInCodeBlock = false;
+      
+      // Try to find the code block that contains the cursor
+      for (const codeBlock of codeBlocks) {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          if (codeBlock.contains(range.commonAncestorContainer)) {
+            activeCodeBlock = codeBlock;
+            isCursorInCodeBlock = true;
+            break;
+          }
+        }
+      }
+      
+      // Update visibility state based on whether cursor is in code block
+      setIsCursorInCodeBlock(isCursorInCodeBlock);
+      
+      if (activeCodeBlock && isCursorInCodeBlock) {
+        const rect = activeCodeBlock.getBoundingClientRect();
+        const editorContainer = document.querySelector('.relative.rounded-lg') as HTMLElement;
+        const containerRect = editorContainer?.getBoundingClientRect();
+        
+        setDropdownPosition({
+          top: rect.top - (containerRect?.top || 0) - 2,
+          right: (containerRect?.right || 0) - rect.right - 2
+        });
+      }
+    };
+
+    updatePosition();
+
+    // Add scroll and resize listeners to update position
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition);
+    
+    // Also update when selection changes
+    const handleSelectionChange = () => {
+      setTimeout(updatePosition, 10);
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition);
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [hasCodeBlock, editor]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleOpen = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuPosition({
+        left: rect.left,
+        top: rect.bottom + 4,
+      });
+    }
+    setIsOpen(true);
+  };
+
+  const languageOptions = [
+    { lang: '', label: 'Plain Text' },
+    { lang: 'javascript', label: 'JavaScript' },
+    { lang: 'typescript', label: 'TypeScript' },
+    { lang: 'python', label: 'Python' },
+    { lang: 'java', label: 'Java' },
+    { lang: 'cpp', label: 'C++' },
+    { lang: 'c', label: 'C' },
+    { lang: 'csharp', label: 'C#' },
+    { lang: 'go', label: 'Go' },
+    { lang: 'ruby', label: 'Ruby' },
+    { lang: 'php', label: 'PHP' },
+    { lang: 'html', label: 'HTML' },
+    { lang: 'css', label: 'CSS' },
+    { lang: 'json', label: 'JSON' },
+    { lang: 'sql', label: 'SQL' },
+    { lang: 'bash', label: 'Bash' },
+    { lang: 'markdown', label: 'Markdown' },
+  ];
+
+  const getCurrentLanguage = () => {
+    const language = editor.getAttributes('codeBlock').language;
+    return languageOptions.find(opt => opt.lang === language) || languageOptions[0];
+  };
+
+  const currentLanguage = getCurrentLanguage();
+
+  if (!hasCodeBlock || !isCursorInCodeBlock) {
+    return null;
+  }
+
+  return (
+    <div 
+      className="code-block-language-dropdown"
+      style={{
+        position: 'absolute',
+        top: `${dropdownPosition.top}px`,
+        right: `${dropdownPosition.right}px`,
+        zIndex: 100
+      }}
+    >
+      <div ref={dropdownRef} className="toolbar-dropdown">
+        <button
+          ref={triggerRef}
+          className="toolbar-dropdown-trigger"
+          onClick={handleOpen}
+          title="Select Language"
+        >
+          <span className="text-xs font-medium">{currentLanguage.label}</span>
+        </button>
+        {isOpen && (
+          <div 
+            className="toolbar-dropdown-menu"
+            style={{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }}
+          >
+            {languageOptions.map((option) => (
+              <button
+                key={option.lang}
+                className={`toolbar-dropdown-item ${currentLanguage.lang === option.lang ? 'active' : ''}`}
+                onClick={() => {
+                  editor.chain().focus().setCodeBlock({ language: option.lang }).run();
+                  setIsOpen(false);
+                }}
+                title={option.label}
+              >
+                <span>{option.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 });
@@ -653,7 +820,7 @@ function RichTextEditorClient({
   const { useEditor, EditorContent } = require('@tiptap/react');
   const StarterKit = require('@tiptap/starter-kit').default;
   const Image = require('@tiptap/extension-image').default;
-  const CodeBlock = require('@tiptap/extension-code-block').default;
+  const CodeBlockLowlight = require('@tiptap/extension-code-block-lowlight').default;
   const { Color } = require('@tiptap/extension-color');
   const { TextStyle } = require('@tiptap/extension-text-style');
   const Link = require('@tiptap/extension-link').default;
@@ -673,6 +840,7 @@ function RichTextEditorClient({
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [hasContent, setHasContent] = useState(false);
   const [isTableSelected, setIsTableSelected] = useState(false);
+  const [hasCodeBlock, setHasCodeBlock] = useState(false);
 
   const selectedIndexRef = useRef(0);
   const menuVisibleRef = useRef(false);
@@ -683,12 +851,23 @@ function RichTextEditorClient({
   const handleUpdate = useCallback(({ editor }: { editor: any }) => {
     onChange(editor.getHTML());
     setHasContent(editor.getText().trim().length > 0);
+    let foundCodeBlock = false;
+    editor.state.doc.content.descendants((node: any) => {
+      if (node.type.name === 'codeBlock') {
+        foundCodeBlock = true;
+        return false;
+      }
+      return true;
+    });
+    setHasCodeBlock(foundCodeBlock);
   }, [onChange]);
 
   const handleSelectionUpdate = useCallback(({ editor }: { editor: any }) => {
     const selection = editor.state.selection;
     const isTableActive = editor.isActive('table');
+    const isCodeBlockActive = editor.isActive('codeBlock');
     setIsTableSelected(isTableActive);
+    setHasCodeBlock(isCodeBlockActive);
     
     if (selection && !selection.empty) {
       const domSelection = window.getSelection();
@@ -719,7 +898,9 @@ function RichTextEditorClient({
       TableCell,
       TableHeader,
       Image.configure({ inline: true }),
-      CodeBlock,
+      CodeBlockLowlight.configure({
+        lowlight,
+      }),
       Color,
       TextStyle.configure({
         types: ['heading', 'paragraph'],
@@ -740,7 +921,31 @@ function RichTextEditorClient({
   const insertTable = useCallback(() => {
     if (!editor) return;
 
-    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: false }).run();
+    const { state, view } = editor;
+    const { schema } = state;
+    
+    const table = schema.nodes.table;
+    const tableRow = schema.nodes.tableRow;
+    const tableHeader = schema.nodes.tableHeader;
+    const tableCell = schema.nodes.tableCell;
+    const paragraph = schema.nodes.paragraph;
+    
+    const headerRow = tableRow.create(null, [
+      tableHeader.create(null, paragraph.create(null)),
+      tableHeader.create(null, paragraph.create(null)),
+      tableHeader.create(null, paragraph.create(null)),
+    ]);
+    
+    const bodyRow = tableRow.create(null, [
+      tableCell.create(null, paragraph.create(null)),
+      tableCell.create(null, paragraph.create(null)),
+      tableCell.create(null, paragraph.create(null)),
+    ]);
+    
+    const tableContent = table.create(null, [headerRow, bodyRow, bodyRow]);
+    
+    const transaction = state.tr.insert(state.selection.from, tableContent);
+    view.dispatch(transaction);
   }, [editor]);
 
   useEffect(() => {
@@ -1155,6 +1360,50 @@ function RichTextEditorClient({
           padding: 0;
           font-size: 0.85em;
         }
+        .tiptap-editor pre[class*="language-"],
+        .tiptap-editor pre {
+          background: #1f2937;
+          color: #e5e7eb;
+          padding: 1em;
+          border-radius: 0.25em;
+          overflow-x: auto;
+          margin: 0.5em 0;
+        }
+        .tiptap-editor .hljs-keyword,
+        .tiptap-editor .hljs-selector-tag,
+        .tiptap-editor .hljs-built_in,
+        .tiptap-editor .hljs-name,
+        .tiptap-editor .hljs-tag {
+          color: #f59e0b;
+        }
+        .tiptap-editor .hljs-string,
+        .tiptap-editor .hljs-title,
+        .tiptap-editor .hljs-section,
+        .tiptap-editor .hljs-attribute,
+        .tiptap-editor .hljs-literal,
+        .tiptap-editor .hljs-template-tag,
+        .tiptap-editor .hljs-template-variable,
+        .tiptap-editor .hljs-type,
+        .tiptap-editor .hljs-addition {
+          color: #10b981;
+        }
+        .tiptap-editor .hljs-comment,
+        .tiptap-editor .hljs-quote,
+        .tiptap-editor .hljs-deletion,
+        .tiptap-editor .hljs-meta {
+          color: #6b7280;
+        }
+        .tiptap-editor .hljs-number,
+        .tiptap-editor .hljs-regexp,
+        .tiptap-editor .hljs-selector-attr,
+        .tiptap-editor .hljs-selector-pseudo,
+        .tiptap-editor .hljs-variable {
+          color: #f87171;
+        }
+        .tiptap-editor .hljs-function,
+        .tiptap-editor .hljs-class .hljs-title {
+          color: #3b82f6;
+        }
         .tiptap-editor blockquote {
           border-left: 3px solid #e5e7eb;
           padding-left: 1em;
@@ -1215,30 +1464,33 @@ function RichTextEditorClient({
           margin: 1em 0;
           border: 1px solid #e5e7eb;
           table-layout: auto;
+          position: relative;
+          overflow: hidden;
         }
         .tiptap-editor th,
         .tiptap-editor td {
           border: 1px solid #e5e7eb;
-          padding: 12px 16px;
+          padding: 6px 12px;
           text-align: left;
           min-width: 80px;
           vertical-align: top;
+          line-height: 1.4;
           position: relative;
         }
         .tiptap-editor th {
-          background-color: #1f2937;
+          background-color: #f3f4f6;
           font-weight: 600;
-          color: #ffffff;
-          border-color: #374151;
+          color: #1f2937;
+          border-color: #e5e7eb;
         }
         .tiptap-editor th:first-child {
-          border-left-color: #1f2937;
+          border-left-color: #e5e7eb;
         }
         .tiptap-editor th:last-child {
-          border-right-color: #1f2937;
+          border-right-color: #e5e7eb;
         }
         .tiptap-editor tr:first-child th {
-          border-top-color: #1f2937;
+          border-top-color: #e5e7eb;
         }
         .tiptap-editor tr:hover td {
           background-color: #f9fafb;
@@ -1250,16 +1502,21 @@ function RichTextEditorClient({
         }
         .tiptap-editor table .column-resize-handle {
           position: absolute;
-          right: 0;
-          top: 0;
-          bottom: 0;
-          width: 6px;
+          right: -4px;
+          top: -50px;
+          bottom: -50px;
+          width: 8px;
           cursor: col-resize;
-          background-color: transparent;
-          z-index: 10;
+          background-color: rgba(59, 130, 246, 0.3);
+          z-index: 20;
         }
-        .tiptap-editor table .column-resize-handle:hover {
+        .tiptap-editor table .column-resize-handle:hover,
+        .tiptap-editor table .column-resize-handle:active {
           background-color: #3b82f6;
+        }
+        .tiptap-editor table p {
+          margin: 0;
+          padding: 0;
         }
         .toolbar > .toolbar-group > button.disabled {
           opacity: 0.4;
@@ -1269,8 +1526,15 @@ function RichTextEditorClient({
           background: transparent;
           color: #4b5563;
         }
-        .tiptap-editor table-wrapper {
+        .tiptap-editor .tableWrapper {
           overflow-x: auto;
+          position: relative;
+          padding: 0;
+          max-height: 500px;
+          overflow: visible;
+        }
+        .tiptap-editor .tableWrapper table {
+          margin: 0;
         }
         .slash-menu {
           position: fixed;
@@ -1411,6 +1675,46 @@ function RichTextEditorClient({
           width: 16px;
           height: 16px;
         }
+        .code-block-language-dropdown {
+          z-index: 100;
+        }
+        .code-block-language-dropdown .toolbar-dropdown {
+          display: flex;
+          align-items: center;
+        }
+        .code-block-language-dropdown .toolbar-dropdown-trigger {
+          position: absolute;
+          background-color: white;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='Black' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 4px center;
+          background-size: 16px 16px;
+          right: 0.5rem;
+          top: 0.5rem;
+          padding: 2px 24px 2px 8px;
+          border-radius: 4px;
+          border: 1px solid #d1d5db;
+          font-size: 12px;
+          color: #374151;
+          cursor: pointer;
+          appearance: none;
+          min-width: 100px;
+          white-space: nowrap;
+        }
+        .code-block-language-dropdown .toolbar-dropdown-trigger:hover {
+          border-color: #9ca3af;
+        }
+        .code-block-language-dropdown .toolbar-dropdown-menu {
+          grid-template-columns: 1fr;
+          min-width: 140px;
+          margin-top: 4px;
+          max-height: 200px;
+          overflow-y: auto;
+        }
+        .code-block-language-dropdown .toolbar-dropdown-item {
+          grid-template-columns: 1fr;
+          padding: 6px 12px;
+        }
         .table-toolbar {
           display: flex;
           align-items: center;
@@ -1464,6 +1768,7 @@ function RichTextEditorClient({
 
       {showToolbar && <Toolbar editor={editor} insertTable={insertTable} />}
       <TableToolbar editor={editor} show={isTableSelected} />
+      <CodeBlockLanguageDropdown editor={editor} hasCodeBlock={hasCodeBlock} />
       <EditorContent editor={editor} className="tiptap-editor" data-testid={dataTestId} />
 
       {!hasContent && !editor.getText().trim() && (
