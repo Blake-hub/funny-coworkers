@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
-import RichTextEditor from '@/components/RichTextEditor';
+import RichTextEditor, { DocumentOutline } from '@/components/RichTextEditor';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
@@ -29,6 +29,11 @@ export default function NewDocument() {
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [editorInstance, setEditorInstance] = useState<any>(null);
+
+  const handleEditorReady = (editor: any) => {
+    setEditorInstance(editor);
+  };
 
   return (
     <Layout>
@@ -58,7 +63,7 @@ export default function NewDocument() {
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - 70% Width */}
           <div className={`flex-1 overflow-y-auto transition-all duration-300 ${isRightPanelCollapsed ? 'w-full' : 'w-[70%]'}`}>
-            <div className="px-8 py-6 space-y-4">
+            <div className="px-8 py-6 flex flex-col h-full" style={{ height: 'calc(100vh - 200px)' }}>
               {/* Document Title */}
               <input
                 type="text"
@@ -77,12 +82,13 @@ export default function NewDocument() {
               <hr className="border-gray-200" />
 
               {/* Document Body */}
-              <div className="min-h-[400px]">
+              <div className="flex-1 min-h-[500px] mt-4">
                 <RichTextEditor
                   value={content}
                   onChange={setContent}
                   placeholder="Start writing your document... You can add text, create tables, insert images, and more."
                   data-testid="wiki-document-editor"
+                  onReady={handleEditorReady}
                 />
               </div>
             </div>
@@ -91,7 +97,7 @@ export default function NewDocument() {
           {/* Right Panel - 30% Width */}
           <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-[30%]'} transition-all duration-300 border-l border-gray-200 flex flex-col`}>
             <div className="flex-1 overflow-y-auto p-4">
-              {/* Right Panel Content */}
+              <DocumentOutline editor={editorInstance} />
             </div>
           </div>
         </div>

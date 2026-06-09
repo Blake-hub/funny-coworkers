@@ -12,6 +12,7 @@ interface RichTextEditorProps {
   style?: React.CSSProperties;
   'data-testid'?: string;
   showToolbar?: boolean;
+  onReady?: (editor: any) => void;
 }
 
 const slashCommands = [
@@ -262,6 +263,280 @@ const TextAlignDropdown = memo(({ editor }: { editor: any }) => {
               className={`toolbar-dropdown-item ${editor.isActive({ textAlign: option.align }) ? 'active' : ''}`}
               onClick={() => {
                 editor.chain().focus().setTextAlign(option.align).run();
+                setIsOpen(false);
+              }}
+              title={option.label}
+            >
+              <span>
+                <option.icon style={{ width: '16px', height: '16px' }} />
+              </span>
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+const DocumentOutline = memo(({ editor }: { editor: any }) => {
+  const [headings, setHeadings] = useState<any[]>([]);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateHeadings = () => {
+      const newHeadings: any[] = [];
+      let idCounter = 0;
+
+      editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'heading') {
+          const level = node.attrs.level;
+          const text = node.textContent || `Heading ${level}`;
+          newHeadings.push({
+            id: `heading-${idCounter++}`,
+            level,
+            text,
+            pos,
+          });
+        }
+        return true;
+      });
+
+      setHeadings(newHeadings);
+    };
+
+    updateHeadings();
+    editor.on('update', updateHeadings);
+
+    return () => {
+      editor.off('update', updateHeadings);
+    };
+  }, [editor]);
+
+  const toggleExpand = (id: string) => {
+    const newExpanded = new Set(expandedItems);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedItems(newExpanded);
+  };
+
+  const scrollToHeading = (pos: number) => {
+    if (!editor) return;
+    
+    editor.commands.setTextSelection(pos);
+    editor.chain().focus().run();
+    
+    const domAtPos = editor.view.domAtPos(pos);
+    const headingElement = domAtPos.node.parentElement;
+    
+    if (headingElement) {
+      const findScrollContainer = (element: HTMLElement): HTMLElement | null => {
+        let parent = element.parentElement;
+        while (parent) {
+          const style = window.getComputedStyle(parent);
+          const overflowY = style.overflowY;
+          if (overflowY === 'auto' || overflowY === 'scroll') {
+            return parent;
+          }
+          parent = parent.parentElement;
+        }
+        return null;
+      };
+      
+      const scrollContainer = findScrollContainer(headingElement);
+      
+      if (scrollContainer) {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const elementRect = headingElement.getBoundingClientRect();
+        
+        const targetScrollTop = scrollContainer.scrollTop + 
+          (elementRect.top - containerRect.top) - 
+          (containerRect.height / 2) + 
+          (elementRect.height / 2);
+        
+        scrollContainer.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
+        });
+      } else {
+        headingElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      }
+    }
+  };
+
+  const buildTree = () => {
+    const tree: any[] = [];
+    const stack: any[] = [];
+
+    for (const heading of headings) {
+      while (stack.length > 0 && stack[stack.length - 1].level >= heading.level) {
+        stack.pop();
+      }
+
+      const node = {
+        ...heading,
+        children: [],
+      };
+
+      if (stack.length === 0) {
+        tree.push(node);
+      } else {
+        stack[stack.length - 1].children.push(node);
+      }
+
+      stack.push(node);
+    }
+
+    return tree;
+  };
+
+  const TreeItem = ({ item, depth = 0 }: { item: any; depth?: number }) => (
+    <div key={item.id}>
+      <button
+        onClick={() => {
+          if (item.children.length > 0) {
+            toggleExpand(item.id);
+          }
+          scrollToHeading(item.pos);
+        }}
+        className="outline-item"
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      >
+        <span className="w-3 h-3 flex items-center justify-center flex-shrink-0">
+          {item.children.length > 0 ? (
+            expandedItems.has(item.id) ? (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            )
+          ) : (
+            <span className="w-3" />
+          )}
+        </span>
+        <span className="flex-1 truncate" style={{ fontWeight: item.level <= 2 ? '600' : '400' }}>
+          {item.text}
+        </span>
+        <span className="text-xs">H{item.level}</span>
+      </button>
+      {item.children.length > 0 && expandedItems.has(item.id) && (
+        <div>
+          {item.children.map((child: any) => (
+            <TreeItem key={child.id} item={child} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const tree = buildTree();
+
+  if (headings.length === 0) {
+    return (
+      <div className="document-outline">
+        <h3>Document Outline</h3>
+        <p className="text-xs text-gray-400 mt-2">No headings found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="document-outline">
+      <h3>Document Outline</h3>
+      <div className="mt-4 space-y-0">
+        {tree.map((item) => (
+          <TreeItem key={item.id} item={item} />
+        ))}
+      </div>
+    </div>
+  );
+});
+
+const HeadingDropdown = memo(({ editor }: { editor: any }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const { Heading1, Heading2, Heading3, Heading4, Heading5, Heading6, ChevronDown } = require('lucide-react');
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleOpen = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuPosition({
+        left: rect.left,
+        top: rect.bottom + 4,
+      });
+    }
+    setIsOpen(true);
+  };
+
+  const headingOptions = [
+    { level: 1, icon: Heading1, label: 'Heading 1' },
+    { level: 2, icon: Heading2, label: 'Heading 2' },
+    { level: 3, icon: Heading3, label: 'Heading 3' },
+    { level: 4, icon: Heading4, label: 'Heading 4' },
+    { level: 5, icon: Heading5, label: 'Heading 5' },
+    { level: 6, icon: Heading6, label: 'Heading 6' },
+  ];
+
+  const getCurrentHeading = () => {
+    for (let i = 0; i < headingOptions.length; i++) {
+      const option = headingOptions[i];
+      if (editor.isActive('heading', { level: option.level })) {
+        return option;
+      }
+    }
+    return null;
+  };
+
+  const currentHeading = getCurrentHeading();
+
+  return (
+    <div ref={dropdownRef} className="toolbar-dropdown">
+      <button
+        ref={triggerRef}
+        className="toolbar-dropdown-trigger"
+        onClick={handleOpen}
+        title={currentHeading ? currentHeading.label : 'Headings'}
+      >
+        {currentHeading ? (
+          <currentHeading.icon className="w-4 h-4" />
+        ) : (
+          <Heading1 className="w-4 h-4" />
+        )}
+        <ChevronDown className="w-3 h-3" />
+      </button>
+      {isOpen && (
+        <div 
+          className="toolbar-dropdown-menu"
+          style={{ left: `${menuPosition.left}px`, top: `${menuPosition.top}px` }}
+        >
+          {headingOptions.map((option) => (
+            <button
+              key={option.level}
+              className={`toolbar-dropdown-item ${editor.isActive('heading', { level: option.level }) ? 'active' : ''}`}
+              onClick={() => {
+                editor.chain().focus().toggleHeading({ level: option.level }).run();
                 setIsOpen(false);
               }}
               title={option.label}
@@ -563,7 +838,7 @@ const Toolbar = memo(({ editor, insertTable }: { editor: any; insertTable: () =>
   if (!editor) return null;
 
   const {
-    Bold, Italic, Underline, Strikethrough, Heading1, Heading2,
+    Bold, Italic, Underline, Strikethrough,
     List, ListOrdered, Quote, Code, Type, Link2, ImageIcon, FileText,
     Undo, Redo, Highlighter, Table
   } = require('lucide-react');
@@ -611,18 +886,7 @@ const Toolbar = memo(({ editor, insertTable }: { editor: any; insertTable: () =>
       <div className="toolbar-divider"></div>
 
       <div className="toolbar-group">
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          title="Heading 1"
-        >
-          <Heading1 className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          title="Heading 2"
-        >
-          <Heading2 className="w-4 h-4" />
-        </button>
+        <HeadingDropdown editor={editor} />
       </div>
 
       <div className="toolbar-divider"></div>
@@ -815,7 +1079,8 @@ function RichTextEditorClient({
   onBlur,
   style,
   'data-testid': dataTestId,
-  showToolbar = true
+  showToolbar = true,
+  onReady
 }: RichTextEditorProps) {
   const { useEditor, EditorContent } = require('@tiptap/react');
   const StarterKit = require('@tiptap/starter-kit').default;
@@ -918,6 +1183,12 @@ function RichTextEditorClient({
     onSelectionUpdate: handleSelectionUpdate,
   });
 
+  useEffect(() => {
+    if (editor && onReady) {
+      onReady(editor);
+    }
+  }, [editor, onReady]);
+
   const insertTable = useCallback(() => {
     if (!editor) return;
 
@@ -969,6 +1240,40 @@ function RichTextEditorClient({
       }
     };
   }, [editor, onBlur]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const itemsArray = Array.from(items);
+      
+      for (let i = 0; i < itemsArray.length; i++) {
+        const item = itemsArray[i];
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          
+          const file = item.getAsFile();
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (event: any) => {
+            editor?.chain().focus().setImage({ src: event.target?.result }).run();
+          };
+          reader.readAsDataURL(file);
+          break;
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -1223,9 +1528,7 @@ function RichTextEditorClient({
   if (!editor) return null;
 
   return (
-    <div
-      ref={editorContainerRef}
-      className={`relative rounded-lg focus:outline-none focus:border-transparent focus:ring-0 ${className} ${showToolbar ? 'with-toolbar' : ''}`}
+    <div className={`relative rounded-lg focus:outline-none focus:border-transparent focus:ring-0 ${className} ${showToolbar ? 'with-toolbar' : ''} flex flex-col h-full`}
       style={{ outline: 'none !important', boxShadow: 'none !important', border: 'none !important', cursor: 'text', ...style }}
     >
       <style>{`
@@ -1273,6 +1576,11 @@ function RichTextEditorClient({
         .toolbar > .toolbar-group > button:active {
           background: #9ca3af;
         }
+        .tiptap-editor {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
         .tiptap-editor [contenteditable="true"]:focus {
           outline: none !important;
           box-shadow: none !important;
@@ -1290,8 +1598,8 @@ function RichTextEditorClient({
         }
         .tiptap-editor .ProseMirror {
           outline: none;
-          min-height: 40px;
-          padding: 8px;
+          min-height: 100%;
+          padding: 12px;
         }
         .editor-placeholder {
           position: absolute;
@@ -1320,6 +1628,31 @@ function RichTextEditorClient({
           font-weight: bold;
           margin: 0.5em 0;
           line-height: 1.2;
+        }
+        .tiptap-editor h3 {
+          font-size: 1.25em;
+          font-weight: bold;
+          margin: 0.5em 0;
+          line-height: 1.2;
+        }
+        .tiptap-editor h4 {
+          font-size: 1.125em;
+          font-weight: bold;
+          margin: 0.5em 0;
+          line-height: 1.2;
+        }
+        .tiptap-editor h5 {
+          font-size: 1em;
+          font-weight: bold;
+          margin: 0.5em 0;
+          line-height: 1.2;
+        }
+        .tiptap-editor h6 {
+          font-size: 0.875em;
+          font-weight: bold;
+          margin: 0.5em 0;
+          line-height: 1.2;
+          color: #6b7280;
         }
         .tiptap-editor ul, .tiptap-editor ol {
           padding-left: 1.5em;
@@ -1764,6 +2097,57 @@ function RichTextEditorClient({
           background: #fcd34d;
           color: #78350f;
         }
+        .document-outline {
+          background: transparent;
+        }
+        .document-outline h3 {
+          font-size: 13px;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .outline-item {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background-color 0.15s;
+          font-size: 13px;
+          color: #4b5563;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          text-align: left;
+          border: none;
+          background: transparent;
+        }
+        .outline-item:hover {
+          background-color: #e5e7eb;
+          color: #1f2937;
+        }
+        .outline-item svg {
+          flex-shrink: 0;
+          width: 14px;
+          height: 14px;
+          color: #9ca3af;
+        }
+        .outline-item span.flex-1 {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .outline-item .text-xs {
+          font-size: 11px;
+          color: #9ca3af;
+          flex-shrink: 0;
+          margin-left: 4px;
+        }
       `}</style>
 
       {showToolbar && <Toolbar editor={editor} insertTable={insertTable} />}
@@ -1799,4 +2183,5 @@ function RichTextEditorClient({
   );
 }
 
+export { DocumentOutline };
 export default memo(RichTextEditorClient);
