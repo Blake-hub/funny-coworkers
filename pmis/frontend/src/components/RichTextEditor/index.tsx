@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, memo, forwardRef } from 'react';
+import { useEffect, useState, useRef, useCallback, memo, forwardRef, useMemo } from 'react';
 import { common, createLowlight } from 'lowlight';
 
 const lowlight = createLowlight(common);
@@ -1096,6 +1096,73 @@ function RichTextEditorClient({
   const { TableRow } = require('@tiptap/extension-table-row');
   const { TableCell } = require('@tiptap/extension-table-cell');
   const { TableHeader } = require('@tiptap/extension-table-header');
+  const Extension = require('@tiptap/core').Extension;
+
+  const MoveNodeExtension = {
+    name: 'moveNode',
+    addCommands() {
+      return {
+        moveNode: (fromPos: number, toPos: number, before: boolean) => ({ tr, dispatch }: { tr: any; dispatch: boolean }) => {
+          if (!dispatch) return true;
+          
+          const node = tr.doc.nodeAt(fromPos);
+          if (!node || !node.type.isBlock) return false;
+          
+          const nodeSize = node.nodeSize;
+          const targetPos = before ? toPos : toPos + nodeSize;
+          
+          if (fromPos < toPos) {
+            tr.delete(fromPos, fromPos + nodeSize);
+            tr.insert(targetPos - nodeSize, node);
+          } else {
+            tr.delete(fromPos, fromPos + nodeSize);
+            tr.insert(targetPos, node);
+          }
+          
+          return true;
+        },
+      };
+    },
+  };
+
+  const BlockWrapperExtension = Extension.create({
+    name: 'blockWrapper',
+    addProseMirrorPlugins() {
+      return [
+        new (require('prosemirror-state').Plugin)({
+          props: {
+            decorations(state: any) {
+              const decos: any[] = [];
+              state.doc.descendants((node: any, pos: number) => {
+                if (node.type.isBlock && !node.type.name.startsWith('table')) {
+                  const handle = document.createElement('span');
+                  handle.className = 'drag-handle';
+                  handle.setAttribute('data-pos', String(pos));
+                  handle.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/>
+                      <circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>
+                      <circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>
+                    </svg>
+                  `;
+                  
+                  decos.push(
+                    require('prosemirror-view').Decoration.widget(
+                      pos,
+                      handle,
+                      { side: 0 }
+                    )
+                  );
+                }
+                return true;
+              });
+              return require('prosemirror-view').DecorationSet.create(state.doc, decos);
+            },
+          },
+        }),
+      ];
+    },
+  });
 
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ x: 0, y: 0, maxHeight: 520 });
@@ -1106,12 +1173,23 @@ function RichTextEditorClient({
   const [hasContent, setHasContent] = useState(false);
   const [isTableSelected, setIsTableSelected] = useState(false);
   const [hasCodeBlock, setHasCodeBlock] = useState(false);
+  
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggingNodePos, setDraggingNodePos] = useState<number | null>(null);
+  const [dropTargetPos, setDropTargetPos] = useState<number | null>(null);
+  const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
+  const [dragGhostPosition, setDragGhostPosition] = useState({ x: 0, y: 0 });
 
   const selectedIndexRef = useRef(0);
+  const editorRef = useRef<any>(null);
+  const handleDragStartRef = useRef<any>(null);
+  const dragHandleRef = useRef<any>(null);
   const menuVisibleRef = useRef(false);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const blurTimeoutRef = useRef<number | null>(null);
+
+  
 
   const handleUpdate = useCallback(({ editor }: { editor: any }) => {
     onChange(editor.getHTML());
@@ -1125,7 +1203,7 @@ function RichTextEditorClient({
       return true;
     });
     setHasCodeBlock(foundCodeBlock);
-  }, [onChange]);
+  }, []);
 
   const handleSelectionUpdate = useCallback(({ editor }: { editor: any }) => {
     const selection = editor.state.selection;
@@ -1149,6 +1227,62 @@ function RichTextEditorClient({
       setShowFloatingToolbar(false);
     }
   }, []);
+
+  const handleDragStart = useCallback((pos: number, e: React.MouseEvent) => {
+    handleDragStartRef.current = handleDragStart;
+    dragHandleRef.current = handleDragStart;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragging(true);
+    setDraggingNodePos(pos);
+    setDragGhostPosition({ x: e.clientX, y: e.clientY });
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      setDragGhostPosition({ x: e.clientX, y: e.clientY });
+      
+      const currentEditor = editorRef.current;
+      if (!currentEditor) return;
+      
+      const editorElement = currentEditor.view.dom;
+      const rect = editorElement.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const posAtCoords = currentEditor.view.posAtCoords({ left: x, top: y });
+      if (posAtCoords) {
+        const nodeAtPos = currentEditor.state.doc.nodeAt(posAtCoords.pos);
+        if (nodeAtPos && nodeAtPos.type.isBlock) {
+          const nodeStart = currentEditor.state.doc.resolve(posAtCoords.pos).start();
+          setDropTargetPos(nodeStart);
+          setDropPosition(y < rect.height / 2 ? 'before' : 'after');
+        }
+      }
+    };
+    
+    const handleMouseUp = () => {
+      const currentEditor = editorRef.current;
+      if (isDragging && draggingNodePos !== null && dropTargetPos !== null && draggingNodePos !== dropTargetPos) {
+        if (currentEditor) {
+          currentEditor.commands.moveNode(draggingNodePos, dropTargetPos, dropPosition === 'before');
+        }
+      }
+      
+      setIsDragging(false);
+      setDraggingNodePos(null);
+      setDropTargetPos(null);
+      setDropPosition(null);
+      
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [isDragging, draggingNodePos, dropTargetPos, dropPosition]);
+
+  
 
   const editor = useEditor({
     extensions: [
@@ -1176,11 +1310,16 @@ function RichTextEditorClient({
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
+      MoveNodeExtension,
+      BlockWrapperExtension,
     ],
     content: value,
     immediatelyRender: false,
     onUpdate: handleUpdate,
     onSelectionUpdate: handleSelectionUpdate,
+    onCreate: ({ editor }: { editor: any }) => {
+      editorRef.current = editor;
+    },
   });
 
   useEffect(() => {
@@ -1272,6 +1411,52 @@ function RichTextEditorClient({
 
     return () => {
       document.removeEventListener('paste', handlePaste);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const editorElement = editor.view.dom;
+
+    const hideAllHandles = () => {
+      const handles = editorElement.querySelectorAll('.drag-handle');
+      handles.forEach((handle: Element) => {
+        (handle as HTMLElement).style.opacity = '0';
+      });
+    };
+
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const blockElement = target.closest('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, div');
+      
+      if (blockElement) {
+        const previousSibling = blockElement.previousElementSibling as HTMLElement;
+        let handle: HTMLElement | null = null;
+        
+        if (previousSibling && previousSibling.classList.contains('drag-handle')) {
+          handle = previousSibling;
+        }
+        
+        hideAllHandles();
+        if (handle) {
+          handle.style.opacity = '1';
+        }
+      } else {
+        hideAllHandles();
+      }
+    };
+
+    const handleMouseLeave = () => {
+      hideAllHandles();
+    };
+
+    editorElement.addEventListener('mouseover', handleMouseOver, true);
+    editorElement.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      editorElement.removeEventListener('mouseover', handleMouseOver, true);
+      editorElement.removeEventListener('mouseleave', handleMouseLeave);
     };
   }, [editor]);
 
@@ -2148,6 +2333,68 @@ function RichTextEditorClient({
           flex-shrink: 0;
           margin-left: 4px;
         }
+        .drag-handle {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+          height: 20px;
+          cursor: grab;
+          color: #9ca3af;
+          opacity: 0;
+          transition: opacity 0.15s;
+          margin-right: 4px;
+          flex-shrink: 0;
+          vertical-align: top;
+          margin-top: 2px;
+          z-index: 10;
+        }
+        .drag-handle:hover {
+          color: #6b7280;
+        }
+        .drag-handle:active {
+          cursor: grabbing;
+          color: #374151;
+        }
+        .drag-handle svg {
+          width: 14px;
+          height: 14px;
+        }
+        .drag-ghost {
+          position: fixed;
+          pointer-events: none;
+          z-index: 1000;
+          background: #ffffff;
+          border: 1px solid #d1d5db;
+          border-radius: 4px;
+          padding: 8px 12px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          font-size: 13px;
+          color: #374151;
+          max-width: 300px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          transform: translate(-50%, -50%);
+        }
+        .drop-indicator {
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: #3b82f6;
+          z-index: 20;
+        }
+        .drop-indicator-before {
+          top: 0;
+        }
+        .drop-indicator-after {
+          bottom: 0;
+        }
+        .dragging {
+          opacity: 0.5;
+          background: #f3f4f6;
+        }
       `}</style>
 
       {showToolbar && <Toolbar editor={editor} insertTable={insertTable} />}
@@ -2179,6 +2426,25 @@ function RichTextEditorClient({
         onInsert={handleLinkInsert}
         onCancel={() => setShowLinkModal(false)}
       />
+      
+      {isDragging && (
+        <div 
+          className="drag-ghost"
+          style={{
+            left: dragGhostPosition.x,
+            top: dragGhostPosition.y,
+          }}
+        >
+          {editorRef.current && draggingNodePos !== null && (
+            <>
+              <svg className="w-4 h-4 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+              </svg>
+              {editorRef.current.state.doc.nodeAt(draggingNodePos)?.textContent?.substring(0, 50) || 'Block'}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

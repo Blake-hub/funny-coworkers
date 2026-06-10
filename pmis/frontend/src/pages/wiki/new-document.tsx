@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
@@ -6,7 +6,7 @@ import RichTextEditor, { DocumentOutline } from '@/components/RichTextEditor';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
-export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
+export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
   const token = context.req.cookies['pmis-token'];
   
   if (!token) {
@@ -29,9 +29,9 @@ export default function NewDocument() {
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [editorInstance, setEditorInstance] = useState<any>(null);
+  const [editorInstance, setEditorInstance] = useState<unknown>(null);
 
-  const handleEditorReady = (editor: any) => {
+  const handleEditorReady = (editor: unknown) => {
     setEditorInstance(editor);
   };
 
