@@ -1170,6 +1170,7 @@ function RichTextEditorClient({
   const [hasContent, setHasContent] = useState(false);
   const [isTableSelected, setIsTableSelected] = useState(false);
   const [hasCodeBlock, setHasCodeBlock] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   
   const [isDragging, setIsDragging] = useState(false);
   const [draggingNodePos, setDraggingNodePos] = useState<number | null>(null);
@@ -1190,7 +1191,16 @@ function RichTextEditorClient({
 
   const handleUpdate = useCallback(({ editor }: { editor: any }) => {
     onChange(editor.getHTML());
-    setHasContent(editor.getText().trim().length > 0);
+    const textContent = editor.getText().trim();
+    let hasNonTextContent = false;
+    editor.state.doc.content.descendants((node: any) => {
+      if (node.type.name === 'image' || node.type.name === 'codeBlock' || node.type.name === 'table') {
+        hasNonTextContent = true;
+        return false;
+      }
+      return true;
+    });
+    setHasContent(textContent.length > 0 || hasNonTextContent);
     let foundCodeBlock = false;
     editor.state.doc.content.descendants((node: any) => {
       if (node.type.name === 'codeBlock') {
@@ -1448,12 +1458,28 @@ function RichTextEditorClient({
       hideAllHandles();
     };
 
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const blockElement = target.closest('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, div');
+      
+      if (blockElement) {
+        const previousSibling = blockElement.previousElementSibling as HTMLElement;
+        
+        if (previousSibling && previousSibling.classList.contains('drag-handle')) {
+          hideAllHandles();
+          previousSibling.style.opacity = '1';
+        }
+      }
+    };
+
     editorElement.addEventListener('mouseover', handleMouseOver, true);
     editorElement.addEventListener('mouseleave', handleMouseLeave);
+    editorElement.addEventListener('click', handleClick);
 
     return () => {
       editorElement.removeEventListener('mouseover', handleMouseOver, true);
       editorElement.removeEventListener('mouseleave', handleMouseLeave);
+      editorElement.removeEventListener('click', handleClick);
     };
   }, [editor]);
 
@@ -2333,11 +2359,10 @@ function RichTextEditorClient({
         .drag-handle {
           float: left;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: center;
           width: 20px;
-          height: 100%;
-          min-height: 24px;
+          height: 20px;
           cursor: grab;
           color: #9ca3af;
           opacity: 0;
@@ -2346,6 +2371,21 @@ function RichTextEditorClient({
           margin-top: 0;
           z-index: 10;
         }
+        .tiptap-editor p,
+        .tiptap-editor h1,
+        .tiptap-editor h2,
+        .tiptap-editor h3,
+        .tiptap-editor h4,
+        .tiptap-editor h5,
+        .tiptap-editor h6,
+        .tiptap-editor pre,
+        .tiptap-editor blockquote,
+        .tiptap-editor ul,
+        .tiptap-editor ol {
+          padding-left: 24px;
+          margin-top: 0;
+        }
+
         .drag-handle:hover {
           color: #6b7280;
         }
@@ -2397,9 +2437,15 @@ function RichTextEditorClient({
       {showToolbar && <Toolbar editor={editor} insertTable={insertTable} />}
       <TableToolbar editor={editor} show={isTableSelected} />
       <CodeBlockLanguageDropdown editor={editor} hasCodeBlock={hasCodeBlock} />
-      <EditorContent editor={editor} className="tiptap-editor" data-testid={dataTestId} />
+      <EditorContent 
+        editor={editor} 
+        className="tiptap-editor" 
+        data-testid={dataTestId}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+      />
 
-      {!hasContent && !editor.getText().trim() && (
+      {!hasContent && !isFocused && (
         <div className="editor-placeholder">{placeholder || 'Start typing...'}</div>
       )}
 

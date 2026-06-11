@@ -152,6 +152,107 @@ test.describe('Wiki - Drag Handle Feature', () => {
     expect(xDifference).toBeLessThan(30);
   });
 
+  test('should show correct alignment for two segments', async ({ page }) => {
+    await page.waitForSelector('button[title="Add to Wiki"]', { timeout: 5000 });
+    await page.click('button[title="Add to Wiki"]');
+    await page.waitForSelector('button:has-text("Document")', { timeout: 5000 });
+    await page.click('button:has-text("Document")');
+    await page.waitForNavigation({ timeout: 30000, waitUntil: 'networkidle' });
+
+    const editor = page.locator('.tiptap, .ProseMirror, [contenteditable="true"]');
+    await editor.first().waitFor({ state: 'visible', timeout: 15000 });
+
+    await editor.first().click();
+    await page.keyboard.type('First segment text');
+    await page.waitForTimeout(500);
+    
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    
+    await page.keyboard.type('Second segment text');
+    await page.waitForTimeout(500);
+
+    const pElements = page.locator('p');
+    const pCount = await pElements.count();
+    console.log(`Number of paragraphs: ${pCount}`);
+
+    await pElements.first().waitFor({ state: 'visible' });
+
+    const allPositions = await page.evaluate(() => {
+      const editor = document.querySelector('.tiptap, .ProseMirror, [contenteditable="true"]');
+      if (!editor) {
+        console.log('Editor not found');
+        return null;
+      }
+
+      const handles = editor.querySelectorAll('.drag-handle') as NodeListOf<HTMLElement>;
+      const paragraphs = editor.querySelectorAll('p') as NodeListOf<HTMLElement>;
+
+      if (handles.length < 2 || paragraphs.length < 2) {
+        console.log(`Found ${handles.length} handles and ${paragraphs.length} paragraphs inside editor`);
+        return null;
+      }
+
+      const results: Array<{
+        segmentIndex: number;
+        segmentX: number;
+        segmentY: number;
+        handleX: number;
+        handleY: number;
+        handleWidth: number;
+        handleHeight: number;
+      }> = [];
+
+      for (let i = 0; i < 2; i++) {
+        const handle = handles[i];
+        const paragraph = paragraphs[i];
+
+        if (handle && paragraph) {
+          const handleRect = handle.getBoundingClientRect();
+          const paragraphRect = paragraph.getBoundingClientRect();
+
+          results.push({
+            segmentIndex: i + 1,
+            segmentX: paragraphRect.left,
+            segmentY: paragraphRect.top,
+            handleX: handleRect.left,
+            handleY: handleRect.top,
+            handleWidth: handleRect.width,
+            handleHeight: handleRect.height,
+          });
+        }
+      }
+
+      return results;
+    });
+
+    expect(allPositions).not.toBeNull();
+    expect(allPositions!.length).toBe(2);
+
+    console.log('=== Segment 1 ===');
+    console.log(`Segment 1 Position: (X: ${allPositions![0].segmentX.toFixed(2)}, Y: ${allPositions![0].segmentY.toFixed(2)})`);
+    console.log(`Drag Handle 1 Position: (X: ${allPositions![0].handleX.toFixed(2)}, Y: ${allPositions![0].handleY.toFixed(2)})`);
+    console.log(`Drag Handle 1 Size: (Width: ${allPositions![0].handleWidth.toFixed(2)}, Height: ${allPositions![0].handleHeight.toFixed(2)})`);
+
+    console.log('=== Segment 2 ===');
+    console.log(`Segment 2 Position: (X: ${allPositions![1].segmentX.toFixed(2)}, Y: ${allPositions![1].segmentY.toFixed(2)})`);
+    console.log(`Drag Handle 2 Position: (X: ${allPositions![1].handleX.toFixed(2)}, Y: ${allPositions![1].handleY.toFixed(2)})`);
+    console.log(`Drag Handle 2 Size: (Width: ${allPositions![1].handleWidth.toFixed(2)}, Height: ${allPositions![1].handleHeight.toFixed(2)})`);
+
+    // const yDiff1 = Math.abs(allPositions![0].handleY - allPositions![0].segmentY);
+    // const yDiff2 = Math.abs(allPositions![1].handleY - allPositions![1].segmentY);
+    const yDiff1 = allPositions![0].handleY - allPositions![0].segmentY;
+    const yDiff2 = allPositions![1].handleY - allPositions![1].segmentY;
+    
+    console.log(`Y alignment difference for Segment 1: ${yDiff1.toFixed(2)}px`);
+    console.log(`Y alignment difference for Segment 2: ${yDiff2.toFixed(2)}px`);
+
+    expect(yDiff1).toBeLessThan(1);
+    expect(yDiff1).toBeGreaterThan(-1);
+    expect(yDiff2).toBeLessThan(1);
+    expect(yDiff2).toBeGreaterThan(-1);
+  });
+
   test('should show only one grip-vertical icon when hovering over a segment', async ({ page }) => {
     await page.waitForSelector('button[title="Add to Wiki"]', { timeout: 5000 });
     await page.click('button[title="Add to Wiki"]');
