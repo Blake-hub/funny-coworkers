@@ -1128,6 +1128,9 @@ function RichTextEditorClient({
   const BlockWrapperExtension = Extension.create({
     name: 'blockWrapper',
     addProseMirrorPlugins() {
+      const { GripVertical } = require('lucide-react');
+      const { renderToString } = require('react-dom/server');
+      
       return [
         new (require('prosemirror-state').Plugin)({
           props: {
@@ -1138,13 +1141,7 @@ function RichTextEditorClient({
                   const handle = document.createElement('span');
                   handle.className = 'drag-handle';
                   handle.setAttribute('data-pos', String(pos));
-                  handle.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/>
-                      <circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>
-                      <circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>
-                    </svg>
-                  `;
+                  handle.innerHTML = renderToString(<GripVertical size={14} />);
                   
                   decos.push(
                     require('prosemirror-view').Decoration.widget(
@@ -2334,19 +2331,19 @@ function RichTextEditorClient({
           margin-left: 4px;
         }
         .drag-handle {
-          display: inline-flex;
+          float: left;
+          display: flex;
           align-items: center;
           justify-content: center;
           width: 20px;
-          height: 20px;
+          height: 100%;
+          min-height: 24px;
           cursor: grab;
           color: #9ca3af;
           opacity: 0;
           transition: opacity 0.15s;
           margin-right: 4px;
-          flex-shrink: 0;
-          vertical-align: top;
-          margin-top: 2px;
+          margin-top: 0;
           z-index: 10;
         }
         .drag-handle:hover {
