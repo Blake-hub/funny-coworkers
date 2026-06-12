@@ -2,5 +2,7 @@
 implementation-plan.md
 workflows.md
 requirements.md
+debug-segment-drag-drop-fail.md
 /frontend/node_modules/
 /frontend/.next/
+.dbg/

@@ -348,4 +348,243 @@ test.describe('Wiki - Drag Handle Feature', () => {
     console.log('Visible drag handles after moving away:', visibleAfterHover);
     expect(visibleAfterHover).toBe(0);
   });
+
+  test('should allow dragging and dropping blocks to reorder them', async ({ page }) => {
+    await page.waitForSelector('button[title="Add to Wiki"]', { timeout: 5000 });
+    await page.click('button[title="Add to Wiki"]');
+    await page.waitForSelector('button:has-text("Document")', { timeout: 5000 });
+    await page.click('button:has-text("Document")');
+    await page.waitForNavigation({ timeout: 30000, waitUntil: 'networkidle' });
+    
+    const editor = page.locator('.tiptap, .ProseMirror, [contenteditable="true"]');
+    await editor.first().waitFor({ state: 'visible', timeout: 15000 });
+    
+    await editor.first().click();
+    
+    await page.keyboard.type('First paragraph');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second paragraph');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Third paragraph');
+    await page.waitForTimeout(500);
+    
+    const editorParagraphs = editor.first().locator('p');
+    const initialOrder = await editorParagraphs.allTextContents();
+    console.log('Initial order:', initialOrder);
+    
+    expect(initialOrder.length).toBeGreaterThanOrEqual(3);
+    expect(initialOrder[0]).toBe('First paragraph');
+    expect(initialOrder[1]).toBe('Second paragraph');
+    expect(initialOrder[2]).toBe('Third paragraph');
+    
+    const firstParagraph = editorParagraphs.nth(0);
+    const firstParagraphBox = await firstParagraph.boundingBox();
+    
+    if (!firstParagraphBox) {
+      throw new Error('Could not get bounding box for first paragraph');
+    }
+    
+    const dragHandleX = firstParagraphBox.x + 10;
+    const dragHandleY = firstParagraphBox.y + 10;
+    
+    await page.mouse.move(dragHandleX, dragHandleY);
+    await page.waitForTimeout(200);
+    
+    await page.mouse.down({ button: 'left' });
+    await page.waitForTimeout(100);
+    
+    const thirdParagraph = editorParagraphs.nth(2);
+    const thirdParagraphBox = await thirdParagraph.boundingBox();
+    
+    if (!thirdParagraphBox) {
+      throw new Error('Could not get bounding box for third paragraph');
+    }
+    
+    const dropTargetX = thirdParagraphBox.x + 50;
+    const dropTargetY = thirdParagraphBox.y + thirdParagraphBox.height + 10;
+    
+    await page.mouse.move(dropTargetX, dropTargetY, { steps: 20 });
+    await page.waitForTimeout(200);
+    
+    const dropIndicatorVisible = await page.locator('.drop-indicator').isVisible();
+    console.log('Drop indicator visible:', dropIndicatorVisible);
+    
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    
+    const finalOrder = await editorParagraphs.allTextContents();
+    console.log('Final order:', finalOrder);
+    
+    expect(finalOrder.length).toBeGreaterThanOrEqual(3);
+    expect(finalOrder[0]).toBe('Second paragraph');
+    expect(finalOrder[1]).toBe('Third paragraph');
+    expect(finalOrder[2]).toBe('First paragraph');
+  });
+
+  test('should show drag ghost when dragging', async ({ page }) => {
+    await page.waitForSelector('button[title="Add to Wiki"]', { timeout: 5000 });
+    await page.click('button[title="Add to Wiki"]');
+    await page.waitForSelector('button:has-text("Document")', { timeout: 5000 });
+    await page.click('button:has-text("Document")');
+    await page.waitForNavigation({ timeout: 30000, waitUntil: 'networkidle' });
+    
+    const editor = page.locator('.tiptap, .ProseMirror, [contenteditable="true"]');
+    await editor.first().waitFor({ state: 'visible', timeout: 15000 });
+    
+    await editor.first().click();
+    await page.keyboard.type('First paragraph');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second paragraph');
+    await page.waitForTimeout(500);
+    
+    const firstParagraph = editor.first().locator('p').nth(0);
+    const firstParagraphBox = await firstParagraph.boundingBox();
+    
+    if (!firstParagraphBox) {
+      throw new Error('Could not get bounding box for first paragraph');
+    }
+    
+    const dragHandleX = firstParagraphBox.x + 10;
+    const dragHandleY = firstParagraphBox.y + 10;
+    
+    await page.mouse.move(dragHandleX, dragHandleY);
+    await page.waitForTimeout(200);
+    
+    await page.mouse.down({ button: 'left' });
+    await page.waitForTimeout(100);
+    
+    await page.mouse.move(dragHandleX + 50, dragHandleY + 50);
+    await page.waitForTimeout(200);
+    
+    const dragGhostVisible = await page.locator('.drag-ghost').isVisible();
+    console.log('Drag ghost visible:', dragGhostVisible);
+    expect(dragGhostVisible).toBe(true);
+    
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    
+    const dragGhostVisibleAfter = await page.locator('.drag-ghost').isVisible();
+    console.log('Drag ghost visible after drop:', dragGhostVisibleAfter);
+    expect(dragGhostVisibleAfter).toBe(false);
+  });
+
+  test('should correctly move segment to different positions', async ({ page }) => {
+    await page.waitForSelector('button[title="Add to Wiki"]', { timeout: 5000 });
+    await page.click('button[title="Add to Wiki"]');
+    await page.waitForSelector('button:has-text("Document")', { timeout: 5000 });
+    await page.click('button:has-text("Document")');
+    await page.waitForNavigation({ timeout: 30000, waitUntil: 'networkidle' });
+    
+    const editor = page.locator('.tiptap, .ProseMirror, [contenteditable="true"]');
+    await editor.first().waitFor({ state: 'visible', timeout: 15000 });
+    
+    await editor.first().click();
+    
+    await page.keyboard.type('Paragraph 1');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Paragraph 2');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Paragraph 3');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Paragraph 4');
+    await page.waitForTimeout(500);
+    
+    const editorParagraphs = editor.first().locator('p');
+    const initialOrder = await editorParagraphs.allTextContents();
+    console.log('Initial order:', initialOrder);
+    
+    expect(initialOrder.length).toBeGreaterThanOrEqual(4);
+    
+    const secondParagraph = editorParagraphs.nth(1);
+    const secondParagraphBox = await secondParagraph.boundingBox();
+    
+    if (!secondParagraphBox) {
+      throw new Error('Could not get bounding box for second paragraph');
+    }
+    
+    const dragHandleX = secondParagraphBox.x + 10;
+    const dragHandleY = secondParagraphBox.y + 10;
+    
+    await page.mouse.move(dragHandleX, dragHandleY);
+    await page.waitForTimeout(200);
+    
+    await page.mouse.down({ button: 'left' });
+    await page.waitForTimeout(100);
+    
+    const fourthParagraph = editorParagraphs.nth(3);
+    const fourthParagraphBox = await fourthParagraph.boundingBox();
+    
+    if (!fourthParagraphBox) {
+      throw new Error('Could not get bounding box for fourth paragraph');
+    }
+    
+    const dropTargetX = fourthParagraphBox.x + 50;
+    const dropTargetY = fourthParagraphBox.y + fourthParagraphBox.height + 10;
+    
+    await page.mouse.move(dropTargetX, dropTargetY, { steps: 20 });
+    await page.waitForTimeout(200);
+    
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    
+    const finalOrder = await editorParagraphs.allTextContents();
+    console.log('Final order:', finalOrder);
+    
+    expect(finalOrder.length).toBeGreaterThanOrEqual(4);
+    expect(finalOrder[0]).toBe('Paragraph 1');
+    expect(finalOrder[1]).toBe('Paragraph 3');
+    expect(finalOrder[2]).toBe('Paragraph 4');
+    expect(finalOrder[3]).toBe('Paragraph 2');
+  });
+
+  test('should not move segment when dropping on itself', async ({ page }) => {
+    await page.waitForSelector('button[title="Add to Wiki"]', { timeout: 5000 });
+    await page.click('button[title="Add to Wiki"]');
+    await page.waitForSelector('button:has-text("Document")', { timeout: 5000 });
+    await page.click('button:has-text("Document")');
+    await page.waitForNavigation({ timeout: 30000, waitUntil: 'networkidle' });
+    
+    const editor = page.locator('.tiptap, .ProseMirror, [contenteditable="true"]');
+    await editor.first().waitFor({ state: 'visible', timeout: 15000 });
+    
+    await editor.first().click();
+    
+    await page.keyboard.type('First paragraph');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second paragraph');
+    await page.waitForTimeout(500);
+    
+    const editorParagraphs = editor.first().locator('p');
+    const initialOrder = await editorParagraphs.allTextContents();
+    console.log('Initial order:', initialOrder);
+    
+    const firstParagraph = editorParagraphs.nth(0);
+    const firstParagraphBox = await firstParagraph.boundingBox();
+    
+    if (!firstParagraphBox) {
+      throw new Error('Could not get bounding box for first paragraph');
+    }
+    
+    const dragHandleX = firstParagraphBox.x + 10;
+    const dragHandleY = firstParagraphBox.y + 10;
+    
+    await page.mouse.move(dragHandleX, dragHandleY);
+    await page.waitForTimeout(200);
+    
+    await page.mouse.down({ button: 'left' });
+    await page.waitForTimeout(100);
+    
+    await page.mouse.move(dragHandleX + 20, dragHandleY + 20, { steps: 10 });
+    await page.waitForTimeout(200);
+    
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    
+    const finalOrder = await editorParagraphs.allTextContents();
+    console.log('Final order after self-drop:', finalOrder);
+    
+    expect(finalOrder.length).toBeGreaterThanOrEqual(2);
+    expect(finalOrder[0]).toBe('First paragraph');
+    expect(finalOrder[1]).toBe('Second paragraph');
+  });
 });

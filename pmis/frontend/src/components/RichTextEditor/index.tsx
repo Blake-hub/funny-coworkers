@@ -1071,6 +1071,93 @@ const LinkModal = memo(({
   );
 });
 
+const DropIndicator = ({ editor, targetPos, position }: { 
+  editor: any; 
+  targetPos: number; 
+  position: 'before' | 'after' | null; 
+}) => {
+  const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, left: 0, width: 0, opacity: 0 });
+
+  useEffect(() => {
+    if (!editor || targetPos === null || position === null) {
+      setIndicatorStyle({ top: 0, left: 0, width: 0, opacity: 0 });
+      return;
+    }
+
+    const updatePosition = () => {
+      try {
+        const allBlocks = editor.view.dom.querySelectorAll('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre');
+        
+        const nodePositions: number[] = [];
+        editor.state.doc.descendants((node: any, pos: number) => {
+          if (node.type.isBlock) {
+            nodePositions.push(pos);
+          }
+          return true;
+        });
+        
+        let blockIndex = -1;
+        for (let i = 0; i < nodePositions.length; i++) {
+          if (nodePositions[i] === targetPos) {
+            blockIndex = i;
+            break;
+          }
+        }
+        
+        if (blockIndex === -1 || blockIndex >= allBlocks.length) {
+          setIndicatorStyle({ top: 0, left: 0, width: 0, opacity: 0 });
+          return;
+        }
+        
+        const blockEl = allBlocks[blockIndex] as HTMLElement;
+        const rect = blockEl.getBoundingClientRect();
+        const editorRect = editor.view.dom.getBoundingClientRect();
+        
+        const isBefore = position === 'before';
+        const topPosition = isBefore 
+          ? rect.top - editorRect.top 
+          : rect.bottom - editorRect.top - 3;
+        
+        setIndicatorStyle({
+          top: topPosition,
+          left: 12,
+          width: editorRect.width - 24,
+          opacity: 1,
+        });
+      } catch (e) {
+        console.error('Error updating drop indicator position:', e);
+        setIndicatorStyle({ top: 0, left: 0, width: 0, opacity: 0 });
+      }
+    };
+
+    updatePosition();
+    
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(editor.view.dom);
+    
+    return () => observer.disconnect();
+  }, [editor, targetPos, position]);
+  
+  return (
+    <div 
+      className="drop-indicator"
+      style={{
+        position: 'absolute',
+        top: indicatorStyle.top,
+        left: indicatorStyle.left,
+        width: indicatorStyle.width,
+        height: '3px',
+        backgroundColor: '#3b82f6',
+        borderRadius: '2px',
+        opacity: indicatorStyle.opacity,
+        zIndex: 100,
+        transition: 'all 0.15s ease',
+        boxShadow: '0 0 8px rgba(59, 130, 246, 0.5)',
+      }}
+    />
+  );
+};
+
 function RichTextEditorClient({
   value,
   onChange,
@@ -1098,32 +1185,46 @@ function RichTextEditorClient({
   const { TableHeader } = require('@tiptap/extension-table-header');
   const Extension = require('@tiptap/core').Extension;
 
-  const MoveNodeExtension = {
+  const MoveNodeExtension = Extension.create({
     name: 'moveNode',
     addCommands() {
       return {
-        moveNode: (fromPos: number, toPos: number, before: boolean) => ({ tr, dispatch }: { tr: any; dispatch: boolean }) => {
+        moveNode: (fromPos: number, toPos: number, before: boolean) => ({ tr, dispatch, state }: { tr: any; dispatch: boolean; state: any }) => {
           if (!dispatch) return true;
           
-          const node = tr.doc.nodeAt(fromPos);
-          if (!node || !node.type.isBlock) return false;
+          const fromNode = state.doc.nodeAt(fromPos);
           
-          const nodeSize = node.nodeSize;
-          const targetPos = before ? toPos : toPos + nodeSize;
+          if (!fromNode || !fromNode.type.isBlock) {
+            return false;
+          }
           
-          if (fromPos < toPos) {
-            tr.delete(fromPos, fromPos + nodeSize);
-            tr.insert(targetPos - nodeSize, node);
+          const fromNodeSize = fromNode.nodeSize;
+          
+          let insertPos: number;
+          const toNode = state.doc.nodeAt(toPos);
+          const toNodeSize = toNode ? toNode.nodeSize : 0;
+          
+          if (before) {
+            insertPos = toPos;
           } else {
-            tr.delete(fromPos, fromPos + nodeSize);
-            tr.insert(targetPos, node);
+            insertPos = toPos + toNodeSize;
+          }
+          
+          if (fromPos < insertPos) {
+            insertPos -= fromNodeSize;
+          }
+          
+          if (fromPos !== insertPos) {
+            const slice = state.doc.slice(fromPos, fromPos + fromNodeSize);
+            tr.delete(fromPos, fromPos + fromNodeSize);
+            tr.insert(insertPos, slice.content);
           }
           
           return true;
         },
       };
     },
-  };
+  });
 
   const BlockWrapperExtension = Extension.create({
     name: 'blockWrapper',
@@ -1171,9 +1272,7 @@ function RichTextEditorClient({
   const [isTableSelected, setIsTableSelected] = useState(false);
   const [hasCodeBlock, setHasCodeBlock] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  
   const [isDragging, setIsDragging] = useState(false);
-  const [draggingNodePos, setDraggingNodePos] = useState<number | null>(null);
   const [dropTargetPos, setDropTargetPos] = useState<number | null>(null);
   const [dropPosition, setDropPosition] = useState<'before' | 'after' | null>(null);
   const [dragGhostPosition, setDragGhostPosition] = useState({ x: 0, y: 0 });
@@ -1183,6 +1282,9 @@ function RichTextEditorClient({
   const handleDragStartRef = useRef<any>(null);
   const dragHandleRef = useRef<any>(null);
   const menuVisibleRef = useRef(false);
+  const draggingPosRef = useRef<number | null>(null);
+  const targetPosRef = useRef<number | null>(null);
+  const dropPositionRef = useRef<'before' | 'after'>('after');
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const blurTimeoutRef = useRef<number | null>(null);
@@ -1235,61 +1337,7 @@ function RichTextEditorClient({
     }
   }, []);
 
-  const handleDragStart = useCallback((pos: number, e: React.MouseEvent) => {
-    handleDragStartRef.current = handleDragStart;
-    dragHandleRef.current = handleDragStart;
-    
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setIsDragging(true);
-    setDraggingNodePos(pos);
-    setDragGhostPosition({ x: e.clientX, y: e.clientY });
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      setDragGhostPosition({ x: e.clientX, y: e.clientY });
-      
-      const currentEditor = editorRef.current;
-      if (!currentEditor) return;
-      
-      const editorElement = currentEditor.view.dom;
-      const rect = editorElement.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      const posAtCoords = currentEditor.view.posAtCoords({ left: x, top: y });
-      if (posAtCoords) {
-        const nodeAtPos = currentEditor.state.doc.nodeAt(posAtCoords.pos);
-        if (nodeAtPos && nodeAtPos.type.isBlock) {
-          const nodeStart = currentEditor.state.doc.resolve(posAtCoords.pos).start();
-          setDropTargetPos(nodeStart);
-          setDropPosition(y < rect.height / 2 ? 'before' : 'after');
-        }
-      }
-    };
-    
-    const handleMouseUp = () => {
-      const currentEditor = editorRef.current;
-      if (isDragging && draggingNodePos !== null && dropTargetPos !== null && draggingNodePos !== dropTargetPos) {
-        if (currentEditor) {
-          currentEditor.commands.moveNode(draggingNodePos, dropTargetPos, dropPosition === 'before');
-        }
-      }
-      
-      setIsDragging(false);
-      setDraggingNodePos(null);
-      setDropTargetPos(null);
-      setDropPosition(null);
-      
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, [isDragging, draggingNodePos, dropTargetPos, dropPosition]);
 
-  
 
   const editor = useEditor({
     extensions: [
@@ -1435,22 +1483,25 @@ function RichTextEditorClient({
 
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      const blockElement = target.closest('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, div');
+      
+      let handle: HTMLElement | null = null;
+      let blockElement = target.closest('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, div');
       
       if (blockElement) {
         const previousSibling = blockElement.previousElementSibling as HTMLElement;
-        let handle: HTMLElement | null = null;
-        
         if (previousSibling && previousSibling.classList.contains('drag-handle')) {
           handle = previousSibling;
         }
-        
-        hideAllHandles();
-        if (handle) {
-          handle.style.opacity = '1';
-        }
       } else {
-        hideAllHandles();
+        const dragHandleElement = target.closest('.drag-handle');
+        if (dragHandleElement) {
+          handle = dragHandleElement as HTMLElement;
+        }
+      }
+      
+      hideAllHandles();
+      if (handle) {
+        handle.style.opacity = '1';
       }
     };
 
@@ -1480,6 +1531,108 @@ function RichTextEditorClient({
       editorElement.removeEventListener('mouseover', handleMouseOver, true);
       editorElement.removeEventListener('mouseleave', handleMouseLeave);
       editorElement.removeEventListener('click', handleClick);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const editorElement = editor.view.dom;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const handle = target.closest('.drag-handle');
+      if (handle) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const pos = parseInt(handle.getAttribute('data-pos') || '0');
+        
+        const $pos = editor.state.doc.resolve(pos);
+        const blockRange = $pos.blockRange();
+        const actualPos = blockRange ? blockRange.start : pos;
+        
+        draggingPosRef.current = actualPos;
+        setIsDragging(true);
+        setDragGhostPosition({ x: e.clientX, y: e.clientY });
+
+        const handleMouseMove = (e: MouseEvent) => {
+          setDragGhostPosition({ x: e.clientX, y: e.clientY });
+          
+          const elements = document.elementsFromPoint(e.clientX, e.clientY);
+          
+          for (const el of elements) {
+            const blockEl = (el as HTMLElement).closest('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre');
+            if (blockEl && editorElement.contains(blockEl)) {
+              const blockRect = blockEl.getBoundingClientRect();
+              const isBefore = e.clientY < blockRect.top + blockRect.height / 2;
+              
+              const allBlocks = editorElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre');
+              let blockIndex = -1;
+              for (let i = 0; i < allBlocks.length; i++) {
+                if (allBlocks[i] === blockEl) {
+                  blockIndex = i;
+                  break;
+                }
+              }
+              
+              if (blockIndex !== -1) {
+                const nodePositions: number[] = [];
+                editor.state.doc.descendants((node: any, pos: number) => {
+                  if (node.type.isBlock) {
+                    const $pos = editor.state.doc.resolve(pos);
+                    const blockRange = $pos.blockRange();
+                    nodePositions.push(blockRange ? blockRange.start : pos);
+                  }
+                  return true;
+                });
+                
+                if (blockIndex < nodePositions.length) {
+                  const targetPos = nodePositions[blockIndex];
+                  targetPosRef.current = targetPos;
+                  dropPositionRef.current = isBefore ? 'before' : 'after';
+                  setDropTargetPos(targetPos);
+                  setDropPosition(isBefore ? 'before' : 'after');
+                }
+              }
+              break;
+            }
+          }
+        };
+
+        const handleMouseUp = () => {
+          const fromPos = draggingPosRef.current;
+          const toPos = targetPosRef.current;
+          const isBefore = dropPositionRef.current === 'before';
+          
+          if (fromPos !== null && toPos !== null && fromPos !== toPos) {
+            try {
+              editor.commands.moveNode(fromPos, toPos, isBefore);
+            } catch (err) {
+              console.error('Error moving node:', err);
+            }
+          }
+          
+          setIsDragging(false);
+          setDropTargetPos(null);
+          setDropPosition(null);
+          draggingPosRef.current = null;
+          targetPosRef.current = null;
+          dropPositionRef.current = 'after';
+          
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+      }
+    };
+
+    editorElement.addEventListener('mousedown', handleMouseDown);
+
+    return () => {
+      editorElement.removeEventListener('mousedown', handleMouseDown);
     };
   }, [editor]);
 
@@ -2359,17 +2512,23 @@ function RichTextEditorClient({
         .drag-handle {
           float: left;
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: center;
-          width: 20px;
+          width: 22px;
           height: 20px;
           cursor: grab;
-          color: #9ca3af;
+          color: #6b7280;
           opacity: 0;
-          transition: opacity 0.15s;
+          transition: all 0.15s ease;
           margin-right: 4px;
           margin-top: 0;
+          margin-left: -2px;
           z-index: 10;
+          border-radius: 4px;
+          background: transparent;
+        }
+        .drag-handle:hover {
+          opacity: 1 !important;
         }
         .tiptap-editor p,
         .tiptap-editor h1,
@@ -2387,46 +2546,25 @@ function RichTextEditorClient({
         }
 
         .drag-handle:hover {
-          color: #6b7280;
+          color: #3b82f6;
+          background: #eff6ff;
+          transform: scale(1.1);
+          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
         }
         .drag-handle:active {
           cursor: grabbing;
-          color: #374151;
+          color: #2563eb;
+          background: #dbeafe;
+          transform: scale(1.05);
+          box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3);
         }
         .drag-handle svg {
-          width: 14px;
-          height: 14px;
+          width: 16px;
+          height: 16px;
+          transition: all 0.15s ease;
         }
-        .drag-ghost {
-          position: fixed;
-          pointer-events: none;
-          z-index: 1000;
-          background: #ffffff;
-          border: 1px solid #d1d5db;
-          border-radius: 4px;
-          padding: 8px 12px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-          font-size: 13px;
-          color: #374151;
-          max-width: 300px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          transform: translate(-50%, -50%);
-        }
-        .drop-indicator {
-          position: absolute;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: #3b82f6;
-          z-index: 20;
-        }
-        .drop-indicator-before {
-          top: 0;
-        }
-        .drop-indicator-after {
-          bottom: 0;
+        .drag-handle:hover svg {
+          stroke-width: 2.5;
         }
         .dragging {
           opacity: 0.5;
@@ -2437,13 +2575,22 @@ function RichTextEditorClient({
       {showToolbar && <Toolbar editor={editor} insertTable={insertTable} />}
       <TableToolbar editor={editor} show={isTableSelected} />
       <CodeBlockLanguageDropdown editor={editor} hasCodeBlock={hasCodeBlock} />
-      <EditorContent 
-        editor={editor} 
-        className="tiptap-editor" 
-        data-testid={dataTestId}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-      />
+      <div className="relative">
+        <EditorContent 
+          editor={editor} 
+          className="tiptap-editor" 
+          data-testid={dataTestId}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+        />
+        {isDragging && dropTargetPos !== null && dropPosition !== null && (
+          <DropIndicator 
+            editor={editor}
+            targetPos={dropTargetPos}
+            position={dropPosition}
+          />
+        )}
+      </div>
 
       {!hasContent && !isFocused && (
         <div className="editor-placeholder">{placeholder || 'Start typing...'}</div>
@@ -2476,14 +2623,29 @@ function RichTextEditorClient({
           style={{
             left: dragGhostPosition.x,
             top: dragGhostPosition.y,
+            position: 'fixed',
+            pointerEvents: 'none',
+            zIndex: 1000,
+            background: '#ffffff',
+            border: '1px solid #d1d5db',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            fontSize: '13px',
+            color: '#374151',
+            maxWidth: '300px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            transform: 'translate(-50%, -50%)',
           }}
         >
-          {editorRef.current && draggingNodePos !== null && (
+          {editorRef.current && draggingPosRef.current !== null && (
             <>
               <svg className="w-4 h-4 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
               </svg>
-              {editorRef.current.state.doc.nodeAt(draggingNodePos)?.textContent?.substring(0, 50) || 'Block'}
+              {editorRef.current.state.doc.nodeAt(draggingPosRef.current)?.textContent?.substring(0, 50) || 'Block'}
             </>
           )}
         </div>
