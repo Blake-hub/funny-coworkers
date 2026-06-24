@@ -587,4 +587,57 @@ test.describe('Wiki - Drag Handle Feature', () => {
     expect(finalOrder[0]).toBe('First paragraph');
     expect(finalOrder[1]).toBe('Second paragraph');
   });
+
+  test('should show only one drag handle when hovering over a bullet list item', async ({ page }) => {
+    await page.waitForSelector('button[title="Add to Wiki"]', { timeout: 5000 });
+    await page.click('button[title="Add to Wiki"]');
+    await page.waitForSelector('button:has-text("Document")', { timeout: 5000 });
+    await page.click('button:has-text("Document")');
+    await page.waitForNavigation({ timeout: 30000, waitUntil: 'networkidle' });
+    
+    const editor = page.locator('.tiptap, .ProseMirror, [contenteditable="true"]');
+    await editor.first().waitFor({ state: 'visible', timeout: 15000 });
+    
+    await editor.first().click();
+    
+    await page.keyboard.type('/');
+    await page.waitForTimeout(500);
+    const slashMenu = page.locator('.slash-menu');
+    await slashMenu.waitFor({ state: 'visible', timeout: 5000 });
+    
+    const bulletListCommand = page.locator('.slash-menu-item', { hasText: 'Bullet List' });
+    await bulletListCommand.click();
+    await page.waitForTimeout(1000);
+    
+    await page.keyboard.type('First list item');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second list item');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Third list item');
+    await page.waitForTimeout(500);
+    
+    const listItems = page.locator('li');
+    const listItemCount = await listItems.count();
+    console.log('Number of list items:', listItemCount);
+    
+    await listItems.first().waitFor({ state: 'visible' });
+    const firstListItemBox = await listItems.first().boundingBox();
+    
+    if (!firstListItemBox) {
+      throw new Error('Could not get bounding box for first list item');
+    }
+    
+    await page.mouse.move(firstListItemBox.x + firstListItemBox.width / 2, firstListItemBox.y + firstListItemBox.height / 2);
+    await page.waitForTimeout(500);
+    
+    const visibleDragHandles = await page.locator('.drag-handle').evaluateAll((handles) => {
+      return handles.filter((handle: HTMLElement | SVGElement) => {
+        const style = window.getComputedStyle(handle);
+        return style.opacity === '1';
+      }).length;
+    });
+    
+    console.log('Visible drag handles when hovering over bullet list item:', visibleDragHandles);
+    expect(visibleDragHandles).toBe(1);
+  });
 });

@@ -1071,52 +1071,41 @@ const LinkModal = memo(({
   );
 });
 
-const DropIndicator = ({ editor, targetPos, position }: { 
+const DropIndicator = ({ editor, targetBlock, position }: { 
   editor: any; 
-  targetPos: number; 
+  targetBlock: HTMLElement | null; 
   position: 'before' | 'after' | null; 
 }) => {
   const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, left: 0, width: 0, opacity: 0 });
 
   useEffect(() => {
-    if (!editor || targetPos === null || position === null) {
+    if (!editor || targetBlock === null || position === null) {
       setIndicatorStyle({ top: 0, left: 0, width: 0, opacity: 0 });
       return;
     }
 
     const updatePosition = () => {
       try {
+        // Use the targetBlock directly instead of trying to find it by position
         const allBlocks = editor.view.dom.querySelectorAll('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre');
+        const isLastBlock = targetBlock === allBlocks[allBlocks.length - 1];
         
-        const nodePositions: number[] = [];
-        editor.state.doc.descendants((node: any, pos: number) => {
-          if (node.type.isBlock) {
-            nodePositions.push(pos);
-          }
-          return true;
-        });
-        
-        let blockIndex = -1;
-        for (let i = 0; i < nodePositions.length; i++) {
-          if (nodePositions[i] === targetPos) {
-            blockIndex = i;
-            break;
-          }
-        }
-        
-        if (blockIndex === -1 || blockIndex >= allBlocks.length) {
-          setIndicatorStyle({ top: 0, left: 0, width: 0, opacity: 0 });
-          return;
-        }
-        
-        const blockEl = allBlocks[blockIndex] as HTMLElement;
-        const rect = blockEl.getBoundingClientRect();
+        const rect = targetBlock.getBoundingClientRect();
         const editorRect = editor.view.dom.getBoundingClientRect();
         
-        const isBefore = position === 'before';
-        const topPosition = isBefore 
-          ? rect.top - editorRect.top 
-          : rect.bottom - editorRect.top - 3;
+        let topPosition: number;
+        
+        // Check if this is the last block and we're dropping after it
+        if (position === 'after' && isLastBlock) {
+          // Dropping after the last block
+          topPosition = rect.bottom - editorRect.top - 3;
+        } else {
+          // Dropping before or after other blocks
+          const isBefore = position === 'before';
+          topPosition = isBefore 
+            ? rect.top - editorRect.top 
+            : rect.bottom - editorRect.top - 3;
+        }
         
         setIndicatorStyle({
           top: topPosition,
@@ -1136,7 +1125,7 @@ const DropIndicator = ({ editor, targetPos, position }: {
     observer.observe(editor.view.dom);
     
     return () => observer.disconnect();
-  }, [editor, targetPos, position]);
+  }, [editor, targetBlock, position]);
   
   return (
     <div 
@@ -1215,9 +1204,10 @@ function RichTextEditorClient({
           }
           
           if (fromPos !== insertPos) {
-            const slice = state.doc.slice(fromPos, fromPos + fromNodeSize);
+            // Use cut to get cleaner content without extra separators
+            const content = state.doc.cut(fromPos, fromPos + fromNodeSize).content;
             tr.delete(fromPos, fromPos + fromNodeSize);
-            tr.insert(insertPos, slice.content);
+            tr.insert(insertPos, content);
           }
           
           return true;
@@ -1237,8 +1227,13 @@ function RichTextEditorClient({
           props: {
             decorations(state: any) {
               const decos: any[] = [];
-              state.doc.descendants((node: any, pos: number) => {
+              state.doc.descendants((node: any, pos: number, parent: any) => {
                 if (node.type.isBlock && !node.type.name.startsWith('table')) {
+                  // Skip nodes that are inside list containers or list items
+                  // The list container itself should have the drag handle, not its children
+                  if (parent && parent.type && (parent.type.name === 'bulletList' || parent.type.name === 'orderedList' || parent.type.name === 'listItem')) {
+                    return true;
+                  }
                   const handle = document.createElement('span');
                   handle.className = 'drag-handle';
                   handle.setAttribute('data-pos', String(pos));
@@ -1284,6 +1279,7 @@ function RichTextEditorClient({
   const menuVisibleRef = useRef(false);
   const draggingPosRef = useRef<number | null>(null);
   const targetPosRef = useRef<number | null>(null);
+  const targetBlockRef = useRef<HTMLElement | null>(null);
   const dropPositionRef = useRef<'before' | 'after'>('after');
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
@@ -1546,8 +1542,10 @@ function RichTextEditorClient({
         e.preventDefault();
         e.stopPropagation();
         
+        // Get the position from the drag handle's data-pos attribute
         const pos = parseInt(handle.getAttribute('data-pos') || '0');
         
+        // Resolve the position to get the current block range
         const $pos = editor.state.doc.resolve(pos);
         const blockRange = $pos.blockRange();
         const actualPos = blockRange ? blockRange.start : pos;
@@ -1560,14 +1558,22 @@ function RichTextEditorClient({
           setDragGhostPosition({ x: e.clientX, y: e.clientY });
           
           const elements = document.elementsFromPoint(e.clientX, e.clientY);
+          const allBlockElements = editorElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre');
+          const allBlocks: HTMLElement[] = Array.from(allBlockElements).filter(el => {
+            const htmlEl = el as HTMLElement;
+            const parent = htmlEl.parentElement;
+            return parent && parent === editorElement;
+          }) as HTMLElement[];
+          
+          let foundBlock = false;
           
           for (const el of elements) {
             const blockEl = (el as HTMLElement).closest('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre');
             if (blockEl && editorElement.contains(blockEl)) {
+              foundBlock = true;
               const blockRect = blockEl.getBoundingClientRect();
               const isBefore = e.clientY < blockRect.top + blockRect.height / 2;
               
-              const allBlocks = editorElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre');
               let blockIndex = -1;
               for (let i = 0; i < allBlocks.length; i++) {
                 if (allBlocks[i] === blockEl) {
@@ -1576,10 +1582,66 @@ function RichTextEditorClient({
                 }
               }
               
-              if (blockIndex !== -1) {
+              // Special handling: if this is an empty paragraph after a list,
+              // treat dropping "before" this paragraph as dropping "after" the list
+              let adjustedBlockIndex = blockIndex;
+              let adjustedIsBefore = isBefore;
+              let adjustedBlockEl = blockEl;
+              
+              // Check if this is an empty paragraph
+              // Empty paragraphs in TipTap often contain <br> elements, so we check for that
+              const isEmptyParagraph = (() => {
+                if (blockEl.tagName.toLowerCase() !== 'p') return false;
+                const text = blockEl.textContent?.trim() || '';
+                if (text !== '') return false;
+                // Also check if the only child is a <br> element
+                const children = Array.from(blockEl.childNodes);
+                if (children.length === 0) return true;
+                if (children.length === 1 && (children[0] as HTMLElement)?.tagName?.toLowerCase() === 'br') {
+                  return true;
+                }
+                return children.every(child => {
+                  if (child.nodeType === Node.TEXT_NODE) {
+                    return (child.textContent || '').trim() === '';
+                  }
+                  if (child.nodeType === Node.ELEMENT_NODE) {
+                    const el = child as HTMLElement;
+                    return el.tagName?.toLowerCase() === 'br' || el.classList?.contains('ProseMirror-widget');
+                  }
+                  return true;
+                });
+              })();
+              
+              if (isEmptyParagraph) {
+                const prevBlock = blockIndex > 0 ? allBlocks[blockIndex - 1] : null;
+                const nextBlock = allBlocks[blockIndex + 1];
+                
+                if (prevBlock) {
+                  const prevTagName = prevBlock.tagName.toLowerCase();
+                  if (prevTagName === 'ul' || prevTagName === 'ol') {
+                    adjustedBlockIndex = blockIndex - 1;
+                    adjustedIsBefore = false;
+                    adjustedBlockEl = prevBlock as HTMLElement;
+                  }
+                }
+                
+                if (!adjustedBlockEl && nextBlock) {
+                  const nextTagName = nextBlock.tagName.toLowerCase();
+                  if (nextTagName === 'ul' || nextTagName === 'ol') {
+                    adjustedBlockIndex = blockIndex + 1;
+                    adjustedIsBefore = true;
+                    adjustedBlockEl = nextBlock as HTMLElement;
+                  }
+                }
+              }
+              
+              if (adjustedBlockIndex !== -1) {
                 const nodePositions: number[] = [];
-                editor.state.doc.descendants((node: any, pos: number) => {
-                  if (node.type.isBlock) {
+                editor.state.doc.descendants((node: any, pos: number, parent: any) => {
+                  if (node.type.isBlock && parent && parent.type && parent.type.name === 'doc') {
+                    if (node.type.name === 'listItem') {
+                      return true;
+                    }
                     const $pos = editor.state.doc.resolve(pos);
                     const blockRange = $pos.blockRange();
                     nodePositions.push(blockRange ? blockRange.start : pos);
@@ -1587,15 +1649,47 @@ function RichTextEditorClient({
                   return true;
                 });
                 
-                if (blockIndex < nodePositions.length) {
-                  const targetPos = nodePositions[blockIndex];
+                if (adjustedBlockIndex < nodePositions.length) {
+                  const targetPos = nodePositions[adjustedBlockIndex];
                   targetPosRef.current = targetPos;
-                  dropPositionRef.current = isBefore ? 'before' : 'after';
+                  targetBlockRef.current = adjustedBlockEl as HTMLElement;
+                  dropPositionRef.current = adjustedIsBefore ? 'before' : 'after';
                   setDropTargetPos(targetPos);
-                  setDropPosition(isBefore ? 'before' : 'after');
+                  setDropPosition(adjustedIsBefore ? 'before' : 'after');
                 }
               }
               break;
+            }
+          }
+          
+          // If no block was found, check if we're at the end of the editor
+          if (!foundBlock && allBlocks.length > 0) {
+            const lastBlock = allBlocks[allBlocks.length - 1];
+            const lastBlockRect = lastBlock.getBoundingClientRect();
+            
+            // Check if we're after the last block
+            if (e.clientY > lastBlockRect.bottom) {
+              const nodePositions: number[] = [];
+              editor.state.doc.descendants((node: any, pos: number, parent: any) => {
+                if (node.type.isBlock && parent && parent.type && parent.type.name === 'doc') {
+                  if (node.type.name === 'listItem') {
+                    return true;
+                  }
+                  const $pos = editor.state.doc.resolve(pos);
+                  const blockRange = $pos.blockRange();
+                  nodePositions.push(blockRange ? blockRange.start : pos);
+                }
+                return true;
+              });
+              
+              if (nodePositions.length > 0) {
+                const lastPos = nodePositions[nodePositions.length - 1];
+                targetPosRef.current = lastPos;
+                targetBlockRef.current = lastBlock as HTMLElement;
+                dropPositionRef.current = 'after';
+                setDropTargetPos(lastPos);
+                setDropPosition('after');
+              }
             }
           }
         };
@@ -1618,6 +1712,7 @@ function RichTextEditorClient({
           setDropPosition(null);
           draggingPosRef.current = null;
           targetPosRef.current = null;
+          targetBlockRef.current = null;
           dropPositionRef.current = 'after';
           
           document.removeEventListener('mousemove', handleMouseMove);
@@ -2538,13 +2633,16 @@ function RichTextEditorClient({
         .tiptap-editor h5,
         .tiptap-editor h6,
         .tiptap-editor pre,
-        .tiptap-editor blockquote,
+        .tiptap-editor blockquote {
+          padding-left: 8px;
+          margin-top: 0;
+        }
         .tiptap-editor ul,
         .tiptap-editor ol {
           padding-left: 24px;
           margin-top: 0;
+          list-style-position: inside;
         }
-
         .drag-handle:hover {
           color: #3b82f6;
           background: #eff6ff;
@@ -2583,10 +2681,10 @@ function RichTextEditorClient({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />
-        {isDragging && dropTargetPos !== null && dropPosition !== null && (
+        {isDragging && targetBlockRef.current !== null && dropPosition !== null && (
           <DropIndicator 
             editor={editor}
-            targetPos={dropTargetPos}
+            targetBlock={targetBlockRef.current}
             position={dropPosition}
           />
         )}
