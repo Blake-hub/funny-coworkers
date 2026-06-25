@@ -135,7 +135,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
       throw new Error(errorMessage || `API error: ${response.status} ${response.statusText}`);
     }
 
-    if (response.status === 201 || response.status === 204) {
+    if (response.status === 204) {
       return {} as T;
     }
 
@@ -728,6 +728,136 @@ export const organizationApi = {
 
   getEmployees: async (organizationId: number): Promise<UserResponse[]> => {
     return fetchApi<UserResponse[]>(`/organizations/${organizationId}/employees`);
+  },
+};
+
+export interface WikiPageResponse {
+  id: number;
+  title: string;
+  contentHtml: string | null;
+  contentJson: string | null;
+  parentPageId: number | null;
+  isPublished: boolean;
+  teamId: number | null;
+  createdBy: number | null;
+  createdByName: string | null;
+  lastModifiedBy: number | null;
+  lastModifiedByName: string | null;
+  lastModifiedAt: string;
+}
+
+export interface CreateWikiPageRequest {
+  title: string;
+  contentHtml?: string;
+  contentJson?: string;
+  parentPageId?: number;
+  isPublished?: boolean;
+  teamId?: number;
+}
+
+export interface UpdateWikiPageRequest {
+  title?: string;
+  contentHtml?: string;
+  contentJson?: string;
+  parentPageId?: number;
+  isPublished?: boolean;
+  teamId?: number;
+}
+
+export interface ImageUploadResponse {
+  url: string;
+  filename: string;
+  originalFilename: string;
+}
+
+export interface WikiCommentResponse {
+  id: number;
+  wikiPageId: number;
+  userId: number;
+  userName: string;
+  content: string;
+  createdAt: string;
+}
+
+export const wikiApi = {
+  getAllPages: async (): Promise<WikiPageResponse[]> => {
+    return fetchApi<WikiPageResponse[]>('/wiki/pages');
+  },
+
+  getPageById: async (id: number): Promise<WikiPageResponse> => {
+    return fetchApi<WikiPageResponse>(`/wiki/pages/${id}`);
+  },
+
+  getPageHtml: async (id: number): Promise<{ contentHtml: string }> => {
+    return fetchApi<{ contentHtml: string }>(`/wiki/pages/${id}/html`);
+  },
+
+  createPage: async (pageData: CreateWikiPageRequest, userId: number): Promise<WikiPageResponse> => {
+    return fetchApi<WikiPageResponse>(`/wiki/pages?userId=${userId}`, {
+      method: 'POST',
+      body: JSON.stringify(pageData),
+    });
+  },
+
+  updatePage: async (id: number, pageData: UpdateWikiPageRequest, userId: number): Promise<WikiPageResponse> => {
+    return fetchApi<WikiPageResponse>(`/wiki/pages/${id}?userId=${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(pageData),
+    });
+  },
+
+  publishPage: async (id: number, userId: number): Promise<WikiPageResponse> => {
+    return fetchApi<WikiPageResponse>(`/wiki/pages/${id}/publish?userId=${userId}`, {
+      method: 'POST',
+    });
+  },
+
+  deletePage: async (id: number): Promise<void> => {
+    return fetchApi<void>(`/wiki/pages/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  uploadImage: async (file: File, userId?: number): Promise<ImageUploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (userId) {
+      formData.append('userId', String(userId));
+    }
+
+    const url = `${API_BASE_URL}/wiki/images/upload`;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('pmis-token') : null;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Upload failed: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  getComments: async (wikiPageId: number): Promise<WikiCommentResponse[]> => {
+    return fetchApi<WikiCommentResponse[]>(`/wiki/comments/page/${wikiPageId}`);
+  },
+
+  createComment: async (wikiPageId: number, content: string, userId: number): Promise<WikiCommentResponse> => {
+    return fetchApi<WikiCommentResponse>(`/wiki/comments?userId=${userId}`, {
+      method: 'POST',
+      body: JSON.stringify({ wikiPageId, content }),
+    });
+  },
+
+  deleteComment: async (commentId: number): Promise<void> => {
+    return fetchApi<void>(`/wiki/comments/${commentId}`, {
+      method: 'DELETE',
+    });
   },
 };
 

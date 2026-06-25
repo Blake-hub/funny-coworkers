@@ -23,11 +23,24 @@ public class WikiPage {
     @Column(nullable = false, length = 200)
     private String title;
 
-    @Column(columnDefinition = "text")
-    private String content;
+    @Column(name = "content_html", columnDefinition = "text")
+    private String contentHtml;
+
+    @Column(name = "content_json", columnDefinition = "text")
+    private String contentJson;
 
     @Column(name = "parent_page_id")
     private Long parentPageId;
+
+    @Column(name = "is_published")
+    @Builder.Default
+    private Boolean isPublished = false;
+
+    @Column(name = "team_id")
+    private Long teamId;
+
+    @Column(name = "created_by")
+    private Long createdBy;
 
     @Column(name = "last_modified_by")
     private Long lastModifiedBy;
@@ -38,6 +51,9 @@ public class WikiPage {
     @PrePersist
     protected void onCreate() {
         lastModifiedAt = LocalDateTime.now();
+        if (isPublished == null) {
+            isPublished = false;
+        }
     }
 
     @PreUpdate

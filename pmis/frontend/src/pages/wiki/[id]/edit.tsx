@@ -1,11 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import RichTextEditor, { DocumentOutline, Content } from '@/components/RichTextEditor';
-import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send, Eye } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
-import { wikiApi } from '@/services/api';
+import { wikiApi, WikiPageResponse } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
@@ -25,10 +25,11 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
   };
 }
 
-export default function NewDocument() {
+export default function WikiPageEdit() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { addToast } = useToast();
+  const { id } = router.query;
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [title, setTitle] = useState('');
   const [editorContent, setEditorContent] = useState<Content>('');
@@ -37,6 +38,66 @@ export default function NewDocument() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [page, setPage] = useState<WikiPageResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    if (id) {
+      loadPage();
+    }
+  }, [id]);
+
+  // Warn about unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const loadPage = async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      const pageData = await wikiApi.getPageById(Number(id));
+      setPage(pageData);
+      setTitle(pageData.title);
+
+      // Parse JSON content if available
+      if (pageData.contentJson) {
+        try {
+          const jsonContent = JSON.parse(pageData.contentJson);
+          setEditorContent(jsonContent as Content);
+        } catch {
+          // If JSON parsing fails, try HTML
+          if (pageData.contentHtml) {
+            setEditorContent(pageData.contentHtml);
+          }
+        }
+      } else if (pageData.contentHtml) {
+        setEditorContent(pageData.contentHtml);
+      }
+    } catch (err) {
+      console.error('Failed to load wiki page:', err);
+      addToast('error', err instanceof Error ? err.message : 'Failed to load wiki page');
+      router.push('/wiki');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEditorReady = useCallback((editor: unknown) => {
     setEditorInstance(editor);
@@ -45,6 +106,12 @@ export default function NewDocument() {
   const handleContentChange = useCallback((content: Content, json: string) => {
     setEditorContent(content);
     setEditorJson(json);
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
+    setHasUnsavedChanges(true);
   }, []);
 
   const handleSave = async (publish: boolean = false) => {
@@ -52,6 +119,8 @@ export default function NewDocument() {
       addToast('error', 'Please enter a title');
       return;
     }
+
+    if (!id) return;
 
     if (publish) {
       setIsPublishing(true);
@@ -67,16 +136,15 @@ export default function NewDocument() {
         isPublished: publish,
       };
 
-      const created = await wikiApi.createPage(pageData, user!.id);
+      await wikiApi.updatePage(Number(id), pageData, user!.id);
       setLastSaved(new Date());
+      setHasUnsavedChanges(false);
 
       if (publish) {
         addToast('success', 'Document published successfully!');
-        router.push(`/wiki/${created.id}`);
+        router.push(`/wiki/${id}`);
       } else {
         addToast('success', 'Document saved as draft');
-        // Redirect to edit page after saving
-        router.push(`/wiki/${created.id}/edit`);
       }
     } catch (err) {
       console.error('Failed to save document:', err);
@@ -91,6 +159,16 @@ export default function NewDocument() {
     if (!lastSaved) return null;
     return lastSaved.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -111,6 +189,14 @@ export default function NewDocument() {
                 Last saved: {formatLastSaved()}
               </span>
             )}
+
+            <button
+              onClick={() => router.push(`/wiki/${id}`)}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="text-sm font-medium">View</span>
+            </button>
 
             <button
               onClick={() => handleSave(false)}
@@ -156,14 +242,17 @@ export default function NewDocument() {
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={handleTitleChange}
                 placeholder="Enter document title..."
                 className="w-full text-2xl font-bold text-gray-800 border-0 px-0 py-2 focus:ring-0 focus:outline-none bg-transparent placeholder-gray-400"
               />
 
               {/* Author Info */}
               <div className="text-sm text-gray-500">
-                <span className="font-medium">Author:</span> {user?.name || 'Unknown User'}
+                <span className="font-medium">Author:</span> {page?.lastModifiedByName || user?.name || 'Unknown User'}
+                {hasUnsavedChanges && (
+                  <span className="ml-2 text-yellow-600">(unsaved changes)</span>
+                )}
               </div>
 
               {/* Divider */}

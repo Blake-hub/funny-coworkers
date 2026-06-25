@@ -1,11 +1,15 @@
 import { useEffect, useState, useRef, useCallback, memo, forwardRef, useMemo } from 'react';
 import { common, createLowlight } from 'lowlight';
+import { EditorContent } from '@tiptap/react';
 
 const lowlight = createLowlight(common);
 
+// Content type - can be HTML string or ProseMirror JSON
+export type Content = string | object;
+
 interface RichTextEditorProps {
   value: string;
-  onChange: (content: string) => void;
+  onChange: (content: Content, json: string) => void;
   placeholder?: string;
   className?: string;
   onBlur?: () => void;
@@ -22,6 +26,7 @@ const slashCommands = [
   { id: 'strike', label: 'Strikethrough', command: 'toggleStrike', group: 'text' },
   { id: 'h1', label: 'Heading 1', command: 'toggleHeading', params: { level: 1 }, group: 'heading' },
   { id: 'h2', label: 'Heading 2', command: 'toggleHeading', params: { level: 2 }, group: 'heading' },
+  { id: 'blockquote', label: 'Quote', command: 'toggleBlockquote', group: 'format' },
   { id: 'bulletList', label: 'Bullet List', command: 'toggleBulletList', group: 'list' },
   { id: 'orderedList', label: 'Ordered List', command: 'toggleOrderedList', group: 'list' },
   { id: 'code', label: 'Inline Code', command: 'toggleCode', group: 'code' },
@@ -47,7 +52,7 @@ const SlashMenuComponent = forwardRef<HTMLDivElement, SlashMenuProps>(({
   selectedIndex,
   onClose
 }, ref) => {
-  const { Bold, Italic, Underline, Strikethrough, Heading1, Heading2, List, ListOrdered, Code, Type, Link2, ImageIcon, FileText, Search } = require('lucide-react');
+  const { Bold, Italic, Underline, Strikethrough, Heading1, Heading2, Quote, List, ListOrdered, Code, Type, Link2, ImageIcon, FileText, Search } = require('lucide-react');
 
   const iconMap: Record<string, any> = {
     bold: Bold,
@@ -56,6 +61,7 @@ const SlashMenuComponent = forwardRef<HTMLDivElement, SlashMenuProps>(({
     strike: Strikethrough,
     h1: Heading1,
     h2: Heading2,
+    blockquote: Quote,
     bulletList: List,
     orderedList: ListOrdered,
     code: Code,
@@ -1228,12 +1234,35 @@ function RichTextEditorClient({
             decorations(state: any) {
               const decos: any[] = [];
               state.doc.descendants((node: any, pos: number, parent: any) => {
-                if (node.type.isBlock && !node.type.name.startsWith('table')) {
-                  // Skip nodes that are inside list containers or list items
-                  // The list container itself should have the drag handle, not its children
-                  if (parent && parent.type && (parent.type.name === 'bulletList' || parent.type.name === 'orderedList' || parent.type.name === 'listItem')) {
+                if (node.type.isBlock) {
+                  // Skip nodes that are inside list containers, list items, or blockquotes
+                  // The container itself should have the drag handle, not its children
+                  if (parent && parent.type && (parent.type.name === 'bulletList' || parent.type.name === 'orderedList' || parent.type.name === 'listItem' || parent.type.name === 'blockquote')) {
                     return true;
                   }
+                  
+                  // Skip all nodes inside tables (except the table itself)
+                  // We only want one drag handle for the entire table
+                  if (node.type.name !== 'table') {
+                    // Check if any ancestor is a table by traversing up through positions
+                    let currentPos = pos;
+                    let $pos = state.doc.resolve(currentPos);
+                    let isInsideTable = false;
+                    
+                    // Walk up the depth to find if any ancestor is a table
+                    for (let depth = $pos.depth; depth >= 0; depth--) {
+                      const ancestorNode = $pos.node(depth);
+                      if (ancestorNode && ancestorNode.type && ancestorNode.type.name === 'table') {
+                        isInsideTable = true;
+                        break;
+                      }
+                    }
+                    
+                    if (isInsideTable) {
+                      return true;
+                    }
+                  }
+                  
                   const handle = document.createElement('span');
                   handle.className = 'drag-handle';
                   handle.setAttribute('data-pos', String(pos));
@@ -1288,7 +1317,9 @@ function RichTextEditorClient({
   
 
   const handleUpdate = useCallback(({ editor }: { editor: any }) => {
-    onChange(editor.getHTML());
+    const html = editor.getHTML();
+    const json = JSON.stringify(editor.getJSON());
+    onChange(html, json);
     const textContent = editor.getText().trim();
     let hasNonTextContent = false;
     editor.state.doc.content.descendants((node: any) => {
@@ -1931,6 +1962,9 @@ function RichTextEditorClient({
       case 'toggleOrderedList':
         editor.chain().focus().toggleOrderedList().run();
         break;
+      case 'toggleBlockquote':
+        editor.chain().focus().toggleBlockquote().run();
+        break;
       case 'toggleCode':
         editor.chain().focus().toggleCode().run();
         break;
@@ -2195,8 +2229,10 @@ function RichTextEditorClient({
         }
         .tiptap-editor blockquote {
           border-left: 3px solid #e5e7eb;
-          padding-left: 1em;
-          margin: 0.5em 0;
+          padding-left: 0;
+          margin-left: 24px;
+          margin-top: 0;
+          margin-bottom: 0.5em;
           color: #6b7280;
           font-style: italic;
         }
@@ -2249,8 +2285,8 @@ function RichTextEditorClient({
         }
         .tiptap-editor table {
           border-collapse: collapse;
-          width: 100%;
-          margin: 1em 0;
+          width: calc(100% - 24px);
+          margin: 1em 0 1em 24px;
           border: 1px solid #e5e7eb;
           table-layout: auto;
           position: relative;
@@ -2321,9 +2357,10 @@ function RichTextEditorClient({
           padding: 0;
           max-height: 500px;
           overflow: visible;
+          margin-left: 24px;
         }
         .tiptap-editor .tableWrapper table {
-          margin: 0;
+          margin: 1em 0;
         }
         .slash-menu {
           position: fixed;
@@ -2632,9 +2669,8 @@ function RichTextEditorClient({
         .tiptap-editor h4,
         .tiptap-editor h5,
         .tiptap-editor h6,
-        .tiptap-editor pre,
-        .tiptap-editor blockquote {
-          padding-left: 8px;
+        .tiptap-editor pre {
+          padding-left: 24px;
           margin-top: 0;
         }
         .tiptap-editor ul,
@@ -2752,5 +2788,5 @@ function RichTextEditorClient({
   );
 }
 
-export { DocumentOutline };
+export { DocumentOutline, Content };
 export default memo(RichTextEditorClient);
