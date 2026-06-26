@@ -288,6 +288,7 @@ const TextAlignDropdown = memo(({ editor }: { editor: any }) => {
 const DocumentOutline = memo(({ editor }: { editor: any }) => {
   const [headings, setHeadings] = useState<any[]>([]);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!editor) return;
@@ -332,47 +333,115 @@ const DocumentOutline = memo(({ editor }: { editor: any }) => {
   };
 
   const scrollToHeading = (pos: number) => {
-    if (!editor) return;
-    
-    editor.commands.setTextSelection(pos);
-    editor.chain().focus().run();
-    
-    const domAtPos = editor.view.domAtPos(pos);
-    const headingElement = domAtPos.node.parentElement;
-    
-    if (headingElement) {
-      const findScrollContainer = (element: HTMLElement): HTMLElement | null => {
-        let parent = element.parentElement;
-        while (parent) {
-          const style = window.getComputedStyle(parent);
-          const overflowY = style.overflowY;
-          if (overflowY === 'auto' || overflowY === 'scroll') {
-            return parent;
+    setTimeout(() => {
+      try {
+        const targetHeading = headings.find((h: any) => h.pos === pos);
+        if (!targetHeading) return;
+        
+        const outerScrollContainer = document.querySelector('.flex-1.overflow-y-auto');
+        
+        const createHighlightOverlay = (headingElement: HTMLElement) => {
+          const existingOverlay = document.querySelector('.heading-highlight-overlay');
+          if (existingOverlay) {
+            existingOverlay.remove();
           }
-          parent = parent.parentElement;
+          
+          const overlay = document.createElement('div');
+          overlay.className = 'heading-highlight-overlay';
+          overlay.textContent = '';
+          
+          const rect = headingElement.getBoundingClientRect();
+          overlay.style.position = 'fixed';
+          overlay.style.left = rect.left + 'px';
+          overlay.style.top = rect.top + 'px';
+          overlay.style.width = rect.width + 'px';
+          overlay.style.height = rect.height + 'px';
+          overlay.style.borderRadius = '8px';
+          overlay.style.pointerEvents = 'none';
+          overlay.style.zIndex = '1000';
+          overlay.style.animation = 'headingHighlight 2s ease-out forwards';
+          
+          document.body.appendChild(overlay);
+          
+          const updatePosition = () => {
+            const currentHeading = document.querySelector('h1, h2, h3, h4, h5, h6');
+            if (!currentHeading) return;
+            
+            const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            for (const h of headings) {
+              if (h.textContent?.trim() === targetHeading.text.trim()) {
+                const newRect = h.getBoundingClientRect();
+                overlay.style.left = newRect.left + 'px';
+                overlay.style.top = newRect.top + 'px';
+                overlay.style.width = newRect.width + 'px';
+                overlay.style.height = newRect.height + 'px';
+                break;
+              }
+            }
+          };
+          
+          let rafId = requestAnimationFrame(function animate() {
+            updatePosition();
+            rafId = requestAnimationFrame(animate);
+          });
+          
+          setTimeout(() => {
+            cancelAnimationFrame(rafId);
+            overlay.remove();
+          }, 2000);
+        };
+        
+        if (outerScrollContainer) {
+          const container = outerScrollContainer as HTMLElement;
+          const allHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+          let headingElement: HTMLElement | null = null;
+          
+          for (let i = 0; i < allHeadings.length; i++) {
+            const el = allHeadings[i] as HTMLElement;
+            if (el.textContent?.trim() === targetHeading.text.trim()) {
+              headingElement = el;
+              break;
+            }
+          }
+          
+          if (!headingElement) return;
+          
+          const elementRect = headingElement.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const targetScroll = container.scrollTop + (elementRect.top - containerRect.top) - 80;
+          container.scrollTop = Math.max(0, targetScroll);
+          
+          setTimeout(() => {
+            const updatedHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            for (let i = 0; i < updatedHeadings.length; i++) {
+              const el = updatedHeadings[i] as HTMLElement;
+              if (el.textContent?.trim() === targetHeading.text.trim()) {
+                createHighlightOverlay(el);
+                break;
+              }
+            }
+          }, 200);
+        } else {
+          const allHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+          let headingElement: HTMLElement | null = null;
+          
+          for (let i = 0; i < allHeadings.length; i++) {
+            const el = allHeadings[i] as HTMLElement;
+            if (el.textContent?.trim() === targetHeading.text.trim()) {
+              headingElement = el;
+              break;
+            }
+          }
+          
+          if (headingElement) {
+            headingElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+            createHighlightOverlay(headingElement);
+          }
         }
-        return null;
-      };
-      
-      const scrollContainer = findScrollContainer(headingElement);
-      
-      if (scrollContainer) {
-        const containerRect = scrollContainer.getBoundingClientRect();
-        const elementRect = headingElement.getBoundingClientRect();
-        
-        const targetScrollTop = scrollContainer.scrollTop + 
-          (elementRect.top - containerRect.top) - 
-          (containerRect.height / 2) + 
-          (elementRect.height / 2);
-        
-        scrollContainer.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: 'smooth'
-        });
-      } else {
-        headingElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      } catch (error) {
+        console.error('scrollToHeading error:', error);
       }
-    }
+    }, 100);
   };
 
   const buildTree = () => {
@@ -405,6 +474,7 @@ const DocumentOutline = memo(({ editor }: { editor: any }) => {
     <div key={item.id}>
       <button
         onClick={() => {
+          console.log('TreeItem clicked:', item.text, 'pos:', item.pos);
           if (item.children.length > 0) {
             toggleExpand(item.id);
           }
@@ -2703,6 +2773,31 @@ function RichTextEditorClient({
         .dragging {
           opacity: 0.5;
           background: #f3f4f6;
+        }
+        @keyframes headingHighlight {
+          0% {
+            background-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4), 0 0 30px rgba(59, 130, 246, 0.3);
+            transform: scale(1);
+            opacity: 1;
+          }
+          40% {
+            background-color: rgba(59, 130, 246, 0.15);
+            box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.2), 0 0 40px rgba(59, 130, 246, 0.15);
+          }
+          70% {
+            background-color: rgba(59, 130, 246, 0.08);
+            box-shadow: 0 0 0 12px rgba(59, 130, 246, 0.1), 0 0 50px rgba(59, 130, 246, 0.08);
+          }
+          100% {
+            background-color: transparent;
+            box-shadow: none;
+            transform: scale(1);
+            opacity: 0;
+          }
+        }
+        .heading-highlight-overlay {
+          animation: headingHighlight 2s ease-out forwards;
         }
       `}</style>
 
