@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
-import RichTextEditor, { DocumentOutline, Content } from '@/components/RichTextEditor';
+import RichTextEditor, { DocumentOutline } from '@/components/RichTextEditor';
 import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send, Eye } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { wikiApi, WikiPageResponse } from '@/services/api';
@@ -32,7 +32,7 @@ export default function WikiPageEdit() {
   const { id } = router.query;
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [title, setTitle] = useState('');
-  const [editorContent, setEditorContent] = useState<Content>('');
+  const [editorContent, setEditorContent] = useState<string>('');
   const [editorJson, setEditorJson] = useState<string>('');
   const [editorInstance, setEditorInstance] = useState<unknown>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -76,18 +76,8 @@ export default function WikiPageEdit() {
       setPage(pageData);
       setTitle(pageData.title);
 
-      // Parse JSON content if available
-      if (pageData.contentJson) {
-        try {
-          const jsonContent = JSON.parse(pageData.contentJson);
-          setEditorContent(jsonContent as Content);
-        } catch {
-          // If JSON parsing fails, try HTML
-          if (pageData.contentHtml) {
-            setEditorContent(pageData.contentHtml);
-          }
-        }
-      } else if (pageData.contentHtml) {
+      // Use HTML content for the editor
+      if (pageData.contentHtml) {
         setEditorContent(pageData.contentHtml);
       }
     } catch (err) {
@@ -103,7 +93,7 @@ export default function WikiPageEdit() {
     setEditorInstance(editor);
   }, []);
 
-  const handleContentChange = useCallback((content: Content, json: string) => {
+  const handleContentChange = useCallback((content: string, json: string) => {
     setEditorContent(content);
     setEditorJson(json);
     setHasUnsavedChanges(true);
@@ -131,7 +121,7 @@ export default function WikiPageEdit() {
     try {
       const pageData = {
         title: title.trim(),
-        contentHtml: typeof editorContent === 'string' ? editorContent : '',
+        contentHtml: editorContent,
         contentJson: editorJson,
         isPublished: publish,
       };

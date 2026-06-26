@@ -1,32 +1,55 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import ToastContainer from '../Toast/ToastContainer';
+import { Menu, X, GripVertical } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-const MIN_WIDTH_PX = 64; // 1/7 of 448px viewport minimum
-const COLLAPSED_WIDTH_PX = 80; // w-20
-const DEFAULT_WIDTH_PX = 256; // w-64
+const MIN_WIDTH_PX = 64;
+const COLLAPSED_WIDTH_PX = 80;
+const DEFAULT_WIDTH_PX = 256;
+const MOBILE_BREAKPOINT = 768;
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH_PX);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   const dragRef = useRef({
     initialWidth: DEFAULT_WIDTH_PX, initialX: 0 });
 
   useEffect(() => {
+    const checkMobile = () => {
+      const viewportWidth = window.innerWidth;
+      const isMobileDevice = viewportWidth < MOBILE_BREAKPOINT;
+      setIsMobile(isMobileDevice);
+      
+      if (isMobileDevice) {
+        setSidebarWidth(0);
+        setIsMobileMenuOpen(false);
+      } else {
+        setSidebarWidth(DEFAULT_WIDTH_PX);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) return;
+
     const handleResize = () => {
       const viewportWidth = window.innerWidth;
       const minWidth = Math.max(MIN_WIDTH_PX, viewportWidth / 7);
       const maxWidth = viewportWidth * 0.25;
       
-      if (viewportWidth < 768) {
-        setSidebarWidth(COLLAPSED_WIDTH_PX);
-      } else if (sidebarWidth > maxWidth) {
+      if (sidebarWidth > maxWidth) {
         setSidebarWidth(maxWidth);
       } else if (sidebarWidth < minWidth && sidebarWidth > COLLAPSED_WIDTH_PX) {
         setSidebarWidth(minWidth);
@@ -35,9 +58,10 @@ export default function Layout({ children }: LayoutProps) {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [sidebarWidth]);
+  }, [sidebarWidth, isMobile]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isMobile) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
@@ -48,7 +72,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   useEffect(() => {
-    if (!isDragging) return;
+    if (!isDragging || isMobile) return;
 
     const handleMouseMove = (e: MouseEvent) => {
       e.preventDefault();
@@ -87,63 +111,83 @@ export default function Layout({ children }: LayoutProps) {
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('selectstart', handleSelectStart);
     };
-  }, [isDragging, sidebarWidth]);
+  }, [isDragging, sidebarWidth, isMobile]);
 
-  const isCollapsed = sidebarWidth <= COLLAPSED_WIDTH_PX;
+  const isCollapsed = !isMobile && sidebarWidth <= COLLAPSED_WIDTH_PX;
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex relative">
-      <div className="relative flex-shrink-0">
-        <Sidebar width={sidebarWidth} isCollapsed={isCollapsed} />
-        
-        {/* Draggable Splitter - Invisible by default, appears on hover */}
-        <div
-          className="absolute top-4 bottom-4"
-          style={{
-            left: `${sidebarWidth + 16}px`,
-            width: isDragging || isHovering ? '3px' : '0px',
-            transition: 'width 0.2s ease-out',
-            zIndex: 10,
-          }}
+    <div className="min-h-screen bg-gray-100 flex h-screen overflow-hidden">
+      {/* Mobile Menu Button */}
+      {isMobile && (
+        <button
+          onClick={toggleMobileMenu}
+          className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md text-gray-600 hover:bg-gray-50 transition-colors"
+          aria-label="Toggle menu"
         >
-          <div
-            className={`absolute top-0 bottom-0 left-0 w-full transition-all duration-200 ${
-              isDragging || isHovering ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              backgroundColor: isDragging ? '#6b7280' : '#d1d5db',
-              cursor: 'col-resize',
-            }}
-            onMouseDown={handleMouseDown}
-          />
-          <div
-            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-6 rounded-full transition-all duration-200 ${
-              isDragging || isHovering ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              backgroundColor: isDragging ? '#4b5563' : '#9ca3af',
-            }}
-          />
-        </div>
-        
-        {/* Invisible hover hot zone - extends 8px across the main content border */}
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      )}
+
+      {/* Mobile Overlay */}
+      {isMobile && isMobileMenuOpen && (
         <div
-          className="absolute top-4 bottom-4"
-          style={{
-            left: `calc(${sidebarWidth + 16}px - 4px)`,
-            width: '8px',
-            cursor: (isDragging || isHovering) ? 'col-resize' : 'default',
-            zIndex: 10,
-          }}
-          onMouseEnter={() => !isDragging && setIsHovering(true)}
-          onMouseLeave={() => setIsHovering(false)}
-          onMouseDown={handleMouseDown}
+          className="fixed inset-0 bg-black/50 z-30"
+          onClick={toggleMobileMenu}
         />
+      )}
+
+      {/* Sidebar - Desktop: takes space, Mobile: fixed overlay */}
+      <div 
+        className={`transition-transform duration-300 ease-in-out ${
+          isMobile ? 'fixed z-40 top-0 left-0 h-screen shadow-2xl' : 'flex-shrink-0'
+        }`}
+        style={{
+          width: isMobile ? DEFAULT_WIDTH_PX : `${sidebarWidth}px`,
+          transform: isMobile ? (isMobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+        }}
+      >
+        <Sidebar width={isMobile ? DEFAULT_WIDTH_PX : sidebarWidth} isCollapsed={isCollapsed} isMobile={isMobile} />
       </div>
       
-      <div 
-        className="flex-1 flex flex-col h-screen overflow-hidden"
-      >
+      {/* Main Content - fills remaining space */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Draggable Splitter - Hidden by default, visible on hover */}
+        {!isMobile && (
+          <>
+            {/* Invisible hot zone for hover detection */}
+            <div
+              className="absolute top-0 bottom-0 z-10"
+              style={{ left: '8px', width: '20px' }}
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
+              onMouseDown={handleMouseDown}
+            />
+            {/* Visible splitter line */}
+            <div
+              className="absolute top-0 bottom-0 flex flex-col items-center justify-center cursor-col-resize z-10"
+              style={{ left: '16px', width: isDragging || isHovering ? '6px' : '0px' }}
+              onMouseDown={handleMouseDown}
+            >
+              <div 
+                className={`w-full h-full transition-colors duration-200 ${
+                  isDragging ? 'bg-gray-500' : 'bg-gray-300'
+                }`}
+              />
+              <div
+                className={`absolute top-1/2 -translate-y-1/2 transition-all duration-200 ${
+                  isDragging || isHovering ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
+                }`}
+              >
+                <GripVertical className={`w-4 h-6 ${isDragging ? 'text-gray-700' : 'text-gray-500'}`} />
+              </div>
+            </div>
+          </>
+        )}
+        
         <main className="p-4 flex-1 overflow-hidden">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 h-full overflow-y-auto">
             {children}

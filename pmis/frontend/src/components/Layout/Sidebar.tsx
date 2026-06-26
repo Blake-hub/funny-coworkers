@@ -26,6 +26,7 @@ import { mockIssues, mockProjects } from '@/data/mockData';
 interface SidebarProps {
   width: number;
   isCollapsed: boolean;
+  isMobile?: boolean;
 }
 
 interface MenuItem {
@@ -36,7 +37,7 @@ interface MenuItem {
   badge?: number;
 }
 
-export default function Sidebar({ width, isCollapsed }: SidebarProps) {
+export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) {
   const router = useRouter();
   const { logout, user } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -89,33 +90,36 @@ export default function Sidebar({ width, isCollapsed }: SidebarProps) {
 
   return (
     <aside 
-      className="h-screen bg-gray-100 transition-all duration-300 flex-shrink-0"
+      className={`h-screen bg-gray-100 transition-all duration-300 flex-shrink-0 ${
+        isMobile ? 'shadow-2xl' : ''
+      }`}
       style={{ width: `${width}px` }}
     >
       <div className="h-full flex flex-col">
         {/* User Profile & Actions - Same Row */}
         {!isCreateTeamPage && (
-          <div className="p-3 border-b border-gray-200">
+          <div className={`p-3 border-b border-gray-200 ${isMobile ? 'p-4' : ''}`}>
             <div className="flex items-center justify-between">
               {/* User Profile */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+                <div className={`${isMobile ? 'w-10 h-10 text-base' : 'w-8 h-8 text-sm'} rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0`}>
                   {user?.name ? user.name.charAt(0) : '?'}
                 </div>
                 {!isCollapsed && (
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{user?.name || 'Unknown User'}</p>
+                    <p className={`font-medium text-gray-800 truncate ${isMobile ? 'text-base' : 'text-sm'}`}>{user?.name || 'Unknown User'}</p>
                     <p className="text-xs text-gray-500 truncate">{user?.role || 'Unknown Role'}</p>
                   </div>
                 )}
               </div>
               
-              {/* Search & Notifications */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Search & Notifications & Mobile Close */}
+              <div className={`flex items-center gap-1 flex-shrink-0 ${isMobile ? 'gap-2' : ''}`}>
                 <button 
                   onClick={handleSearchClick}
-                  className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                  className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors ${isMobile ? 'p-3' : ''}`}
                   title="Search"
+                  aria-label="Search"
                 >
                   <Search className="w-4 h-4" />
                 </button>
@@ -164,8 +168,8 @@ export default function Sidebar({ width, isCollapsed }: SidebarProps) {
               onClick={() => router.back()}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm`}
             >
-              <ArrowLeft className="w-4 h-4" />
-              {!isCollapsed && <span>Back to app</span>}
+              <ArrowLeft className={`w-4 h-4 ${isMobile ? 'w-5 h-5' : ''}`} />
+              {!isCollapsed && <span>{isMobile ? 'Back' : 'Back to app'}</span>}
             </button>
           ) : (
             getMenuItems().map((item) => {
@@ -176,14 +180,14 @@ export default function Sidebar({ width, isCollapsed }: SidebarProps) {
               return (
                 <div key={item.id}>
                   <div 
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out cursor-pointer ${
+                    className={`flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out cursor-pointer ${
                       isActive 
                         ? 'bg-gray-500 text-white shadow-md' 
                         : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-                    }`}
+                    } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
                     onClick={handleTeamsClick}
                   >
-                    <Icon className="w-4 h-4 transition-transform duration-200" />
+                    <Icon className={`w-4 h-4 transition-transform duration-200 ${isMobile ? 'w-5 h-5' : ''}`} />
                     {!isCollapsed && (
                       <div className="flex-1 flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -285,14 +289,14 @@ export default function Sidebar({ width, isCollapsed }: SidebarProps) {
               return (
                 <div key={item.id} className="relative">
                   <div 
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out cursor-pointer ${
+                    className={`flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out cursor-pointer ${
                       isActive 
                         ? 'bg-gray-500 text-white shadow-md' 
                         : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-                    }`}
+                    } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
                     onClick={() => router.push(item.href!)}
                   >
-                    <Icon className="w-4 h-4 transition-transform duration-200" />
+                    <Icon className={`w-4 h-4 transition-transform duration-200 ${isMobile ? 'w-5 h-5' : ''}`} />
                     {!isCollapsed && (
                       <div className="flex-1 flex items-center justify-between">
                         <span className="flex-1 text-left">{item.label}</span>
@@ -361,13 +365,13 @@ export default function Sidebar({ width, isCollapsed }: SidebarProps) {
               <Link
                 key={item.id}
                 href={item.href!}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
+                className={`flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out ${
                   isActive 
                     ? 'bg-gray-500 text-white shadow-md' 
                     : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm hover:scale-[1.02]'
-                }`}
+                } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
               >
-                <Icon className="w-4 h-4 transition-transform duration-200" />
+                <Icon className={`w-4 h-4 transition-transform duration-200 ${isMobile ? 'w-5 h-5' : ''}`} />
                 {!isCollapsed && (
                   <>
                     <span className="flex-1 text-left">{item.label}</span>
@@ -393,24 +397,24 @@ export default function Sidebar({ width, isCollapsed }: SidebarProps) {
 
         {/* Bottom Actions */}
         {!isCreateTeamPage && (
-          <div className="p-3 border-t border-gray-200 space-y-1">
+          <div className={`p-3 border-t border-gray-200 space-y-1 ${isMobile ? 'p-4 space-y-2' : ''}`}>
             <button
               onClick={() => router.push('/settings/')}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
+              className={`w-full flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out ${
                 isCollapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-              }`}
+              } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
               title="Settings"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className={`w-4 h-4 ${isMobile ? 'w-5 h-5' : ''}`} />
               {!isCollapsed && <span>Settings</span>}
             </button>
             <button 
               onClick={handleLogout}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${
+              className={`w-full flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out ${
                 isCollapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-              }`}
+              } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
               title="Logout">
-              <LogOut className="w-4 h-4" />
+              <LogOut className={`w-4 h-4 ${isMobile ? 'w-5 h-5' : ''}`} />
               {!isCollapsed && <span>Logout</span>}
             </button>
           </div>

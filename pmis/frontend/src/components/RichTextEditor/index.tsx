@@ -9,7 +9,7 @@ export type Content = string | object;
 
 interface RichTextEditorProps {
   value: string;
-  onChange: (content: Content, json: string) => void;
+  onChange: (content: string, json: string) => void;
   placeholder?: string;
   className?: string;
   onBlur?: () => void;
@@ -2788,5 +2788,5 @@ function RichTextEditorClient({
   );
 }
 
-export { DocumentOutline, Content };
+export { DocumentOutline };
 export default memo(RichTextEditorClient);

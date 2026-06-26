@@ -2,10 +2,10 @@ import { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
-import RichTextEditor, { DocumentOutline, Content } from '@/components/RichTextEditor';
+import RichTextEditor, { DocumentOutline } from '@/components/RichTextEditor';
 import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
-import { wikiApi } from '@/services/api';
+import { wikiApi, CreateWikiPageRequest } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
@@ -31,7 +31,7 @@ export default function NewDocument() {
   const { addToast } = useToast();
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [title, setTitle] = useState('');
-  const [editorContent, setEditorContent] = useState<Content>('');
+  const [editorContent, setEditorContent] = useState<string>('');
   const [editorJson, setEditorJson] = useState<string>('');
   const [editorInstance, setEditorInstance] = useState<unknown>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,7 +42,7 @@ export default function NewDocument() {
     setEditorInstance(editor);
   }, []);
 
-  const handleContentChange = useCallback((content: Content, json: string) => {
+  const handleContentChange = useCallback((content: string, json: string) => {
     setEditorContent(content);
     setEditorJson(json);
   }, []);
@@ -60,14 +60,19 @@ export default function NewDocument() {
     }
 
     try {
-      const pageData = {
+      const pageData: CreateWikiPageRequest = {
         title: title.trim(),
-        contentHtml: typeof editorContent === 'string' ? editorContent : '',
+        contentHtml: editorContent,
         contentJson: editorJson,
         isPublished: publish,
       };
 
-      const created = await wikiApi.createPage(pageData, user!.id);
+      const userId = parseInt(user!.id, 10);
+      if (isNaN(userId)) {
+        addToast('error', 'Invalid user ID');
+        return;
+      }
+      const created = await wikiApi.createPage(pageData, userId);
       setLastSaved(new Date());
 
       if (publish) {
