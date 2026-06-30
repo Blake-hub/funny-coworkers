@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import HeaderBar from '../components/layout/HeaderBar';
 import Sidebar from '../components/layout/Sidebar';
 import CreateBoardModal from '../components/board/CreateBoardModal';
 import { teamApi, userApi, boardApi } from '../services/api';
@@ -797,21 +796,31 @@ export default function Teams() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-gray-900 flex flex-col">
-      <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
-      <div className="flex flex-1 overflow-hidden">
-        {isMobileSidebarOpen && (
-          <Sidebar 
-            onCreateBoard={() => {}}
-            isMobile={true}
-            onMobileToggle={handleMobileSidebarToggle}
-          />
-        )}
+    <div className="min-h-screen bg-neutral-100 dark:bg-gray-900 flex">
+      {isMobileSidebarOpen && (
         <Sidebar 
           onCreateBoard={() => {}}
-          isMobile={false}
+          isMobile={true}
+          onMobileToggle={handleMobileSidebarToggle}
         />
-        <main className="flex-1 p-6 overflow-y-auto">
+      )}
+      <Sidebar 
+        onCreateBoard={() => {}}
+        isMobile={false}
+      />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="lg:hidden px-3 pt-2 pb-0 shrink-0">
+          <button 
+            onClick={handleMobileSidebarToggle}
+            className="p-2 rounded-full hover:bg-neutral-200 dark:hover:bg-gray-800 transition-smooth"
+            aria-label="Open menu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+        <main className="flex-1 p-6 pt-2 md:pt-6 overflow-y-auto min-h-0">
           {!selectedTeam ? (
             <>
               <div className="flex items-center justify-between mb-6">
@@ -820,10 +829,10 @@ export default function Teams() {
                   <p className="text-neutral-400">{t('teams.pageDescription')}</p>
                 </div>
                 <button 
-                  className="btn-primary"
+                  className="btn-primary text-sm px-3 py-1.5 sm:text-base sm:px-4 sm:py-2"
                   onClick={() => setIsCreateModalOpen(true)}
                 >
-                  + {t('teams.createNewTeam')}
+                  {t('teams.createNewTeam')}
                 </button>
               </div>
               

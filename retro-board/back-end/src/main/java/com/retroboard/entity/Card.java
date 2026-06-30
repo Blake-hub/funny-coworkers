@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 @Data
 @NoArgsConstructor
@@ -17,8 +18,8 @@ public class Card {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(nullable = false, length = 255)
-    private String title;
+    @Column(nullable = true, length = 255)
+    private String title = "";
     
     @Column(columnDefinition = "TEXT")
     private String description;
@@ -40,8 +41,15 @@ public class Card {
     @Column(name = "votes", nullable = false)
     private Integer votes = 0;
     
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean votedByCurrentUser;
+    
     @PrePersist
     protected void onCreate() {
+        if (title == null) {
+            title = "";
+        }
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }

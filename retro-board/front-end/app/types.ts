@@ -1,11 +1,11 @@
 export interface Card {
   id: number;
-  title: string;
   description: string;
   position: number;
   createdAt: string;
   updatedAt: string;
   votes: number;
+  votedByCurrentUser?: boolean;
   column: {
     id: number;
     name: string;

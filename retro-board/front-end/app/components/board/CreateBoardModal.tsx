@@ -19,11 +19,19 @@ interface Team {
 interface CreateBoardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (boardData: { name: string; description: string; teamId: number }) => void;
+  onSubmit: (boardData: { name: string; description: string; teamId?: number }) => void;
+  mode?: 'create' | 'edit';
+  initialData?: { name: string; description: string; teamName?: string };
 }
 
-export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBoardModalProps) {
-  console.log('CreateBoardModal rendered with isOpen:', isOpen);
+export default function CreateBoardModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  mode = 'create',
+  initialData,
+}: CreateBoardModalProps) {
+  console.log('CreateBoardModal rendered with isOpen:', isOpen, 'mode:', mode);
   const router = useRouter();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -34,9 +42,19 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
 
   useEffect(() => {
     if (isOpen) {
-      fetchTeams();
+      if (mode === 'edit' && initialData) {
+        setName(initialData.name ?? '');
+        setDescription(initialData.description ?? '');
+      } else {
+        setName('');
+        setDescription('');
+      }
+      setError('');
+      if (mode === 'create') {
+        fetchTeams();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, mode, initialData]);
 
   const fetchTeams = async () => {
     setIsLoadingTeams(true);
@@ -58,19 +76,23 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       setError('Board name is required');
       return;
     }
 
-    if (!selectedTeamId) {
+    if (mode === 'create' && !selectedTeamId) {
       setError('Please select a team');
       return;
     }
 
     setError('');
-    onSubmit({ name, description, teamId: selectedTeamId });
+    if (mode === 'create') {
+      onSubmit({ name, description, teamId: selectedTeamId! });
+    } else {
+      onSubmit({ name, description });
+    }
   };
 
   const handleCreateTeam = () => {
@@ -78,12 +100,15 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
     router.push('/teams');
   };
 
+  const title = mode === 'edit' ? 'Edit Board' : 'Create New Board';
+  const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create Board';
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" style={{ zIndex: 9999 }}>
       <div className="bg-white dark:bg-gray-800 dark:text-white rounded-lg shadow-xl w-full max-w-md">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-medium">Create New Board</h2>
+            <h2 className="text-xl font-medium">{title}</h2>
             <button
               onClick={onClose}
               className="text-neutral-400 hover:text-neutral-600"
@@ -93,14 +118,71 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
               </svg>
             </button>
           </div>
-          
+
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md text-sm">
               {error}
             </div>
           )}
 
-          {isLoadingTeams ? (
+          {mode === 'edit' ? (
+            <form onSubmit={handleSubmit}>
+              {initialData?.teamName && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    Team
+                  </label>
+                  <div className="px-4 py-2 rounded-lg bg-neutral-100 dark:bg-gray-700 text-neutral-600 dark:text-neutral-300 text-sm">
+                    {initialData.teamName}
+                  </div>
+                </div>
+              )}
+              <div className="mb-4">
+                <label htmlFor="edit-name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  Board Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="edit-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                  placeholder="Enter board name"
+                  required
+                />
+              </div>
+
+              <div className="mb-6">
+                <label htmlFor="edit-description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  Description (Optional)
+                </label>
+                <textarea
+                  id="edit-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                  placeholder="Add a description for your board"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 px-4 py-2 border border-neutral-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-neutral-700 hover:bg-neutral-50 dark:hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-smooth"
+                >
+                  {submitLabel}
+                </button>
+              </div>
+            </form>
+          ) : isLoadingTeams ? (
             <div className="flex items-center justify-center py-10">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
@@ -191,7 +273,7 @@ export default function CreateBoardModal({ isOpen, onClose, onSubmit }: CreateBo
                   type="submit"
                   className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-smooth"
                 >
-                  Create Board
+                  {submitLabel}
                 </button>
               </div>
             </form>

@@ -278,7 +278,6 @@ describe('BoardPage', () => {
     
     // We'll call the updateCard API directly to test the expected behavior
     await cardApi.updateCard(cardId, {
-      title: 'Card 1',
       description: 'Desc 1',
       columnId: toColumnId,
       position: newPosition,
@@ -286,7 +285,6 @@ describe('BoardPage', () => {
 
     // Verify the API was called for the moved card
     expect(cardApi.updateCard).toHaveBeenCalledWith(cardId, {
-      title: 'Card 1',
       description: 'Desc 1',
       columnId: toColumnId,
       position: newPosition,
@@ -297,7 +295,6 @@ describe('BoardPage', () => {
     const newColumnPosition = 0;
     
     await cardApi.updateCard(cardId, {
-      title: 'Card 1',
       description: 'Desc 1',
       columnId: newColumnId,
       position: newColumnPosition,
@@ -305,7 +302,6 @@ describe('BoardPage', () => {
 
     // Verify the API was called for the moved card
     expect(cardApi.updateCard).toHaveBeenCalledWith(cardId, {
-      title: 'Card 1',
       description: 'Desc 1',
       columnId: newColumnId,
       position: newColumnPosition,

@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslation } from 'react-i18next';
-import HeaderBar from '../components/layout/HeaderBar';
 import Sidebar from '../components/layout/Sidebar';
 import BoardList from '../components/board/BoardList';
 import CreateBoardModal from '../components/board/CreateBoardModal';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { t } = useTranslation('common');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -34,25 +31,31 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-gray-900 flex flex-col">
-      <HeaderBar onMobileMenuClick={handleMobileSidebarToggle} />
-      <div className="flex flex-1 overflow-hidden">
-        {isMobileSidebarOpen && (
-          <Sidebar 
-            onCreateBoard={handleOpenCreateModal}
-            isMobile={true}
-            onMobileToggle={handleMobileSidebarToggle}
-          />
-        )}
+    <div className="min-h-screen bg-neutral-100 dark:bg-gray-900 flex">
+      {isMobileSidebarOpen && (
         <Sidebar 
           onCreateBoard={handleOpenCreateModal}
-          isMobile={false}
+          isMobile={true}
+          onMobileToggle={handleMobileSidebarToggle}
         />
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="mb-6">
-            <h1 className="text-2xl font-medium mb-2">{t('dashboard.pageTitle')}</h1>
-            <p className="text-neutral-400">{t('dashboard.pageDescription')}</p>
-          </div>
+      )}
+      <Sidebar 
+        onCreateBoard={handleOpenCreateModal}
+        isMobile={false}
+      />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="lg:hidden px-3 pt-2 pb-0 shrink-0">
+          <button 
+            onClick={handleMobileSidebarToggle}
+            className="p-2 rounded-full hover:bg-neutral-200 dark:hover:bg-gray-800 transition-smooth"
+            aria-label="Open menu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+        <main className="flex-1 p-4 pt-2 md:pt-4 overflow-y-auto min-h-0">
           <BoardList 
             isModalOpen={isModalOpen}
             onOpenModal={handleOpenCreateModal}

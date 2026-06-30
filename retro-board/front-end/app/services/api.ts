@@ -1,7 +1,7 @@
 // API service with centralized configuration
 
 // Use relative URL for API requests
-const API_BASE_URL = process.env.NODE_ENV === 'test' ? 'http://localhost:8081' : 'http://localhost:8081';
+const API_BASE_URL = process.env.NODE_ENV === 'test' ? 'http://localhost:8081' : 'http://10.0.24.110:8081';
 
 interface RegisterData {
   username: string;
@@ -297,7 +297,7 @@ export const cardApi = {
   },
 
   // Create a new card
-  createCard: async (cardData: { title: string; description: string; columnId: number; position: number }): Promise<any> => {
+  createCard: async (cardData: { description: string; columnId: number; position: number }): Promise<any> => {
     return fetchApi<any>('/api/cards', {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -314,7 +314,7 @@ export const cardApi = {
   },
 
   // Update a card
-  updateCard: async (cardId: number, cardData: { title: string; description: string; columnId: number; position: number }): Promise<any> => {
+  updateCard: async (cardId: number, cardData: { description: string; columnId: number; position: number }): Promise<any> => {
     return fetchApi<any>(`/api/cards/${cardId}`, {
       method: 'PUT',
       headers: getAuthHeaders(),

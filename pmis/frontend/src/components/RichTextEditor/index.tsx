@@ -481,7 +481,7 @@ const DocumentOutline = memo(({ editor }: { editor: any }) => {
           scrollToHeading(item.pos);
         }}
         className="outline-item"
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        style={{ paddingLeft: `${depth * 12 + 16}px` }}
       >
         <span className="w-3 h-3 flex items-center justify-center flex-shrink-0">
           {item.children.length > 0 ? (
@@ -2675,8 +2675,8 @@ function RichTextEditorClient({
           display: flex;
           align-items: center;
           gap: 4px;
-          padding: 4px 8px;
-          border-radius: 4px;
+          padding: 12px 16px;
+          border-radius: 6px;
           cursor: pointer;
           transition: background-color 0.15s;
           font-size: 13px;

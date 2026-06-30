@@ -21,6 +21,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class CardService {
@@ -30,12 +31,12 @@ public class CardService {
     private CardResponse convertCardToResponse(Card card) {
         CardResponse response = new CardResponse();
         response.setId(card.getId());
-        response.setTitle(card.getTitle());
         response.setDescription(card.getDescription());
         response.setPosition(card.getPosition());
         response.setCreatedAt(card.getCreatedAt());
         response.setUpdatedAt(card.getUpdatedAt());
         response.setVotes(card.getVotes());
+        response.setVotedByCurrentUser(card.getVotedByCurrentUser());
         
         ColumnSimpleResponse columnSimple = new ColumnSimpleResponse();
         columnSimple.setId(card.getColumn().getId());
@@ -86,6 +87,20 @@ public class CardService {
             .orElseThrow(() -> new RuntimeException("User not found: " + username));
     }
     
+    // Populate votedByCurrentUser for a list of cards
+    private void populateVotedByCurrentUser(List<Card> cards, User user) {
+        Set<Long> votedCardIds = cardVoteRepository.findCardIdsByUser(user);
+        for (Card card : cards) {
+            card.setVotedByCurrentUser(votedCardIds.contains(card.getId()));
+        }
+    }
+    
+    // Populate votedByCurrentUser for a single card
+    private void populateVotedByCurrentUser(Card card, User user) {
+        boolean voted = cardVoteRepository.existsByUserAndCard(user, card);
+        card.setVotedByCurrentUser(voted);
+    }
+    
     @Transactional
     public Card createCard(CreateCardRequest request) {
         // Get the column
@@ -97,10 +112,11 @@ public class CardService {
         
         // Create the card
         Card card = new Card();
-        card.setTitle(request.getTitle());
+        card.setTitle("");
         card.setDescription(request.getDescription());
         card.setColumn(column);
         card.setPosition(request.getPosition());
+        card.setVotedByCurrentUser(false);
         
         Card savedCard = cardRepository.save(card);
         
@@ -139,11 +155,24 @@ public class CardService {
         BoardColumn column = columnRepository.findById(columnId)
             .orElseThrow(() -> new RuntimeException("Column not found"));
         
-        return cardRepository.findByColumnOrderByPositionAsc(column);
+        List<Card> cards = cardRepository.findByColumnOrderByPositionAsc(column);
+        
+        // Populate votedByCurrentUser for each card
+        try {
+            User currentUser = getCurrentUser();
+            populateVotedByCurrentUser(cards, currentUser);
+        } catch (RuntimeException e) {
+            logger.debug("Could not populate user flags on cards: {}", e.getMessage());
+        }
+        
+        return cards;
     }
     
     @Transactional
     public Card updateCard(Long cardId, UpdateCardRequest request) {
+        // Get current user for votedByCurrentUser population below
+        User currentUser = getCurrentUser();
+        
         // Get the card
         Card card = cardRepository.findById(cardId)
             .orElseThrow(() -> new RuntimeException("Card not found"));
@@ -163,9 +192,6 @@ public class CardService {
         }
         
         // Update card fields if provided
-        if (request.getTitle() != null) {
-            card.setTitle(request.getTitle());
-        }
         if (request.getDescription() != null) {
             card.setDescription(request.getDescription());
         }
@@ -174,6 +200,13 @@ public class CardService {
         }
         
         Card updatedCard = cardRepository.save(card);
+        
+        // Populate votedByCurrentUser before returning
+        try {
+            populateVotedByCurrentUser(updatedCard, currentUser);
+        } catch (RuntimeException e) {
+            logger.debug("Could not populate user flags on card: {}", e.getMessage());
+        }
         
         // Broadcast event
         CardResponse cardResponse = convertCardToResponse(updatedCard);
@@ -189,6 +222,14 @@ public class CardService {
         
         // Check column access (via BoardColumnService)
         columnService.getColumnById(card.getColumn().getId());
+        
+        // Populate votedByCurrentUser before returning
+        try {
+            User currentUser = getCurrentUser();
+            populateVotedByCurrentUser(card, currentUser);
+        } catch (RuntimeException e) {
+            logger.debug("Could not populate user flags on card: {}", e.getMessage());
+        }
         
         return card;
     }
@@ -208,11 +249,13 @@ public class CardService {
         // Get current user
         User currentUser = getCurrentUser();
         
+        boolean isVoted;
         // Check if user already voted
         if (cardVoteRepository.existsByUserAndCard(currentUser, card)) {
             // User already voted - remove the vote
             cardVoteRepository.deleteByUserAndCard(currentUser, card);
             card.setVotes(Math.max(0, card.getVotes() - 1));
+            isVoted = false;
             logger.debug("User {} removed vote from card {}", currentUser.getUsername(), cardId);
         } else {
             // User hasn't voted - add the vote
@@ -221,10 +264,12 @@ public class CardService {
             cardVote.setCard(card);
             cardVoteRepository.save(cardVote);
             card.setVotes(card.getVotes() + 1);
+            isVoted = true;
             logger.debug("User {} voted for card {}", currentUser.getUsername(), cardId);
         }
         
         Card updatedCard = cardRepository.save(card);
+        updatedCard.setVotedByCurrentUser(isVoted);
         
         logger.info("Vote updated for card {}, broadcasting update...", cardId);
         

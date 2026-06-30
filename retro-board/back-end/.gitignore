@@ -30,6 +30,7 @@ logs/
 *.zip
 *.tar.gz
 *.rar
+bin/
 
 # Exclude all jars except gradle wrapper
 *.jar

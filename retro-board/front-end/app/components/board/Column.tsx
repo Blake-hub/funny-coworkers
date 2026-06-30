@@ -7,7 +7,7 @@ import { Card as CardType, ColumnType } from '../../types';
 
 interface ColumnProps {
   column: ColumnType;
-  onAddCard: (columnId: number, card: { title: string; description: string }) => void;
+  onAddCard: (columnId: number, card: { description: string }) => void;
   onUpdateCard: (columnId: number, cardId: number, updatedCard: Partial<CardType>) => void;
   onDeleteCard: (columnId: number, cardId: number) => void;
   onUpdateColumn: (columnId: number, updatedColumn: Partial<ColumnType>) => void;
@@ -15,7 +15,7 @@ interface ColumnProps {
   onMoveCard?: (fromColumnId: number, toColumnId: number, cardId: number, dropIndex?: number | null) => void;
 }
 
-export type SortCriteria = 'votes' | 'creator' | 'createdAt';
+export type SortCriteria = 'votes' | 'creator' | 'createdAt' | 'position';
 export type SortDirection = 'asc' | 'desc';
 
 export default function Column({ 
@@ -28,14 +28,13 @@ export default function Column({
   onMoveCard
 }: ColumnProps) {
   const [isAddingCard, setIsAddingCard] = useState(false);
-  const [newCardTitle, setNewCardTitle] = useState('');
   const [newCardContent, setNewCardContent] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(column.name);
-  const [sortCriteria, setSortCriteria] = useState<'createdAt' | 'votes'>('createdAt');
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('position');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const [isActionDropdownOpen, setIsActionDropdownOpen] = useState(false);
@@ -43,17 +42,15 @@ export default function Column({
   const columnRef = useRef<HTMLDivElement>(null);
 
   const handleAddCard = () => {
-    if (newCardTitle.trim()) {
+    if (newCardContent.trim()) {
       onAddCard(column.id, {
-        title: newCardTitle,
         description: newCardContent,
       });
-      setNewCardTitle('');
       setNewCardContent('');
       setErrorMessage('');
       setIsAddingCard(false);
     } else {
-      setErrorMessage('Title is required');
+      setErrorMessage('Card content is required');
     }
   };
 
@@ -86,6 +83,9 @@ export default function Column({
       case 'votes':
         comparison = b.votes - a.votes; // Default to descending for votes
         break;
+      case 'position':
+        comparison = (a.position ?? 0) - (b.position ?? 0);
+        break;
       default:
         comparison = 0;
     }
@@ -94,7 +94,7 @@ export default function Column({
   });
 
   // Handle sort criteria change
-  const handleSortChange = (criteria: 'createdAt' | 'votes') => {
+  const handleSortChange = (criteria: SortCriteria) => {
     if (criteria === sortCriteria) {
       // Toggle direction if same criteria
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -131,27 +131,27 @@ export default function Column({
   };
 
   return (
-    <div className="w-[320px] flex-shrink-0 bg-neutral-200 dark:bg-gray-800 rounded-xl p-5 flex flex-col transition-all duration-300 hover:shadow-md">
-      <div className="flex items-start justify-between mb-5 h-16">
+    <div className="w-[320px] flex-shrink-0 bg-neutral-200 dark:bg-gray-800 rounded-xl p-3 flex flex-col transition-all duration-300 hover:shadow-md">
+      <div className="flex items-center justify-between mb-2 min-h-8 h-auto">
         {isEditing ? (
           <div className="flex-1 pr-4 flex flex-col justify-between h-full">
             <input
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="input-field w-full text-base py-2"
+              className="input-field w-full text-sm py-1"
               placeholder="Column title"
             />
-            <div className="flex gap-3 mt-2">
+            <div className="flex gap-2 mt-1">
               <button
                 onClick={handleSaveColumn}
-                className="btn-primary text-sm flex-1 py-1.5 transition-all duration-300 transform hover:scale-105"
+                className="btn-primary text-sm flex-1 py-1 transition-all duration-300 transform hover:scale-105"
               >
                 Save
               </button>
               <button
                 onClick={handleCancelEdit}
-                className="btn-outline text-sm py-1.5 transition-all duration-300"
+                className="btn-outline text-sm py-1 transition-all duration-300"
               >
                 Cancel
               </button>
@@ -159,11 +159,11 @@ export default function Column({
           </div>
         ) : (
           <div className="flex-1 mr-4 flex items-center h-full overflow-hidden">
-            <h3 className="font-medium text-neutral-600 dark:text-neutral-300 text-lg truncate">{column.name}</h3>
+            <h3 className="font-medium text-neutral-600 dark:text-neutral-300 text-base truncate">{column.name}</h3>
           </div>
         )}
         <div className="flex items-center gap-2 h-full">
-          <span className="bg-neutral-300 dark:bg-gray-700 text-neutral-600 dark:text-neutral-300 text-xs font-medium px-3 py-1.5 rounded-full">
+          <span className="bg-neutral-300 dark:bg-gray-700 text-neutral-600 dark:text-neutral-300 text-xs font-medium px-2 py-0.5 rounded-full">
             {column.cards.length}
           </span>
           {!isEditing && (
@@ -171,8 +171,8 @@ export default function Column({
               {/* Sort dropdown - icon only */}
               <div className="relative">
                 <button 
-                  className="p-1.5 rounded-full hover:bg-neutral-300 dark:hover:bg-gray-700 transition-all duration-300"
-                  title={`Sort by ${sortCriteria === 'votes' ? 'Votes' : 'Date'} ${sortDirection === 'asc' ? 'Ascending' : 'Descending'}`}
+                  className="p-1 rounded-full hover:bg-neutral-300 dark:hover:bg-gray-700 transition-all duration-300"
+                  title={`Sort by ${sortCriteria === 'votes' ? 'Votes' : sortCriteria === 'position' ? 'Position' : 'Date'} ${sortDirection === 'asc' ? 'Ascending' : 'Descending'}`}
                   onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-neutral-500 dark:text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -181,6 +181,15 @@ export default function Column({
                 </button>
                 {isSortDropdownOpen && (
                   <div className="absolute right-0 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-50 min-w-[130px] transform transition-all duration-300 animate-scale-in">
+                    <button
+                      onClick={() => {
+                        handleSortChange('position');
+                        setIsSortDropdownOpen(false);
+                      }}
+                      className={`block w-full text-left px-4 py-2 text-sm ${sortCriteria === 'position' ? 'bg-primary/10 text-primary dark:bg-primary/20' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-gray-600'}`}
+                    >
+                      Position {sortCriteria === 'position' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </button>
                     <button
                       onClick={() => {
                         handleSortChange('createdAt');
@@ -205,7 +214,7 @@ export default function Column({
               {/* Actions dropdown */}
               <div className="relative">
                 <button 
-                  className="p-1.5 rounded-full hover:bg-neutral-300 dark:hover:bg-gray-700 transition-all duration-300"
+                  className="p-1 rounded-full hover:bg-neutral-300 dark:hover:bg-gray-700 transition-all duration-300"
                   title="Column actions"
                   onClick={() => setIsActionDropdownOpen(!isActionDropdownOpen)}
                 >
@@ -242,7 +251,7 @@ export default function Column({
       </div>
       <div 
         ref={columnRef}
-        className={`flex-1 mb-5 overflow-y-auto transition-all duration-200 ${isDragOver ? 'bg-primary/10 border-2 border-primary rounded-lg p-3' : ''}`}
+        className={`flex-1 mb-3 overflow-y-auto transition-all duration-200 ${isDragOver ? 'bg-primary/10 border-2 border-primary rounded-lg p-3' : ''}`}
         onDragOver={(e) => {
           e.preventDefault();
           // Clear any existing timeout
@@ -374,24 +383,18 @@ export default function Column({
       </div>
       {isAddingCard ? (
         <div className="bg-white dark:bg-gray-700 rounded-xl p-4 space-y-3 shadow-sm">
-          <input
-            type="text"
-            placeholder="Card title"
-            className="input-field w-full text-sm py-3"
-            value={newCardTitle}
+          <textarea
+            placeholder="Card content"
+            className="input-field w-full text-sm h-28 resize-none py-3"
+            value={newCardContent}
             onChange={(e) => {
-              setNewCardTitle(e.target.value);
+              setNewCardContent(e.target.value);
               // Clear error when user starts typing
               if (errorMessage) {
                 setErrorMessage('');
               }
             }}
-          />
-          <textarea
-            placeholder="Card content"
-            className="input-field w-full text-sm h-24 resize-none py-3"
-            value={newCardContent}
-            onChange={(e) => setNewCardContent(e.target.value)}
+            autoFocus
           />
           {errorMessage && (
             <div className="text-xs text-red-500 font-medium">
@@ -408,7 +411,6 @@ export default function Column({
             <button
               onClick={() => {
                 setIsAddingCard(false);
-                setNewCardTitle('');
                 setNewCardContent('');
                 setErrorMessage('');
               }}
@@ -422,7 +424,6 @@ export default function Column({
         <button
           onClick={() => {
             setIsAddingCard(true);
-            setNewCardTitle('');
             setNewCardContent('');
             setErrorMessage('');
           }}

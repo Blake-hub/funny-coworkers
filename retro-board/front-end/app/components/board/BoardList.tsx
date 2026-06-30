@@ -48,6 +48,7 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [editingBoard, setEditingBoard] = useState<Board | null>(null);
 
   // Fetch teams and boards on component mount
   useEffect(() => {
@@ -166,14 +167,10 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
   const handleSubmitBoard = async (boardData: { name: string; description: string; teamId: number }) => {
     setIsError(false);
     try {
-      // Create the board using the API
       const newBoard = await boardApi.createBoard(boardData);
-      
-      // Add the new board to the list
       setBoards([...boards, newBoard]);
-      onCloseModal();
-      
-      // Navigate to the new board with a small delay for visual consistency
+      handleCloseModal();
+
       setTimeout(() => {
         router.push(`/board/${newBoard.id}`);
       }, 100);
@@ -181,6 +178,59 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
       console.error('Error creating board:', error);
       setIsError(true);
       setErrorMessage('Failed to create board');
+    }
+  };
+
+  const handleEditBoard = (board: Board) => {
+    setEditingBoard(board);
+    onOpenModal();
+  };
+
+  const handleUpdateBoard = async (boardData: { name: string; description: string }) => {
+    if (!editingBoard) return;
+    setIsError(false);
+    try {
+      const updatedBoard = await boardApi.updateBoard(editingBoard.id, boardData);
+      setBoards((prevBoards) =>
+        prevBoards.map((board) =>
+          board.id === editingBoard.id
+            ? {
+                ...board,
+                name: updatedBoard.name ?? boardData.name,
+                description:
+                  updatedBoard.description !== undefined
+                    ? updatedBoard.description
+                    : boardData.description,
+                updatedAt: updatedBoard.updatedAt ?? new Date().toISOString(),
+              }
+            : board
+        )
+      );
+      handleCloseModal();
+    } catch (error) {
+      console.error('Error updating board:', error);
+      setIsError(true);
+      setErrorMessage('Failed to update board');
+    }
+  };
+
+  const handleCloseModal = () => {
+    setEditingBoard(null);
+    onCloseModal();
+  };
+
+  const handleSubmit = (boardData: { name: string; description: string; teamId?: number }) => {
+    if (editingBoard) {
+      handleUpdateBoard({
+        name: boardData.name,
+        description: boardData.description,
+      });
+    } else if (boardData.teamId != null) {
+      handleSubmitBoard({
+        name: boardData.name,
+        description: boardData.description,
+        teamId: boardData.teamId,
+      });
     }
   };
 
@@ -278,7 +328,7 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium">{board.name}</h3>
                 <div className="flex items-center gap-2">
-                  <button className="p-2 rounded-full hover:bg-neutral-200 transition-smooth" onClick={(e) => e.stopPropagation()}>
+                  <button className="p-2 rounded-full hover:bg-neutral-200 transition-smooth" onClick={(e) => { e.stopPropagation(); handleEditBoard(board); }}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
@@ -353,8 +403,14 @@ export default function BoardList({ isModalOpen, onOpenModal, onCloseModal }: Bo
       
       <CreateBoardModal
         isOpen={isModalOpen}
-        onClose={onCloseModal}
-        onSubmit={handleSubmitBoard}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmit}
+        mode={editingBoard ? 'edit' : 'create'}
+        initialData={editingBoard ? {
+          name: editingBoard.name,
+          description: editingBoard.description,
+          teamName: editingBoard.team?.name,
+        } : undefined}
       />
     </div>
   );

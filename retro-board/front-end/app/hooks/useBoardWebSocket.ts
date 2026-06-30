@@ -47,11 +47,12 @@ export default function useBoardWebSocket({
     let cleanupCalled = false;
     
     const connect = () => {
-      console.log('useBoardWebSocket: Connecting to WebSocket via SockJS at http://localhost:8081/ws');
+      const url = "http://10.0.24.110:8081/ws"
+      console.log('useBoardWebSocket: Connecting to WebSocket via SockJS at ', url);
       
       const client = new Client();
       
-      client.webSocketFactory = () => new SockJS('http://localhost:8081/ws');
+      client.webSocketFactory = () => new SockJS(url);
       client.reconnectDelay = 3000;
       client.debug = (str) => console.log('[STOMP]', str);
       

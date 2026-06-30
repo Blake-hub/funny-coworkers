@@ -97,13 +97,11 @@ public class CardServiceTest {
         card.setVotes(0);
         
         createCardRequest = new CreateCardRequest();
-        createCardRequest.setTitle("Test Card");
         createCardRequest.setDescription("Test Description");
         createCardRequest.setColumnId(1L);
         createCardRequest.setPosition(0);
         
         updateCardRequest = new UpdateCardRequest();
-        updateCardRequest.setTitle("Updated Card");
         updateCardRequest.setDescription("Updated Description");
         updateCardRequest.setPosition(1);
     }
@@ -127,7 +125,7 @@ public class CardServiceTest {
         Card createdCard = cardService.createCard(createCardRequest);
         
         assertNotNull(createdCard);
-        assertEquals("Test Card", createdCard.getTitle());
+        assertEquals("Test Description", createdCard.getDescription());
         verify(cardRepository, times(1)).save(any(Card.class));
         verify(webSocketService, times(1)).broadcastBoardUpdate(eq("card_created"), eq(board.getId()), any());
     }
@@ -181,27 +179,32 @@ public class CardServiceTest {
     
     @Test
     void testUpdateCard() {
+        setupSecurityContext();
+        
         when(cardRepository.findById(1L)).thenReturn(Optional.of(card));
         when(columnService.getColumnById(1L)).thenReturn(column);
-        when(cardRepository.save(any(Card.class))).thenReturn(card);
+        when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> invocation.getArgument(0));
         
         Card updatedCard = cardService.updateCard(1L, updateCardRequest);
         
         assertNotNull(updatedCard);
-        assertEquals("Updated Card", updatedCard.getTitle());
+        assertEquals("Updated Description", updatedCard.getDescription());
+        assertEquals(1, updatedCard.getPosition());
         verify(cardRepository, times(1)).save(any(Card.class));
         verify(webSocketService, times(1)).broadcastBoardUpdate(eq("card_updated"), eq(board.getId()), any());
     }
     
     @Test
     void testUpdateCard_ChangeColumn() {
+        setupSecurityContext();
+        
         updateCardRequest.setColumnId(2L);
         
         when(cardRepository.findById(1L)).thenReturn(Optional.of(card));
         when(columnService.getColumnById(1L)).thenReturn(column);
         when(columnService.getColumnById(2L)).thenReturn(newColumn);
         when(columnRepository.findById(2L)).thenReturn(Optional.of(newColumn));
-        when(cardRepository.save(any(Card.class))).thenReturn(card);
+        when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> invocation.getArgument(0));
         
         Card updatedCard = cardService.updateCard(1L, updateCardRequest);
         
@@ -213,6 +216,7 @@ public class CardServiceTest {
     
     @Test
     void testUpdateCard_CardNotFound() {
+        setupSecurityContext();
         when(cardRepository.findById(1L)).thenReturn(Optional.empty());
         
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
