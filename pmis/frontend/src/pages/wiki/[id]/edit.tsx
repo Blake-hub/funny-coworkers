@@ -5,7 +5,7 @@ import Layout from '@/components/Layout/Layout';
 import RichTextEditor, { DocumentOutline } from '@/components/RichTextEditor';
 import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send, Eye } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
-import { wikiApi, WikiPageResponse } from '@/services/api';
+import { wikiApi, WikiPageResponse, rewriteWikiMediaUrls, normalizeWikiMediaUrlsToRelative, WikiFolderResponse } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
@@ -41,6 +41,9 @@ export default function WikiPageEdit() {
   const [page, setPage] = useState<WikiPageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [folders, setFolders] = useState<WikiFolderResponse[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [selectedVisibility, setSelectedVisibility] = useState<'PRIVATE' | 'TEAM' | 'PUBLIC'>('PRIVATE');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -67,6 +70,18 @@ export default function WikiPageEdit() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  useEffect(() => {
+    const loadFolders = async () => {
+      try {
+        const result = await wikiApi.getAllFolders();
+        setFolders(result);
+      } catch (err) {
+        console.error('Failed to load wiki folders:', err);
+      }
+    };
+    loadFolders();
+  }, []);
+
   const loadPage = async () => {
     if (!id) return;
 
@@ -75,10 +90,17 @@ export default function WikiPageEdit() {
       const pageData = await wikiApi.getPageById(Number(id));
       setPage(pageData);
       setTitle(pageData.title);
+      setSelectedFolderId(pageData.folderId ?? null);
+      if (
+        pageData.visibility === 'PUBLIC' ||
+        pageData.visibility === 'TEAM' ||
+        pageData.visibility === 'PRIVATE'
+      ) {
+        setSelectedVisibility(pageData.visibility);
+      }
 
-      // Use HTML content for the editor
       if (pageData.contentHtml) {
-        setEditorContent(pageData.contentHtml);
+        setEditorContent(rewriteWikiMediaUrls(pageData.contentHtml));
       }
     } catch (err) {
       console.error('Failed to load wiki page:', err);
@@ -104,6 +126,43 @@ export default function WikiPageEdit() {
     setHasUnsavedChanges(true);
   }, []);
 
+  const normalizeJsonMediaUrls = (jsonString: string): string => {
+    if (!jsonString) return jsonString;
+    try {
+      const doc = JSON.parse(jsonString);
+      const walk = (node: any) => {
+        if (!node) return;
+        if (node.type === 'image' && node.attrs && typeof node.attrs.src === 'string') {
+          const originalSrc = node.attrs.src;
+          const wrapped = `<img src="${originalSrc}">`;
+          const normalized = normalizeWikiMediaUrlsToRelative(wrapped);
+          const match = normalized.match(/src="([^"]*)"/);
+          if (match) node.attrs.src = match[1];
+        }
+        if (Array.isArray(node.content)) node.content.forEach(walk);
+        if (Array.isArray(node.marks)) node.marks.forEach((m: any) => { if (m.attrs && typeof m.attrs.href === 'string') { const wrapped = `<a href="${m.attrs.href}"></a>`; const n = normalizeWikiMediaUrlsToRelative(wrapped); const m2 = n.match(/href="([^"]*)"/); if (m2) m.attrs.href = m2[1]; } });
+      };
+      walk(doc);
+      return JSON.stringify(doc);
+    } catch {
+      return jsonString;
+    }
+  };
+
+  const flattenFolders = (
+    folderList: WikiFolderResponse[],
+    depth: number
+  ): Array<{ id: number; name: string; depth: number }> => {
+    const result: Array<{ id: number; name: string; depth: number }> = [];
+    for (const folder of folderList) {
+      result.push({ id: folder.id, name: folder.name, depth });
+      if (folder.children && folder.children.length > 0) {
+        result.push(...flattenFolders(folder.children, depth + 1));
+      }
+    }
+    return result;
+  };
+
   const handleSave = async (publish: boolean = false) => {
     if (!title.trim()) {
       addToast('error', 'Please enter a title');
@@ -119,14 +178,19 @@ export default function WikiPageEdit() {
     }
 
     try {
+      const normalizedHtml = normalizeWikiMediaUrlsToRelative(editorContent);
+      const normalizedJson = normalizeJsonMediaUrls(editorJson);
+
       const pageData = {
         title: title.trim(),
-        contentHtml: editorContent,
-        contentJson: editorJson,
+        contentHtml: normalizedHtml,
+        contentJson: normalizedJson,
         isPublished: publish,
+        folderId: selectedFolderId ?? undefined,
+        visibility: selectedVisibility,
       };
 
-      await wikiApi.updatePage(Number(id), pageData, user!.id);
+      await wikiApi.updatePage(Number(id), pageData);
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
 
@@ -243,6 +307,44 @@ export default function WikiPageEdit() {
                 {hasUnsavedChanges && (
                   <span className="ml-2 text-yellow-600">(unsaved changes)</span>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Folder (optional)</label>
+                  <select
+                    value={selectedFolderId ?? ''}
+                    onChange={e => {
+                      setSelectedFolderId(e.target.value ? parseInt(e.target.value) : null);
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— Root (no folder) —</option>
+                    {flattenFolders(folders, 0).map(opt => (
+                      <option key={opt.id} value={opt.id}>
+                        {'— '.repeat(opt.depth)}
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
+                  <select
+                    value={selectedVisibility}
+                    onChange={e => {
+                      setSelectedVisibility(e.target.value as 'PRIVATE' | 'TEAM' | 'PUBLIC');
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="PRIVATE">Private — Only you</option>
+                    <option value="TEAM">Team — Team members only</option>
+                    <option value="PUBLIC">Public — All organization users</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Controls who can view and edit this document.</p>
+                </div>
               </div>
 
               {/* Divider */}

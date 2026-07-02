@@ -738,7 +738,8 @@ export interface WikiPageResponse {
   contentJson: string | null;
   parentPageId: number | null;
   isPublished: boolean;
-  teamId: number | null;
+  visibility?: 'PUBLIC' | 'TEAM' | 'PRIVATE' | string;
+  folderId?: number | null;
   createdBy: number | null;
   createdByName: string | null;
   lastModifiedBy: number | null;
@@ -752,7 +753,9 @@ export interface CreateWikiPageRequest {
   contentJson?: string;
   parentPageId?: number;
   isPublished?: boolean;
+  visibility?: 'PUBLIC' | 'TEAM' | 'PRIVATE' | string;
   teamId?: number;
+  folderId?: number;
 }
 
 export interface UpdateWikiPageRequest {
@@ -761,7 +764,37 @@ export interface UpdateWikiPageRequest {
   contentJson?: string;
   parentPageId?: number;
   isPublished?: boolean;
+  visibility?: 'PUBLIC' | 'TEAM' | 'PRIVATE' | string;
   teamId?: number;
+  folderId?: number;
+}
+
+export interface WikiFolderResponse {
+  id: number;
+  name: string;
+  parentFolderId: number | null;
+  visibility: 'PUBLIC' | 'TEAM' | 'PRIVATE' | string;
+  teamId: number | null;
+  teamName: string | null;
+  createdBy: number | null;
+  createdByName: string | null;
+  createdAt: string;
+  pageCount: number;
+  children?: WikiFolderResponse[] | null;
+}
+
+export interface CreateWikiFolderRequest {
+  name: string;
+  parentFolderId?: number;
+  visibility?: 'PUBLIC' | 'TEAM' | 'PRIVATE' | string;
+  teamId?: number;
+}
+
+export interface UpdateWikiFolderRequest {
+  name?: string;
+  parentFolderId?: number | null;
+  visibility?: 'PUBLIC' | 'TEAM' | 'PRIVATE' | string;
+  teamId?: number | null;
 }
 
 export interface ImageUploadResponse {
@@ -780,8 +813,9 @@ export interface WikiCommentResponse {
 }
 
 export const wikiApi = {
-  getAllPages: async (): Promise<WikiPageResponse[]> => {
-    return fetchApi<WikiPageResponse[]>('/wiki/pages');
+  getAllPages: async (folderId?: number | null): Promise<WikiPageResponse[]> => {
+    const qs = folderId != null ? `?folderId=${folderId}` : '';
+    return fetchApi<WikiPageResponse[]>(`/wiki/pages${qs}`);
   },
 
   getPageById: async (id: number): Promise<WikiPageResponse> => {
@@ -792,22 +826,22 @@ export const wikiApi = {
     return fetchApi<{ contentHtml: string }>(`/wiki/pages/${id}/html`);
   },
 
-  createPage: async (pageData: CreateWikiPageRequest, userId: number): Promise<WikiPageResponse> => {
-    return fetchApi<WikiPageResponse>(`/wiki/pages?userId=${userId}`, {
+  createPage: async (pageData: CreateWikiPageRequest): Promise<WikiPageResponse> => {
+    return fetchApi<WikiPageResponse>('/wiki/pages', {
       method: 'POST',
       body: JSON.stringify(pageData),
     });
   },
 
-  updatePage: async (id: number, pageData: UpdateWikiPageRequest, userId: number): Promise<WikiPageResponse> => {
-    return fetchApi<WikiPageResponse>(`/wiki/pages/${id}?userId=${userId}`, {
+  updatePage: async (id: number, pageData: UpdateWikiPageRequest): Promise<WikiPageResponse> => {
+    return fetchApi<WikiPageResponse>(`/wiki/pages/${id}`, {
       method: 'PUT',
       body: JSON.stringify(pageData),
     });
   },
 
-  publishPage: async (id: number, userId: number): Promise<WikiPageResponse> => {
-    return fetchApi<WikiPageResponse>(`/wiki/pages/${id}/publish?userId=${userId}`, {
+  publishPage: async (id: number): Promise<WikiPageResponse> => {
+    return fetchApi<WikiPageResponse>(`/wiki/pages/${id}/publish`, {
       method: 'POST',
     });
   },
@@ -847,8 +881,8 @@ export const wikiApi = {
     return fetchApi<WikiCommentResponse[]>(`/wiki/comments/page/${wikiPageId}`);
   },
 
-  createComment: async (wikiPageId: number, content: string, userId: number): Promise<WikiCommentResponse> => {
-    return fetchApi<WikiCommentResponse>(`/wiki/comments?userId=${userId}`, {
+  createComment: async (wikiPageId: number, content: string): Promise<WikiCommentResponse> => {
+    return fetchApi<WikiCommentResponse>('/wiki/comments', {
       method: 'POST',
       body: JSON.stringify({ wikiPageId, content }),
     });
@@ -859,6 +893,128 @@ export const wikiApi = {
       method: 'DELETE',
     });
   },
+
+  // ========== Wiki Folder CRUD ==========
+  getAllFolders: async (): Promise<WikiFolderResponse[]> => {
+    return fetchApi<WikiFolderResponse[]>('/wiki/folders');
+  },
+
+  getFolderById: async (id: number): Promise<WikiFolderResponse> => {
+    return fetchApi<WikiFolderResponse>(`/wiki/folders/${id}`);
+  },
+
+  createFolder: async (folderData: CreateWikiFolderRequest): Promise<WikiFolderResponse> => {
+    return fetchApi<WikiFolderResponse>('/wiki/folders', {
+      method: 'POST',
+      body: JSON.stringify(folderData),
+    });
+  },
+
+  updateFolder: async (id: number, folderData: UpdateWikiFolderRequest): Promise<WikiFolderResponse> => {
+    return fetchApi<WikiFolderResponse>(`/wiki/folders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(folderData),
+    });
+  },
+
+  deleteFolder: async (id: number): Promise<void> => {
+    return fetchApi<void>(`/wiki/folders/${id}`, {
+      method: 'DELETE',
+    });
+  },
 };
+
+/**
+ * Rewrites backend-relative URLs in HTML attributes (src/href/srcset/poster)
+ * to absolute URLs using the API origin. Works both on SSR (Node) and the browser.
+ *
+ * Ensures images and media work regardless of whether Next.js proxy rewrites
+ * are active or whether the backend stores URLs as relative /api/... paths.
+ *
+ * Paths rewritten (only if not already absolute / protocol-relative / data/blob):
+ *   /api/...      → ${BACKEND_ORIGIN}/api/...
+ *   /uploads/...  → ${BACKEND_ORIGIN}/uploads/...
+ *   /wiki/...     → ${BACKEND_ORIGIN}/wiki/...
+ *
+ * All other URLs (http:, https:, //, data:, blob:, cid:, mailto:) are left untouched.
+ */
+export function rewriteWikiMediaUrls(
+  html: string,
+  apiBaseUrl: string = API_BASE_URL
+): string {
+  if (!html || typeof html !== 'string') return html;
+  // Derive backend origin without trailing /api suffix, e.g. http://localhost:8080/api → http://localhost:8080
+  const origin = apiBaseUrl.replace(/\/api\/?$/, '');
+  if (!origin) return html;
+
+  const RE_ATTR = /\b(src|href|srcset|poster)\s*=\s*(['"])(.*?)\2/gi;
+
+  return html.replace(RE_ATTR, (match, attr: string, quote: string, value: string) => {
+    if (!value) return match;
+    const trimmed = value.trim();
+
+    // Already absolute / scheme-ful / protocol-relative / data/blob/cid → skip
+    if (
+      /^[a-z][a-z0-9+.-]*:/i.test(trimmed) || // http:, https:, data:, blob:, mailto:, etc.
+      trimmed.startsWith('//') // protocol-relative: //cdn.example.com/...
+    ) {
+      return match;
+    }
+
+    // Rewrite only paths that clearly point to backend-served media / assets
+    const needsRewrite =
+      trimmed.startsWith('/api/') ||
+      trimmed.startsWith('/uploads/') ||
+      trimmed.startsWith('/wiki/');
+
+    if (!needsRewrite) return match;
+
+    return `${attr}=${quote}${origin}${trimmed}${quote}`;
+  });
+}
+
+/**
+ * Inverse of rewriteWikiMediaUrls — strips the backend origin from absolute URLs
+ * in HTML attributes, converting them back to backend-relative paths.
+ *
+ * This ensures consistent storage in the database: images are always stored as
+ * relative paths like /api/wiki/images/xxx.png, regardless of whether they were
+ * inserted via toolbar (relative), copy-pasted from a wiki view page (absolute),
+ * or pasted from another source.
+ *
+ * URLs that do NOT point to our backend origin are left untouched.
+ */
+export function normalizeWikiMediaUrlsToRelative(
+  html: string,
+  apiBaseUrl: string = API_BASE_URL
+): string {
+  if (!html || typeof html !== 'string') return html;
+  const origin = apiBaseUrl.replace(/\/api\/?$/, '');
+  if (!origin) return html;
+
+  const originsToNormalize = [
+    origin.replace(/\/$/, ''),
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+  ];
+
+  const RE_ATTR = /\b(src|href|srcset|poster)\s*=\s*(['"])(.*?)\2/gi;
+
+  return html.replace(RE_ATTR, (match, attr: string, quote: string, value: string) => {
+    if (!value) return match;
+    let trimmed = value.trim();
+
+    for (const o of originsToNormalize) {
+      if (trimmed.startsWith(o + '/')) {
+        trimmed = trimmed.substring(o.length);
+        break;
+      }
+    }
+
+    return `${attr}=${quote}${trimmed}${quote}`;
+  });
+}
 
 export { API_BASE_URL };

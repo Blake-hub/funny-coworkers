@@ -59,6 +59,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/login", "/api/users").permitAll()
                 .requestMatchers("/api/auth/refresh").permitAll()
                 .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/api/wiki/images/**").permitAll()
+                .requestMatchers("/api/uploads/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(exception -> exception

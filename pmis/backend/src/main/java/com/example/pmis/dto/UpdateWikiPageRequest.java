@@ -21,6 +21,8 @@ public class UpdateWikiPageRequest {
 
     private Long parentPageId;
 
+    private Long folderId;
+
     private Boolean isPublished;
 
     private Long teamId;

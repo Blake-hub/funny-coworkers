@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import { ArrowLeft, Edit3, Clock, User, Send, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
-import { wikiApi, WikiPageResponse, WikiCommentResponse } from '@/services/api';
+import { wikiApi, WikiPageResponse, WikiCommentResponse, rewriteWikiMediaUrls } from '@/services/api';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
   const token = context.req.cookies['pmis-token'];
@@ -63,9 +63,9 @@ export default function WikiPageView() {
       const pageData = await wikiApi.getPageById(Number(id));
       setPage(pageData);
 
-      // Then get the HTML content
+      // Then get the HTML content and rewrite backend-relative URLs so images render
       const { contentHtml } = await wikiApi.getPageHtml(Number(id));
-      setHtmlContent(contentHtml);
+      setHtmlContent(rewriteWikiMediaUrls(contentHtml || ''));
     } catch (err) {
       console.error('Failed to load wiki page:', err);
       setError(err instanceof Error ? err.message : 'Failed to load wiki page');

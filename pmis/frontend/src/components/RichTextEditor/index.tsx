@@ -1,8 +1,150 @@
 import { useEffect, useState, useRef, useCallback, memo, forwardRef, useMemo } from 'react';
 import { common, createLowlight } from 'lowlight';
 import { EditorContent } from '@tiptap/react';
+import { useAuth } from '@/context/AuthContext';
+import { normalizeWikiMediaUrlsToRelative } from '@/services/api';
 
 const lowlight = createLowlight(common);
+
+function unwrapImagesFromParagraphs(html: string): string {
+  if (!html || typeof html !== 'string') return html;
+  if (!/<img[\s>]/i.test(html)) return html;
+  if (typeof window === 'undefined' || !window.DOMParser) return html;
+
+  try {
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const body = doc.body;
+
+    const allParas = body.querySelectorAll('p');
+    const parasArr: HTMLParagraphElement[] = [];
+    allParas.forEach((p) => {
+      if (p.querySelector('img')) {
+        parasArr.push(p as HTMLParagraphElement);
+      }
+    });
+
+    for (const p of parasArr) {
+      const parent = p.parentNode;
+      if (!parent) continue;
+
+      const childNodes = Array.from(p.childNodes);
+      let currentTextParts: Node[] = [];
+
+      const flushText = () => {
+        if (currentTextParts.length === 0) return;
+        const newP = doc.createElement('p');
+        for (const n of currentTextParts) newP.appendChild(n);
+        parent.insertBefore(newP, p);
+        currentTextParts = [];
+      };
+
+      for (const node of childNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName.toLowerCase() === 'img') {
+          flushText();
+          parent.insertBefore(node, p);
+        } else {
+          currentTextParts.push(node);
+        }
+      }
+      flushText();
+
+      if (p.parentNode === parent) {
+        parent.removeChild(p);
+      }
+    }
+
+    return body.innerHTML;
+  } catch (e) {
+    console.warn('unwrapImagesFromParagraphs failed, returning original:', e);
+    return html;
+  }
+}
+
+function preprocessEditorContent(value: string | object): string | object {
+  if (typeof value !== 'string') return value;
+  return unwrapImagesFromParagraphs(value);
+}
+
+function htmlHasDataUriImages(html: string): boolean {
+  if (!html || typeof html !== 'string') return false;
+  return /<img[\s][^>]*\bsrc\s*=\s*["']\s*data:image\//i.test(html);
+}
+
+async function upgradeDataUrisInHtmlString(
+  html: string,
+  uploadFn: (file: File) => Promise<string | null>
+): Promise<{ html: string; didUpgrade: boolean; errorCount: number }> {
+  if (!html || typeof html !== 'string') return { html, didUpgrade: false, errorCount: 0 };
+  if (!htmlHasDataUriImages(html)) return { html, didUpgrade: false, errorCount: 0 };
+  if (typeof window === 'undefined' || !window.DOMParser) return { html, didUpgrade: false, errorCount: 0 };
+
+  try {
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const body = doc.body;
+    const imgEls = body.querySelectorAll('img');
+    const toUpgrade: Array<{ el: HTMLImageElement; src: string }> = [];
+
+    for (let i = 0; i < imgEls.length; i++) {
+      const el = imgEls[i] as HTMLImageElement;
+      const src = (el.getAttribute('src') || '').trim();
+      if (src.startsWith('data:image/')) {
+        toUpgrade.push({ el, src });
+      }
+    }
+
+    if (toUpgrade.length === 0) {
+      return { html, didUpgrade: false, errorCount: 0 };
+    }
+
+    let errorCount = 0;
+
+    for (const { el, src } of toUpgrade) {
+      const file = dataUriToFile(src, `datauri-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`);
+      if (!file) {
+        errorCount++;
+        continue;
+      }
+      const newUrl = await uploadFn(file);
+      if (newUrl) {
+        el.setAttribute('src', newUrl);
+      } else {
+        errorCount++;
+      }
+    }
+
+    return {
+      html: body.innerHTML,
+      didUpgrade: true,
+      errorCount,
+    };
+  } catch (e) {
+    console.warn('upgradeDataUrisInHtmlString failed, returning original:', e);
+    return { html, didUpgrade: false, errorCount: 1 };
+  }
+}
+
+function dataUriToFile(dataUri: string, filename: string = 'image.png'): File | null {
+  try {
+    const [metaPart, base64Part] = dataUri.split(',');
+    if (!metaPart || !base64Part) return null;
+
+    const mimeMatch = metaPart.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64$/);
+    if (!mimeMatch) return null;
+    const mime = mimeMatch[1];
+
+    const binary = atob(base64Part);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime });
+    return new File([blob], filename, { type: mime });
+  } catch (e) {
+    console.warn('dataUriToFile failed:', e);
+    return null;
+  }
+}
 
 // Content type - can be HTML string or ProseMirror JSON
 export type Content = string | object;
@@ -368,7 +510,8 @@ const DocumentOutline = memo(({ editor }: { editor: any }) => {
             if (!currentHeading) return;
             
             const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
-            for (const h of headings) {
+            for (let i = 0; i < headings.length; i++) {
+              const h = headings[i] as HTMLElement;
               if (h.textContent?.trim() === targetHeading.text.trim()) {
                 const newRect = h.getBoundingClientRect();
                 overlay.style.left = newRect.left + 'px';
@@ -910,7 +1053,7 @@ const TableToolbar = memo(({ editor, show }: { editor: any; show: boolean }) => 
   );
 });
 
-const Toolbar = memo(({ editor, insertTable }: { editor: any; insertTable: () => void }) => {
+const Toolbar = memo(({ editor, insertTable, uploadImage }: { editor: any; insertTable: () => void; uploadImage: () => void }) => {
   if (!editor) return null;
 
   const {
@@ -1020,22 +1163,7 @@ const Toolbar = memo(({ editor, insertTable }: { editor: any; insertTable: () =>
           <Link2 className="w-4 h-4" />
         </button>
         <button
-          onClick={() => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.onchange = (e: any) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = (event: any) => {
-                  editor?.chain().focus().setImage({ src: event.target?.result }).run();
-                };
-                reader.readAsDataURL(file);
-              }
-            };
-            input.click();
-          }}
+          onClick={() => uploadImage()}
           title="Insert Image"
         >
           <ImageIcon className="w-4 h-4" />
@@ -1250,6 +1378,9 @@ function RichTextEditorClient({
   const { TableHeader } = require('@tiptap/extension-table-header');
   const Extension = require('@tiptap/core').Extension;
 
+  const auth = useAuth() ?? { user: null, token: null };
+  const { user, token } = auth;
+
   const MoveNodeExtension = Extension.create({
     name: 'moveNode',
     addCommands() {
@@ -1383,10 +1514,14 @@ function RichTextEditorClient({
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
   const blurTimeoutRef = useRef<number | null>(null);
+  const isSettingContentRef = useRef(false);
+  const lastAppliedValueRef = useRef<string>('');
+  const applyingDataUriUpgradeRef = useRef(false);
 
   
 
   const handleUpdate = useCallback(({ editor }: { editor: any }) => {
+    if (isSettingContentRef.current) return;
     const html = editor.getHTML();
     const json = JSON.stringify(editor.getJSON());
     onChange(html, json);
@@ -1434,6 +1569,45 @@ function RichTextEditorClient({
     }
   }, []);
 
+  const uploadImageFile = useCallback(async (file: File): Promise<string | null> => {
+    if (!file.type.startsWith('image/')) {
+      console.error('uploadImageFile: not an image file: ' + file.type);
+      return null;
+    }
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('userId', String(user?.id ?? '1'));
+
+      const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('pmis-token') : '') || '';
+      const headers: Record<string, string> = {};
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+      const resp = await fetch('/api/wiki/images/upload', {
+        method: 'POST',
+        body: form,
+        headers,
+        credentials: 'include',
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        throw new Error(`HTTP ${resp.status}: ${(text || 'upload failed').slice(0, 200)}`);
+      }
+
+      const json = await resp.json().catch(() => ({} as any));
+      const imageUrl: string | undefined = json?.url ?? json?.data?.url;
+      if (!imageUrl) {
+        throw new Error('Server returned no image URL');
+      }
+
+      return imageUrl;
+    } catch (err: any) {
+      console.error('uploadImageFile error:', err);
+      return null;
+    }
+  }, [user?.id, token]);
 
 
   const editor = useEditor({
@@ -1448,7 +1622,7 @@ function RichTextEditorClient({
       TableRow,
       TableCell,
       TableHeader,
-      Image.configure({ inline: true }),
+      Image,
       CodeBlockLowlight.configure({
         lowlight,
       }),
@@ -1465,7 +1639,9 @@ function RichTextEditorClient({
       MoveNodeExtension,
       BlockWrapperExtension,
     ],
-    content: value,
+    content: typeof value === 'string' && !htmlHasDataUriImages(value)
+      ? (preprocessEditorContent(value) as any)
+      : undefined,
     immediatelyRender: false,
     onUpdate: handleUpdate,
     onSelectionUpdate: handleSelectionUpdate,
@@ -1479,6 +1655,58 @@ function RichTextEditorClient({
       onReady(editor);
     }
   }, [editor, onReady]);
+
+  useEffect(() => {
+    if (!editor || value === undefined || value === null) return;
+    if (typeof value !== 'string') return;
+
+    let cancelled = false;
+
+    const applyContent = (processedHtml: string) => {
+      if (cancelled) return;
+      const normalized = processedHtml;
+      if (lastAppliedValueRef.current === normalized) return;
+
+      const currentHtml = editor.getHTML();
+      const preprocessed = preprocessEditorContent(normalized);
+
+      if (currentHtml !== preprocessed || lastAppliedValueRef.current !== value) {
+        isSettingContentRef.current = true;
+        lastAppliedValueRef.current = normalized;
+        try {
+          editor.commands.setContent(preprocessed as any, false);
+        } finally {
+          queueMicrotask(() => {
+            isSettingContentRef.current = false;
+          });
+        }
+      }
+    };
+
+    if (applyingDataUriUpgradeRef.current) return;
+
+    if (!htmlHasDataUriImages(value)) {
+      applyContent(value);
+      return;
+    }
+
+    applyingDataUriUpgradeRef.current = true;
+    (async () => {
+      try {
+        const preUnwrapped = preprocessEditorContent(value) as string;
+        const { html: upgraded } = await upgradeDataUrisInHtmlString(preUnwrapped, uploadImageFile);
+        if (!cancelled) {
+          applyContent(upgraded);
+        }
+      } finally {
+        applyingDataUriUpgradeRef.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editor, value, uploadImageFile]);
 
   const insertTable = useCallback(() => {
     if (!editor) return;
@@ -1532,39 +1760,128 @@ function RichTextEditorClient({
     };
   }, [editor, onBlur]);
 
+  const uploadFileAndInsertImage = useCallback(async (file: File) => {
+    if (!editor) return;
+    const imageUrl = await uploadImageFile(file);
+    if (!imageUrl) {
+      alert('Image upload failed');
+      return;
+    }
+    editor.chain().focus().setImage({ src: imageUrl }).run();
+  }, [editor, uploadImageFile]);
+
+  const processingDataUrisRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!editor) return;
+    let cancelled = false;
+
+    const upgradeDataUris = async () => {
+      const doc = editor.state.doc;
+      const toReplace: Array<{ pos: number; src: string }> = [];
+
+      doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'image' && node.attrs && typeof node.attrs.src === 'string') {
+          const src: string = node.attrs.src;
+          if (src.startsWith('data:image/')) {
+            const shortKey = src.slice(0, 80);
+            if (!processingDataUrisRef.current.has(shortKey)) {
+              processingDataUrisRef.current.add(shortKey);
+              toReplace.push({ pos, src });
+            }
+          }
+        }
+        return true;
+      });
+
+      if (toReplace.length === 0) return;
+
+      toReplace.sort((a, b) => b.pos - a.pos);
+
+      for (const { pos, src } of toReplace) {
+        if (cancelled) return;
+        const currentNode = editor.state.doc.nodeAt(pos);
+        if (!currentNode || currentNode.type.name !== 'image') continue;
+        const currentSrc = currentNode.attrs?.src;
+        if (!currentSrc || !currentSrc.startsWith('data:image/')) continue;
+
+        const file = dataUriToFile(src, `datauri-${Date.now()}.png`);
+        if (!file) continue;
+        const newUrl = await uploadImageFile(file);
+        if (!newUrl || cancelled) continue;
+
+        editor.view.dispatch(
+          editor.state.tr.setNodeMarkup(pos, undefined, {
+            ...currentNode.attrs,
+            src: newUrl,
+          })
+        );
+      }
+    };
+
+    setTimeout(upgradeDataUris, 50);
+
+    const handleUpdate = () => {
+      setTimeout(upgradeDataUris, 30);
+    };
+
+    editor.on('update', handleUpdate);
+
+    return () => {
+      cancelled = true;
+      editor.off('update', handleUpdate);
+    };
+  }, [editor, uploadImageFile]);
+
   useEffect(() => {
     if (!editor) return;
 
-    const handlePaste = (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
+    const editorElement = editor.view.dom as HTMLElement;
 
+    const handlePaste = (e: Event) => {
+      const evt = e as ClipboardEvent;
+      const cd = evt.clipboardData;
+      if (!cd) return;
+
+      const target = evt.target as HTMLElement | null;
+      if (!target || !editorElement.contains(target)) return;
+
+      try {
+        const html = cd.getData('text/html');
+        if (html && /<img[\s>]/i.test(html)) {
+          evt.preventDefault();
+          evt.stopPropagation();
+          const normalizedHtml = normalizeWikiMediaUrlsToRelative(html);
+          editor.chain().focus().insertContent(normalizedHtml).run();
+          return;
+        }
+      } catch {
+        /* noop */
+      }
+
+      const items = cd.items;
+      if (!items) return;
       const itemsArray = Array.from(items);
-      
+
       for (let i = 0; i < itemsArray.length; i++) {
         const item = itemsArray[i];
         if (item.type.startsWith('image/')) {
-          e.preventDefault();
-          
           const file = item.getAsFile();
-          if (!file) return;
-
-          const reader = new FileReader();
-          reader.onload = (event: any) => {
-            editor?.chain().focus().setImage({ src: event.target?.result }).run();
-          };
-          reader.readAsDataURL(file);
+          if (!file) continue;
+          evt.preventDefault();
+          evt.stopPropagation();
+          uploadFileAndInsertImage(file);
           break;
         }
       }
     };
 
-    document.addEventListener('paste', handlePaste);
+    editorElement.addEventListener('paste', handlePaste as any, true);
 
     return () => {
-      document.removeEventListener('paste', handlePaste);
+      editorElement.removeEventListener('paste', handlePaste as any, true);
     };
-  }, [editor]);
+  }, [editor, uploadFileAndInsertImage]);
 
   useEffect(() => {
     if (!editor) return;
@@ -2006,6 +2323,20 @@ function RichTextEditorClient({
     };
   }, [editor]);
 
+  const handleImageUpload = useCallback(() => {
+    if (!editor) return;
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      uploadFileAndInsertImage(file);
+    };
+    input.click();
+  }, [editor, uploadFileAndInsertImage]);
+
   const executeCommand = useCallback((command: string, params?: any) => {
     if (!editor) return;
     editor.view.focus();
@@ -2057,26 +2388,7 @@ function RichTextEditorClient({
         break;
     }
     setShowSlashMenu(false);
-  }, [editor, insertTable]);
-
-  const handleImageUpload = useCallback(() => {
-    if (!editor) return;
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e: any) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event: any) => {
-          editor?.chain().focus().setImage({ src: event.target?.result }).run();
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-    input.click();
-  }, [editor]);
+  }, [editor, insertTable, handleImageUpload]);
 
   const handleLinkInsert = useCallback((linkUrl: string) => {
     if (linkUrl && editor) {
@@ -2801,7 +3113,7 @@ function RichTextEditorClient({
         }
       `}</style>
 
-      {showToolbar && <Toolbar editor={editor} insertTable={insertTable} />}
+      {showToolbar && <Toolbar editor={editor} insertTable={insertTable} uploadImage={handleImageUpload} />}
       <TableToolbar editor={editor} show={isTableSelected} />
       <CodeBlockLanguageDropdown editor={editor} hasCodeBlock={hasCodeBlock} />
       <div className="relative">

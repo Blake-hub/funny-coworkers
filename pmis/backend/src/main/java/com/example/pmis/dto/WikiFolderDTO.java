@@ -6,23 +6,22 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class WikiPageDTO {
+public class WikiFolderDTO {
     private Long id;
-    private String title;
-    private String contentHtml;
-    private String contentJson;
-    private Long parentPageId;
-    private Long folderId;
-    private Boolean isPublished;
+    private String name;
+    private Long parentFolderId;
+    private String visibility;
     private Long teamId;
+    private String teamName;
     private Long createdBy;
     private String createdByName;
-    private Long lastModifiedBy;
-    private String lastModifiedByName;
-    private LocalDateTime lastModifiedAt;
+    private LocalDateTime createdAt;
+    private Long pageCount;
+    private List<WikiFolderDTO> children;
 }

@@ -23,6 +23,8 @@ public class CreateWikiPageRequest {
 
     private Long parentPageId;
 
+    private Long folderId;
+
     @Builder.Default
     private Boolean isPublished = false;
 

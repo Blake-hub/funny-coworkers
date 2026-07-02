@@ -2,9 +2,17 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
-import { Plus, Search, FileText, FolderOpen, Edit3, Eye, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  FileText,
+  Edit3,
+  Eye,
+  Trash2,
+  X,
+} from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
-import { wikiApi, WikiPageResponse } from '@/services/api';
+import { wikiApi, WikiPageResponse, WikiFolderResponse } from '@/services/api';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
   const token = context.req.cookies['pmis-token'];
@@ -25,11 +33,25 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function Wiki() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [wikiPages, setWikiPages] = useState<WikiPageResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [folders, setFolders] = useState<WikiFolderResponse[]>([]);
+  const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'mine' | 'team' | 'public'>('all');
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [newFolderForm, setNewFolderForm] = useState<{
+    name: string;
+    parentFolderId: number | null;
+    visibility: 'PRIVATE' | 'TEAM' | 'PUBLIC';
+    error?: string;
+  }>({
+    name: '',
+    parentFolderId: null,
+    visibility: 'PRIVATE',
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -37,15 +59,51 @@ export default function Wiki() {
     }
   }, [isAuthenticated, router]);
 
+  const loadFolders = async () => {
+    try {
+      const result = await wikiApi.getAllFolders();
+      setFolders(result);
+    } catch (err) {
+      console.error('Failed to load wiki folders:', err);
+    }
+  };
+
   useEffect(() => {
-    loadWikiPages();
+    loadFolders();
   }, []);
 
-  const loadWikiPages = async () => {
+  // Sync selected folder from URL query param and trigger reload
+  useEffect(() => {
+    const folderIdRaw = router.query.folderId;
+    const folderId = folderIdRaw != null ? Number(folderIdRaw) : null;
+    // Load pages for this folder (or all pages when null)
+    loadWikiPages(folderId);
+  }, [router.query.folderId]);
+
+  // Open new-folder modal when URL contains newFolderModal=1
+  useEffect(() => {
+    if (router.query.newFolderModal === '1') {
+      setShowNewFolderModal(true);
+      setNewFolderForm({
+        name: '',
+        parentFolderId: router.query.folderId ? Number(router.query.folderId) : null,
+        visibility: 'PRIVATE',
+      });
+      // Clean query param after opening modal (so refresh doesn't re-open)
+      const { newFolderModal: _omit, ...rest } = router.query;
+      router.replace({
+        pathname: '/wiki',
+        query: rest,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query.newFolderModal]);
+
+  const loadWikiPages = async (folderId: number | null = null) => {
     try {
       setLoading(true);
       setError(null);
-      const pages = await wikiApi.getAllPages();
+      const pages = await wikiApi.getAllPages(folderId);
       setWikiPages(pages);
     } catch (err) {
       console.error('Failed to load wiki pages:', err);
@@ -73,14 +131,78 @@ export default function Wiki() {
     router.push('/wiki/new-document');
   };
 
-  const filteredPages = wikiPages.filter(page =>
-    page.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPages = wikiPages.filter(page => {
+    if (!page.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+
+    const folderIdFromQuery = router.query.folderId ? Number(router.query.folderId) : null;
+    if (folderIdFromQuery != null && page.folderId !== folderIdFromQuery) {
+      return false;
+    }
+
+    if (visibilityFilter === 'mine' && user) {
+      const currentUserId = parseInt(user.id, 10);
+      if (page.createdBy !== currentUserId) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
+
+  const flattenFolderOptions = (
+    folderList: WikiFolderResponse[],
+    depth: number
+  ): Array<{ id: number; name: string; depth: number }> => {
+    const result: Array<{ id: number; name: string; depth: number }> = [];
+    for (const folder of folderList) {
+      result.push({ id: folder.id, name: folder.name, depth });
+      if (folder.children && folder.children.length > 0) {
+        result.push(...flattenFolderOptions(folder.children, depth + 1));
+      }
+    }
+    return result;
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderForm.name.trim()) {
+      setNewFolderForm(prev => ({ ...prev, error: 'Folder name is required' }));
+      return;
+    }
+
+    try {
+      setNewFolderForm(prev => ({ ...prev, error: undefined }));
+      await wikiApi.createFolder({
+        name: newFolderForm.name.trim(),
+        parentFolderId: newFolderForm.parentFolderId ?? undefined,
+        visibility: newFolderForm.visibility,
+      });
+      setShowNewFolderModal(false);
+      setNewFolderForm({
+        name: '',
+        parentFolderId: null,
+        visibility: 'PRIVATE',
+      });
+      await loadFolders();
+      // Refresh page list in case we're viewing the parent folder just created into
+      const folderIdRaw = router.query.folderId;
+      loadWikiPages(folderIdRaw != null ? Number(folderIdRaw) : null);
+    } catch (err) {
+      console.error('Failed to create folder:', err);
+      setNewFolderForm(prev => ({
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to create folder',
+      }));
+    }
+  };
+
+  const flatFolderOptions = flattenFolderOptions(folders, 0);
 
   return (
     <Layout>
@@ -111,6 +233,28 @@ export default function Wiki() {
             New Page
           </button>
         </div>
+      </div>
+
+      {/* Visibility Filter Buttons */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {[
+          { key: 'all' as const, label: 'All' },
+          { key: 'mine' as const, label: 'My Pages' },
+          { key: 'team' as const, label: 'Team' },
+          { key: 'public' as const, label: 'Public' },
+        ].map(filter => (
+          <button
+            key={filter.key}
+            onClick={() => setVisibilityFilter(filter.key)}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors border ${
+              visibilityFilter === filter.key
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {filter.label}
+          </button>
+        ))}
       </div>
 
       {/* Error Message */}
@@ -148,7 +292,10 @@ export default function Wiki() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="divide-y divide-gray-100">
             {filteredPages.map((page) => (
-              <div key={page.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between">
+              <div
+                key={page.id}
+                className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between"
+              >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -161,6 +308,19 @@ export default function Wiki() {
                       {!page.isPublished && (
                         <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs">
                           Draft
+                        </span>
+                      )}
+                      {page.visibility && (
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs ${
+                            page.visibility === 'PUBLIC'
+                              ? 'bg-green-100 text-green-800'
+                              : page.visibility === 'TEAM'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {page.visibility}
                         </span>
                       )}
                     </div>
@@ -191,6 +351,114 @@ export default function Wiki() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* New Folder Modal */}
+      {showNewFolderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowNewFolderModal(false)}
+          />
+          <div className="relative bg-white rounded-lg shadow-xl border border-gray-200 w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Create New Folder</h2>
+              <button
+                onClick={() => setShowNewFolderModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Folder Name
+                </label>
+                <input
+                  type="text"
+                  value={newFolderForm.name}
+                  onChange={(e) =>
+                    setNewFolderForm(prev => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder="Enter folder name..."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Parent Folder (optional)
+                </label>
+                <select
+                  value={newFolderForm.parentFolderId ?? ''}
+                  onChange={(e) =>
+                    setNewFolderForm(prev => ({
+                      ...prev,
+                      parentFolderId: e.target.value
+                        ? parseInt(e.target.value)
+                        : null,
+                    }))
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  <option value="">— Root (top level) —</option>
+                  {flatFolderOptions.map(opt => (
+                    <option key={opt.id} value={opt.id}>
+                      {'— '.repeat(opt.depth)}
+                      {opt.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Visibility
+                </label>
+                <select
+                  value={newFolderForm.visibility}
+                  onChange={(e) =>
+                    setNewFolderForm(prev => ({
+                      ...prev,
+                      visibility: e.target.value as 'PRIVATE' | 'TEAM' | 'PUBLIC',
+                    }))
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  <option value="PRIVATE">Private — Only you</option>
+                  <option value="TEAM">Team — Team members only</option>
+                  <option value="PUBLIC">Public — All organization users</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Controls who can view and access this folder and its contents.
+                </p>
+              </div>
+
+              {newFolderForm.error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm">
+                  {newFolderForm.error}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowNewFolderModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateFolder}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Create Folder
+              </button>
+            </div>
           </div>
         </div>
       )}

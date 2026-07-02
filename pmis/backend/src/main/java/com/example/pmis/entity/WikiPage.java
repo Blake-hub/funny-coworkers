@@ -32,6 +32,9 @@ public class WikiPage {
     @Column(name = "parent_page_id")
     private Long parentPageId;
 
+    @Column(name = "folder_id")
+    private Long folderId;
+
     @Column(name = "is_published")
     @Builder.Default
     private Boolean isPublished = false;

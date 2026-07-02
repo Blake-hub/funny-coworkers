@@ -10,4 +10,7 @@ import java.util.List;
 public interface WikiPageRepository extends JpaRepository<WikiPage, Long> {
     List<WikiPage> findByParentPageId(Long parentPageId);
     List<WikiPage> findByLastModifiedBy(Long userId);
+    List<WikiPage> findByFolderId(Long folderId);
+    List<WikiPage> findByFolderIdIsNull();
+    long countByFolderId(Long folderId);
 }
