@@ -5,4 +5,6 @@ requirements.md
 debug-segment-drag-drop-fail.md
 /frontend/node_modules/
 /frontend/.next/
+/frontend/test-results/
+/frontend/*.log
 .dbg/

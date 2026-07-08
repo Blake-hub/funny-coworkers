@@ -1,4 +1,5 @@
 import { AuthProvider } from '@/context/AuthContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 import { ToastProvider } from '@/context/ToastContext';
 import ErrorBoundary from '@/components/ErrorBoundary/ErrorBoundary';
 import '@/styles/globals.css';
@@ -9,7 +10,9 @@ export default function App({ Component, pageProps }: AppProps) {
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
-          <Component {...pageProps} />
+          <NotificationProvider>
+            <Component {...pageProps} />
+          </NotificationProvider>
         </AuthProvider>
       </ToastProvider>
     </ErrorBoundary>

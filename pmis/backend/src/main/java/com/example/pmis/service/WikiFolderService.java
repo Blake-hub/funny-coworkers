@@ -54,6 +54,19 @@ public class WikiFolderService {
         return convertToDTO(folder);
     }
 
+    private void validateNameUniqueGlobally(String name, Long excludeFolderId) {
+        if (name == null) return;
+        final String trimmed = name.trim();
+        if (trimmed.isEmpty()) return;
+        final long safeFolderId = excludeFolderId != null ? excludeFolderId : -1L;
+        final List<WikiFolder> conflictingFolders = wikiFolderRepository.findConflictingByNameGlobally(trimmed, safeFolderId);
+        final List<WikiPage> conflictingPages = wikiPageRepository.findConflictingByTitleGlobally(trimmed, -1L);
+        if (!conflictingFolders.isEmpty() || !conflictingPages.isEmpty()) {
+            String conflictType = conflictingFolders.isEmpty() ? "document" : conflictingPages.isEmpty() ? "folder" : "folder or document";
+            throw new RuntimeException("Name '" + trimmed + "' is already in use by another " + conflictType + " in the wiki module. Names must be unique across all folders and documents.");
+        }
+    }
+
     public WikiFolderDTO createFolder(CreateWikiFolderRequest request, User currentUser) {
         WikiVisibility visibility = parseVisibility(request.getVisibility());
 
@@ -75,6 +88,8 @@ public class WikiFolderService {
                 throw new RuntimeException("No edit access to parent wiki folder with id: " + request.getParentFolderId());
             }
         }
+
+        validateNameUniqueGlobally(request.getName(), null);
 
         WikiFolder folder = WikiFolder.builder()
                 .name(request.getName())
@@ -128,6 +143,10 @@ public class WikiFolderService {
         }
         if (request.getTeamId() != null) {
             folder.setTeamId(request.getTeamId());
+        }
+
+        if (request.getName() != null) {
+            validateNameUniqueGlobally(folder.getName(), folder.getId());
         }
 
         WikiFolder saved = wikiFolderRepository.save(folder);

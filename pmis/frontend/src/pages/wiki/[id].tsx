@@ -272,7 +272,7 @@ export default function WikiPageView() {
     if (!newComment.trim() || !id || !authUser?.id) return;
 
     try {
-      const createdComment = await wikiApi.createComment(Number(id), newComment.trim(), authUser.id);
+      const createdComment = await wikiApi.createComment(Number(id), newComment.trim());
       setComments(prev => [...prev, createdComment]);
       setNewComment('');
     } catch (err) {
@@ -450,7 +450,7 @@ export default function WikiPageView() {
                                   </div>
                                 </div>
                               </div>
-                              {authUser?.id === comment.userId && (
+                              {Number(authUser?.id ?? 0) === Number(comment.userId) && (
                                 <button
                                   onClick={() => handleDeleteComment(comment.id)}
                                   className="text-gray-400 hover:text-red-600 transition-colors"
@@ -552,6 +552,20 @@ export default function WikiPageView() {
         }
         .wiki-content a:hover {
           color: #2563eb;
+        }
+        .wiki-content .mention {
+          background-color: #eef2ff;
+          color: #4f46e5;
+          border-radius: 4px;
+          padding: 0.1rem 0.35rem;
+          font-weight: 500;
+          box-decoration-break: clone;
+          cursor: pointer;
+          transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .wiki-content .mention:hover {
+          background-color: #e0e7ff;
+          color: #4338ca;
         }
       `}</style>
     </Layout>

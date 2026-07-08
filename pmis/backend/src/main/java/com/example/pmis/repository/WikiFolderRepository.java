@@ -2,6 +2,8 @@ package com.example.pmis.repository;
 
 import com.example.pmis.entity.WikiFolder;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,4 +15,9 @@ public interface WikiFolderRepository extends JpaRepository<WikiFolder, Long> {
     List<WikiFolder> findByCreatedBy(Long createdBy);
     List<WikiFolder> findByTeamId(Long teamId);
     boolean existsByIdAndParentFolderId(Long id, Long parentFolderId);
+
+    @Query("SELECT f FROM WikiFolder f WHERE LOWER(TRIM(f.name)) = LOWER(TRIM(:name)) AND f.id <> :excludeId")
+    List<WikiFolder> findConflictingByNameGlobally(
+            @Param("name") String name,
+            @Param("excludeId") Long excludeId);
 }

@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import RichTextEditor, { DocumentOutline } from '@/components/RichTextEditor';
-import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send, Eye } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send, Eye, Settings2, X } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { wikiApi, WikiPageResponse, rewriteWikiMediaUrls, normalizeWikiMediaUrlsToRelative, WikiFolderResponse } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
@@ -44,6 +44,8 @@ export default function WikiPageEdit() {
   const [folders, setFolders] = useState<WikiFolderResponse[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [selectedVisibility, setSelectedVisibility] = useState<'PRIVATE' | 'TEAM' | 'PUBLIC'>('PRIVATE');
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [showDocSettings, setShowDocSettings] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -124,7 +126,8 @@ export default function WikiPageEdit() {
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
     setHasUnsavedChanges(true);
-  }, []);
+    if (titleError) setTitleError(null);
+  }, [titleError]);
 
   const normalizeJsonMediaUrls = (jsonString: string): string => {
     if (!jsonString) return jsonString;
@@ -171,6 +174,8 @@ export default function WikiPageEdit() {
 
     if (!id) return;
 
+    setTitleError(null);
+
     if (publish) {
       setIsPublishing(true);
     } else {
@@ -202,7 +207,17 @@ export default function WikiPageEdit() {
       }
     } catch (err) {
       console.error('Failed to save document:', err);
-      addToast('error', err instanceof Error ? err.message : 'Failed to save document');
+      const msg = err instanceof Error ? err.message : 'Failed to save document';
+      const lower = msg.toLowerCase();
+      const isNameConflict =
+        (lower.includes('already exists') || lower.includes('already in use')) &&
+        (lower.includes('title') || lower.includes('name') || lower.includes("'") ||
+          lower.includes('page') || lower.includes('folder') || lower.includes('document'));
+      if (isNameConflict) {
+        setTitleError(msg);
+      } else {
+        addToast('error', msg);
+      }
     } finally {
       setIsSaving(false);
       setIsPublishing(false);
@@ -300,6 +315,9 @@ export default function WikiPageEdit() {
                 placeholder="Enter document title..."
                 className="w-full text-2xl font-bold text-gray-800 border-0 px-0 py-2 focus:ring-0 focus:outline-none bg-transparent placeholder-gray-400"
               />
+              {titleError && (
+                <div className="mt-1 text-sm text-red-600">{titleError}</div>
+              )}
 
               {/* Author Info */}
               <div className="text-sm text-gray-500">
@@ -309,42 +327,90 @@ export default function WikiPageEdit() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Folder (optional)</label>
-                  <select
-                    value={selectedFolderId ?? ''}
-                    onChange={e => {
-                      setSelectedFolderId(e.target.value ? parseInt(e.target.value) : null);
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+              <div className="my-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <Settings2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs font-medium text-gray-500">Folder:</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700 max-w-[180px] truncate">
+                      {(() => {
+                        if (selectedFolderId == null) return 'Root';
+                        const flat = flattenFolders(folders, 0);
+                        const f = flat.find(x => x.id === selectedFolderId);
+                        return f ? f.name : '(Unknown)';
+                      })()}
+                    </span>
+                    <span className="text-xs font-medium text-gray-500 ml-2">Visibility:</span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                        selectedVisibility === 'PUBLIC'
+                          ? 'bg-green-50 text-green-700'
+                          : selectedVisibility === 'TEAM'
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {selectedVisibility}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDocSettings(v => !v)}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
                   >
-                    <option value="">— Root (no folder) —</option>
-                    {flattenFolders(folders, 0).map(opt => (
-                      <option key={opt.id} value={opt.id}>
-                        {'— '.repeat(opt.depth)}
-                        {opt.name}
-                      </option>
-                    ))}
-                  </select>
+                    {showDocSettings ? (
+                      <>
+                        <X className="w-3.5 h-3.5" />
+                        <span>Close</span>
+                      </>
+                    ) : (
+                      <>
+                        <Settings2 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
-                  <select
-                    value={selectedVisibility}
-                    onChange={e => {
-                      setSelectedVisibility(e.target.value as 'PRIVATE' | 'TEAM' | 'PUBLIC');
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="PRIVATE">Private — Only you</option>
-                    <option value="TEAM">Team — Team members only</option>
-                    <option value="PUBLIC">Public — All organization users</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">Controls who can view and edit this document.</p>
-                </div>
+
+                {showDocSettings && (
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Folder (optional)</label>
+                      <select
+                        value={selectedFolderId ?? ''}
+                        onChange={e => {
+                          setSelectedFolderId(e.target.value ? parseInt(e.target.value) : null);
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">— Root (no folder) —</option>
+                        {flattenFolders(folders, 0).map(opt => (
+                          <option key={opt.id} value={opt.id}>
+                            {'— '.repeat(opt.depth)}
+                            {opt.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Visibility</label>
+                      <select
+                        value={selectedVisibility}
+                        onChange={e => {
+                          setSelectedVisibility(e.target.value as 'PRIVATE' | 'TEAM' | 'PUBLIC');
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="PRIVATE">Private — Only you</option>
+                        <option value="TEAM">Team — Team members only</option>
+                        <option value="PUBLIC">Public — All organization users</option>
+                      </select>
+                      <p className="text-[11px] text-gray-500 mt-1">Controls who can view and edit this document.</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Divider */}

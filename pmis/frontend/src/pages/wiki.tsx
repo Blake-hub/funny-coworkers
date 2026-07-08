@@ -148,6 +148,18 @@ export default function Wiki() {
       }
     }
 
+    if (visibilityFilter === 'team') {
+      if (page.visibility !== 'TEAM') {
+        return false;
+      }
+    }
+
+    if (visibilityFilter === 'public') {
+      if (page.visibility !== 'PUBLIC') {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -204,156 +216,168 @@ export default function Wiki() {
 
   const flatFolderOptions = flattenFolderOptions(folders, 0);
 
+  const chipOptions = [
+    { id: 'all', label: 'All' },
+    { id: 'mine', label: 'My Pages' },
+    { id: 'team', label: 'Team' },
+    { id: 'public', label: 'Public' },
+  ];
+
   return (
     <Layout>
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Wiki</h1>
-        <p className="text-gray-500 mt-1">Access and manage documentation.</p>
-      </div>
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <div className="mb-2 pb-2 border-b border-gray-200 flex items-center justify-between">
+          <h1 className="text-base font-semibold text-gray-800">Wiki</h1>
+          <div className="relative group">
+            <button
+              onClick={handleNewPage}
+              className="flex items-center justify-center w-6 h-6 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                Create a new page
+              </div>
+            </div>
+          </div>
+        </div>
 
-      {/* Actions Bar */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* Filter Area */}
+        <div className="mb-2 pb-2 border-b border-gray-200 flex items-center justify-between">
+          {/* Chips Filters */}
+          <div className="flex items-center gap-1">
+            {chipOptions.map((chip) => (
+              <button
+                key={chip.id}
+                onClick={() => setVisibilityFilter(chip.id as typeof visibilityFilter)}
+                className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                  visibilityFilter === chip.id
+                    ? 'bg-gray-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search Field */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search wiki..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-80"
+              className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
             />
           </div>
-          <button
-            onClick={handleNewPage}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Page
-          </button>
         </div>
-      </div>
 
-      {/* Visibility Filter Buttons */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {[
-          { key: 'all' as const, label: 'All' },
-          { key: 'mine' as const, label: 'My Pages' },
-          { key: 'team' as const, label: 'Team' },
-          { key: 'public' as const, label: 'Public' },
-        ].map(filter => (
-          <button
-            key={filter.key}
-            onClick={() => setVisibilityFilter(filter.key)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors border ${
-              visibilityFilter === filter.key
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
+        {/* Wiki List */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+              {error}
+            </div>
+          )}
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
-        </div>
-      )}
+          {/* Loading State */}
+          {loading && (
+            <div className="p-8 text-center text-gray-500">
+              Loading wiki pages...
+            </div>
+          )}
 
-      {/* Loading State */}
-      {loading && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <div className="text-gray-500">Loading wiki pages...</div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!loading && filteredPages.length === 0 && !error && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-800 mb-2">No wiki pages yet</h3>
-          <p className="text-gray-500 mb-4">Create your first wiki page to get started.</p>
-          <button
-            onClick={handleNewPage}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Create Page
-          </button>
-        </div>
-      )}
-
-      {/* Wiki Pages */}
-      {!loading && filteredPages.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="divide-y divide-gray-100">
-            {filteredPages.map((page) => (
-              <div
-                key={page.id}
-                className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between"
+          {/* Empty State */}
+          {!loading && filteredPages.length === 0 && !error && (
+            <div className="text-center py-8 text-gray-500">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-sm font-medium">No wiki pages yet</p>
+              <p className="text-xs text-gray-400 mt-1 mb-4">
+                Create your first wiki page to get started.
+              </p>
+              <button
+                onClick={handleNewPage}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
               >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-medium text-gray-800 truncate">{page.title}</h3>
-                    <div className="flex items-center gap-3 text-sm text-gray-500">
-                      {page.lastModifiedByName && (
-                        <span>Last modified by {page.lastModifiedByName}</span>
-                      )}
-                      <span>on {formatDate(page.lastModifiedAt)}</span>
-                      {!page.isPublished && (
-                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs">
-                          Draft
-                        </span>
-                      )}
-                      {page.visibility && (
-                        <span
-                          className={`px-2 py-0.5 rounded text-xs ${
-                            page.visibility === 'PUBLIC'
-                              ? 'bg-green-100 text-green-800'
-                              : page.visibility === 'TEAM'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {page.visibility}
-                        </span>
-                      )}
+                <Plus className="w-3.5 h-3.5" />
+                Create Page
+              </button>
+            </div>
+          )}
+
+          {/* Wiki Pages List */}
+          {!loading && filteredPages.length > 0 && (
+            <div className="min-w-full divide-y divide-gray-100">
+              {filteredPages.map((page) => (
+                <div
+                  key={page.id}
+                  className="p-3 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-medium text-gray-800 truncate">{page.title}</h3>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                        {page.lastModifiedByName && (
+                          <span>Last modified by {page.lastModifiedByName}</span>
+                        )}
+                        <span>on {formatDate(page.lastModifiedAt)}</span>
+                        {!page.isPublished && (
+                          <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-[10px]">
+                            Draft
+                          </span>
+                        )}
+                        {page.visibility && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] ${
+                              page.visibility === 'PUBLIC'
+                                ? 'bg-green-100 text-green-800'
+                                : page.visibility === 'TEAM'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {page.visibility}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-3">
+                    <button
+                      onClick={() => router.push(`/wiki/${page.id}`)}
+                      className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title="View"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => router.push(`/wiki/${page.id}/edit`)}
+                      className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title="Edit"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePage(page.id)}
+                      className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                  <button
-                    onClick={() => router.push(`/wiki/${page.id}`)}
-                    className="flex items-center gap-1 text-gray-400 hover:text-blue-600 transition-colors p-1"
-                    title="View"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => router.push(`/wiki/${page.id}/edit`)}
-                    className="flex items-center gap-1 text-gray-400 hover:text-blue-600 transition-colors p-1"
-                    title="Edit"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeletePage(page.id)}
-                    className="flex items-center gap-1 text-gray-400 hover:text-red-600 transition-colors p-1"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+      </div>
 
       {/* New Folder Modal */}
       {showNewFolderModal && (
@@ -382,7 +406,11 @@ export default function Wiki() {
                   type="text"
                   value={newFolderForm.name}
                   onChange={(e) =>
-                    setNewFolderForm(prev => ({ ...prev, name: e.target.value }))
+                    setNewFolderForm(prev => ({
+                      ...prev,
+                      name: e.target.value,
+                      error: prev.error ? undefined : prev.error,
+                    }))
                   }
                   placeholder="Enter folder name..."
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -401,6 +429,7 @@ export default function Wiki() {
                       parentFolderId: e.target.value
                         ? parseInt(e.target.value)
                         : null,
+                      error: prev.error ? undefined : prev.error,
                     }))
                   }
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"

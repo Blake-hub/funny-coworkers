@@ -35,6 +35,9 @@ public class Notification {
     @Column(name = "read_status", nullable = false)
     private Boolean readStatus;
 
+    @Column(name = "actor_user_id")
+    private Long actorUserId;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 

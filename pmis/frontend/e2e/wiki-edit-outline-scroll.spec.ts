@@ -90,7 +90,8 @@ test.describe('Wiki Document Outline Scroll in Edit Page', () => {
 
     const headingTop = await page.evaluate(() => {
       const headings = document.querySelectorAll('h1');
-      for (const heading of headings) {
+      for (let i = 0; i < headings.length; i++) {
+        const heading = headings[i];
         if (heading.textContent?.includes('Chapter 2: Main Content')) {
           const rect = heading.getBoundingClientRect();
           return rect.top;

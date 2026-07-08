@@ -40,6 +40,7 @@ export default function NewDocument() {
   const [folders, setFolders] = useState<WikiFolderResponse[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [selectedVisibility, setSelectedVisibility] = useState<'PRIVATE' | 'TEAM' | 'PUBLIC'>('PRIVATE');
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   const handleEditorReady = useCallback((editor: unknown) => {
     setEditorInstance(editor);
@@ -122,6 +123,8 @@ export default function NewDocument() {
       return;
     }
 
+    setTitleError(null);
+
     if (publish) {
       setIsPublishing(true);
     } else {
@@ -153,7 +156,17 @@ export default function NewDocument() {
       }
     } catch (err) {
       console.error('Failed to save document:', err);
-      addToast('error', err instanceof Error ? err.message : 'Failed to save document');
+      const msg = err instanceof Error ? err.message : 'Failed to save document';
+      const lower = msg.toLowerCase();
+      const isNameConflict =
+        (lower.includes('already exists') || lower.includes('already in use')) &&
+        (lower.includes('title') || lower.includes('name') || lower.includes("'") ||
+          lower.includes('page') || lower.includes('folder') || lower.includes('document'));
+      if (isNameConflict) {
+        setTitleError(msg);
+      } else {
+        addToast('error', msg);
+      }
     } finally {
       setIsSaving(false);
       setIsPublishing(false);
@@ -242,10 +255,18 @@ export default function NewDocument() {
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  if (titleError) setTitleError(null);
+                }}
                 placeholder="Enter document title..."
-                className="w-full text-2xl font-bold text-gray-800 border-0 px-0 py-2 focus:ring-0 focus:outline-none bg-transparent placeholder-gray-400"
+                className={`w-full text-2xl font-bold text-gray-800 border-0 px-0 py-2 focus:ring-0 focus:outline-none bg-transparent placeholder-gray-400 ${
+                  titleError ? 'ring-0' : ''
+                }`}
               />
+              {titleError && (
+                <div className="mt-1 text-sm text-red-600">{titleError}</div>
+              )}
 
               {/* Author Info */}
               <div className="text-sm text-gray-500">

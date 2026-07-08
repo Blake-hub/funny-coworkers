@@ -1017,4 +1017,38 @@ export function normalizeWikiMediaUrlsToRelative(
   });
 }
 
+/* ============================================================
+ * Notification pipeline
+ * ============================================================ */
+
+export interface NotificationResponse {
+  id: number;
+  type: string;
+  readStatus: boolean;
+  createdAt: string;
+  title: string;
+  actionUrl: string;
+}
+
+export interface NotificationsListResponse {
+  items: NotificationResponse[];
+  unreadCount: number;
+}
+
+export const notificationApi = {
+  list: (limit = 30) =>
+    fetchApi<NotificationsListResponse>(`/notifications?limit=${limit}`),
+  unreadCount: () =>
+    fetchApi<{ unreadCount: number }>('/notifications/unread-count'),
+  markRead: (id: number) =>
+    fetchApi<{ ok: boolean }>(`/notifications/${id}/read`, {
+      method: 'PATCH',
+    }),
+  markAllRead: () =>
+    fetchApi<{ ok: boolean; updatedCount: number }>(
+      '/notifications/mark-all-read',
+      { method: 'PATCH' }
+    ),
+};
+
 export { API_BASE_URL };

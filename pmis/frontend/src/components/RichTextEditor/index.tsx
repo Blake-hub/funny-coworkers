@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef, useCallback, memo, forwardRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback, memo, forwardRef, useMemo, useImperativeHandle } from 'react';
 import { common, createLowlight } from 'lowlight';
 import { EditorContent } from '@tiptap/react';
 import { useAuth } from '@/context/AuthContext';
-import { normalizeWikiMediaUrlsToRelative } from '@/services/api';
+import { normalizeWikiMediaUrlsToRelative, userApi } from '@/services/api';
+import type { UserResponse } from '@/services/api';
 
 const lowlight = createLowlight(common);
 
@@ -178,6 +179,260 @@ const slashCommands = [
   { id: 'file', label: 'Attach File', command: 'attachFile', group: 'insert' },
   { id: 'table', label: 'Insert Table', command: 'insertTable', group: 'insert' },
 ];
+
+let cachedUserList: Promise<UserResponse[]> | null = null;
+
+function getUserList(): Promise<UserResponse[]> {
+  if (cachedUserList != null) {
+    return cachedUserList;
+  }
+  let promise: Promise<UserResponse[]>;
+  try {
+    promise = userApi.getAllUsers().catch((err: unknown) => {
+      cachedUserList = null;
+      console.warn('userApi.getAllUsers failed for mention suggestions:', err);
+      return [] as UserResponse[];
+    });
+  } catch (err) {
+    console.warn('userApi.getAllUsers threw synchronously:', err);
+    promise = Promise.resolve([] as UserResponse[]);
+  }
+  cachedUserList = promise;
+  return promise;
+}
+
+interface SuggestionMentionItem {
+  id: number;
+  name: string;
+  email: string;
+  role?: string;
+}
+
+interface MentionListProps {
+  items: SuggestionMentionItem[];
+  command: (attrs: { id: string; label: string }) => void;
+  editor: any;
+  range?: any;
+  query?: string;
+  clientRect?: (() => DOMRect | null) | null;
+}
+
+interface MentionListHandle {
+  onKeyDown: (props: { event: KeyboardEvent }) => boolean;
+}
+
+const MentionList = forwardRef<MentionListHandle, MentionListProps>((props, ref) => {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const selectItem = (index: number) => {
+    const item = props.items[index];
+    if (item) {
+      props.command({ id: String(item.id), label: item.name });
+    }
+  };
+
+  const upHandler = () => {
+    setSelectedIndex((selectedIndex + props.items.length - 1) % props.items.length);
+  };
+
+  const downHandler = () => {
+    setSelectedIndex((selectedIndex + 1) % props.items.length);
+  };
+
+  const enterHandler = () => {
+    selectItem(selectedIndex);
+  };
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [props.items]);
+
+  useEffect(() => {
+    if (selectedIndex >= props.items.length && props.items.length > 0) {
+      setSelectedIndex(0);
+    }
+  }, [props.items.length, selectedIndex]);
+
+  useImperativeHandle(ref, () => ({
+    onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+      if (event.key === 'ArrowUp') {
+        upHandler();
+        return true;
+      }
+      if (event.key === 'ArrowDown') {
+        downHandler();
+        return true;
+      }
+      if (event.key === 'Enter') {
+        enterHandler();
+        return true;
+      }
+      return false;
+    },
+  }));
+
+  if (!props.items || props.items.length === 0) {
+    return (
+      <div className="mention-dropdown-menu">
+        <div className="mention-dropdown-empty">No users found</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mention-dropdown-menu">
+      {props.items.map((item, index) => {
+        const initials = item.name
+          ? item.name
+              .split(/\s+/)
+              .map((part: string) => part.charAt(0).toUpperCase())
+              .slice(0, 2)
+              .join('')
+          : '?';
+        return (
+          <button
+            key={item.id}
+            className={`mention-dropdown-item ${index === selectedIndex ? 'is-selected' : ''}`}
+            onClick={() => selectItem(index)}
+            type="button"
+          >
+            <div className="mention-dropdown-avatar" title={item.name}>
+              {initials}
+            </div>
+            <div className="mention-dropdown-text">
+              <div className="mention-dropdown-name">{item.name}</div>
+              <div className="mention-dropdown-email">{item.email}</div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+function updateMentionDropdownPosition(clientRectFn: (() => DOMRect | null) | null | undefined, element: HTMLElement) {
+  if (!clientRectFn) {
+    return;
+  }
+  const rect = clientRectFn();
+  if (!rect) {
+    return;
+  }
+  const MENU_MAX_HEIGHT = 320;
+  const MENU_WIDTH = 320;
+  let top = rect.bottom + 6;
+  let left = rect.left;
+  if (typeof window !== 'undefined') {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1280;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 800;
+    if (top + MENU_MAX_HEIGHT > viewportHeight - 8) {
+      top = Math.max(8, rect.top - MENU_MAX_HEIGHT - 6);
+    }
+    if (left + MENU_WIDTH > viewportWidth - 8) {
+      left = Math.max(8, viewportWidth - MENU_WIDTH - 8);
+    }
+  }
+  element.style.position = 'fixed';
+  element.style.zIndex = '1000';
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+  element.style.width = `${320}px`;
+}
+
+const mentionSuggestionConfig = {
+  command: ({ editor, range, props }: { editor: any; range: any; props: any }) => {
+    const nodeAfter = editor.view.state.selection.$to.nodeAfter;
+    const overrideSpace = nodeAfter?.text?.startsWith(' ');
+    let insertRange = { ...range };
+    if (overrideSpace) {
+      insertRange = { ...range, to: range.to + 1 };
+    }
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(insertRange, [
+        {
+          type: 'mention',
+          attrs: {
+            id: String(props?.id ?? ''),
+            label: props?.label ?? props?.name ?? String(props?.id ?? ''),
+            mentionSuggestionChar: '@',
+          },
+        },
+        {
+          type: 'text',
+          text: ' ',
+        },
+      ])
+      .run();
+    editor.view.dom.ownerDocument.defaultView?.getSelection()?.collapseToEnd();
+  },
+  items: async ({ query }: { query: string }) => {
+    const allUsers = await getUserList();
+    const q = (query || '').toLowerCase().trim();
+    const filtered = q.length === 0
+      ? allUsers
+      : allUsers.filter((u) => {
+          if (!u) return false;
+          const nameMatch = u.name && u.name.toLowerCase().includes(q);
+          const emailMatch = u.email && u.email.toLowerCase().includes(q);
+          return Boolean(nameMatch || emailMatch);
+        });
+    return filtered.slice(0, 8).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+    }));
+  },
+  render: () => {
+    let reactRenderer: any = null;
+    return {
+      onStart: (props: any) => {
+        if (!props || !props.clientRect) {
+          return;
+        }
+        const { ReactRenderer } = require('@tiptap/react');
+        reactRenderer = new ReactRenderer(MentionList, {
+          props,
+          editor: props.editor,
+        });
+        if (reactRenderer && reactRenderer.element) {
+          document.body.appendChild(reactRenderer.element);
+          updateMentionDropdownPosition(props.clientRect, reactRenderer.element);
+        }
+      },
+      onUpdate(props: any) {
+        if (reactRenderer) {
+          reactRenderer.updateProps(props);
+          if (props && props.clientRect && reactRenderer.element) {
+            updateMentionDropdownPosition(props.clientRect, reactRenderer.element);
+          }
+        }
+      },
+      onKeyDown(props: { event: KeyboardEvent }) {
+        if (props && props.event && props.event.key === 'Escape') {
+          if (reactRenderer && reactRenderer.element) {
+            reactRenderer.destroy();
+            reactRenderer.element.remove();
+          }
+          return true;
+        }
+        return reactRenderer && reactRenderer.ref && typeof reactRenderer.ref.onKeyDown === 'function'
+          ? reactRenderer.ref.onKeyDown(props)
+          : false;
+      },
+      onExit() {
+        if (reactRenderer && reactRenderer.element) {
+          if (reactRenderer.element.parentNode) {
+            reactRenderer.element.parentNode.removeChild(reactRenderer.element);
+          }
+          reactRenderer.destroy();
+        }
+      },
+    };
+  },
+};
 
 interface SlashMenuProps {
   show: boolean;
@@ -1376,6 +1631,7 @@ function RichTextEditorClient({
   const { TableRow } = require('@tiptap/extension-table-row');
   const { TableCell } = require('@tiptap/extension-table-cell');
   const { TableHeader } = require('@tiptap/extension-table-header');
+  const Mention = require('@tiptap/extension-mention').default;
   const Extension = require('@tiptap/core').Extension;
 
   const auth = useAuth() ?? { user: null, token: null };
@@ -1517,14 +1773,12 @@ function RichTextEditorClient({
   const isSettingContentRef = useRef(false);
   const lastAppliedValueRef = useRef<string>('');
   const applyingDataUriUpgradeRef = useRef(false);
+  const lastEmittedHtmlRef = useRef<string>('');
 
   
 
-  const handleUpdate = useCallback(({ editor }: { editor: any }) => {
-    if (isSettingContentRef.current) return;
-    const html = editor.getHTML();
-    const json = JSON.stringify(editor.getJSON());
-    onChange(html, json);
+  const syncContentDerivedState = useCallback((editor: any) => {
+    if (!editor || !editor.state || !editor.state.doc) return;
     const textContent = editor.getText().trim();
     let hasNonTextContent = false;
     editor.state.doc.content.descendants((node: any) => {
@@ -1545,6 +1799,15 @@ function RichTextEditorClient({
     });
     setHasCodeBlock(foundCodeBlock);
   }, []);
+
+  const handleUpdate = useCallback(({ editor }: { editor: any }) => {
+    if (isSettingContentRef.current) return;
+    const html = editor.getHTML();
+    lastEmittedHtmlRef.current = html;
+    const json = JSON.stringify(editor.getJSON());
+    onChange(html, json);
+    syncContentDerivedState(editor);
+  }, [onChange, syncContentDerivedState]);
 
   const handleSelectionUpdate = useCallback(({ editor }: { editor: any }) => {
     const selection = editor.state.selection;
@@ -1636,6 +1899,12 @@ function RichTextEditorClient({
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'mention',
+        },
+        suggestion: mentionSuggestionConfig,
+      }),
       MoveNodeExtension,
       BlockWrapperExtension,
     ],
@@ -1647,6 +1916,7 @@ function RichTextEditorClient({
     onSelectionUpdate: handleSelectionUpdate,
     onCreate: ({ editor }: { editor: any }) => {
       editorRef.current = editor;
+      syncContentDerivedState(editor);
     },
   });
 
@@ -1666,6 +1936,12 @@ function RichTextEditorClient({
       if (cancelled) return;
       const normalized = processedHtml;
       if (lastAppliedValueRef.current === normalized) return;
+      // Fast-path: this value is exactly the HTML we just emitted from onUpdate
+      // (echo-back case). Skip applying it back — otherwise `setContent` would
+      // replace the doc on every keystroke whose HTML serialization round-trips
+      // differently (e.g. alternating &nbsp;/space for multi-space runs) and
+      // reset the cursor position, collapsing consecutive spaces.
+      if (normalized === lastEmittedHtmlRef.current) return;
 
       const currentHtml = editor.getHTML();
       const preprocessed = preprocessEditorContent(normalized);
@@ -1675,6 +1951,7 @@ function RichTextEditorClient({
         lastAppliedValueRef.current = normalized;
         try {
           editor.commands.setContent(preprocessed as any, false);
+          syncContentDerivedState(editor);
         } finally {
           queueMicrotask(() => {
             isSettingContentRef.current = false;
@@ -2785,6 +3062,97 @@ function RichTextEditorClient({
           letter-spacing: 0.5px;
           padding: 4px 12px;
           margin-top: 8px;
+        }
+        .tiptap-editor .mention {
+          background-color: #eef2ff;
+          color: #4f46e5;
+          border-radius: 4px;
+          padding: 0.1rem 0.35rem;
+          font-weight: 500;
+          box-decoration-break: clone;
+          cursor: pointer;
+          transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .tiptap-editor .mention:hover {
+          background-color: #e0e7ff;
+          color: #4338ca;
+        }
+        .mention-dropdown-menu {
+          position: fixed;
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
+          box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14);
+          padding: 6px;
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          overflow-y: auto;
+          max-height: 320px;
+        }
+        .mention-dropdown-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 8px 10px;
+          border: none;
+          background: transparent;
+          border-radius: 8px;
+          width: 100%;
+          text-align: left;
+          cursor: pointer;
+          font: inherit;
+          transition: background-color 0.12s ease;
+        }
+        .mention-dropdown-item:hover,
+        .mention-dropdown-item.is-selected {
+          background-color: #f3f4f6;
+        }
+        .mention-dropdown-avatar {
+          flex-shrink: 0;
+          width: 32px;
+          height: 32px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+          user-select: none;
+        }
+        .mention-dropdown-text {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .mention-dropdown-name {
+          font-size: 14px;
+          font-weight: 500;
+          color: #111827;
+          line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .mention-dropdown-email {
+          font-size: 12px;
+          color: #6b7280;
+          line-height: 1.2;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .mention-dropdown-empty {
+          padding: 12px;
+          font-size: 13px;
+          color: #9ca3af;
+          text-align: center;
         }
         .floating-toolbar {
           position: fixed;
