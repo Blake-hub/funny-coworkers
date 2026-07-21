@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import RichTextEditor, { DocumentOutline } from '@/components/RichTextEditor';
-import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send, Eye, Settings2, X } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send, Eye, Settings2 } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { wikiApi, WikiPageResponse, rewriteWikiMediaUrls, normalizeWikiMediaUrlsToRelative, WikiFolderResponse } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
@@ -45,7 +45,7 @@ export default function WikiPageEdit() {
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [selectedVisibility, setSelectedVisibility] = useState<'PRIVATE' | 'TEAM' | 'PUBLIC'>('PRIVATE');
   const [titleError, setTitleError] = useState<string | null>(null);
-  const [showDocSettings, setShowDocSettings] = useState(false);
+  const [showFolderVisibilityModal, setShowFolderVisibilityModal] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -299,6 +299,15 @@ export default function WikiPageEdit() {
                 <ChevronLeft className="w-4 h-4 text-gray-500" />
               )}
             </button>
+
+            <button
+              onClick={() => setShowFolderVisibilityModal(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
+              title="Folder & Visibility Settings"
+            >
+              <Settings2 className="w-4 h-4" />
+              <span className="text-sm font-medium">Settings</span>
+            </button>
           </div>
         </div>
 
@@ -327,92 +336,6 @@ export default function WikiPageEdit() {
                 )}
               </div>
 
-              <div className="my-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 flex-wrap min-w-0">
-                    <Settings2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                    <span className="text-xs font-medium text-gray-500">Folder:</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700 max-w-[180px] truncate">
-                      {(() => {
-                        if (selectedFolderId == null) return 'Root';
-                        const flat = flattenFolders(folders, 0);
-                        const f = flat.find(x => x.id === selectedFolderId);
-                        return f ? f.name : '(Unknown)';
-                      })()}
-                    </span>
-                    <span className="text-xs font-medium text-gray-500 ml-2">Visibility:</span>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
-                        selectedVisibility === 'PUBLIC'
-                          ? 'bg-green-50 text-green-700'
-                          : selectedVisibility === 'TEAM'
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {selectedVisibility}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowDocSettings(v => !v)}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
-                  >
-                    {showDocSettings ? (
-                      <>
-                        <X className="w-3.5 h-3.5" />
-                        <span>Close</span>
-                      </>
-                    ) : (
-                      <>
-                        <Settings2 className="w-3.5 h-3.5" />
-                        <span>Edit</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {showDocSettings && (
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Folder (optional)</label>
-                      <select
-                        value={selectedFolderId ?? ''}
-                        onChange={e => {
-                          setSelectedFolderId(e.target.value ? parseInt(e.target.value) : null);
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="">— Root (no folder) —</option>
-                        {flattenFolders(folders, 0).map(opt => (
-                          <option key={opt.id} value={opt.id}>
-                            {'— '.repeat(opt.depth)}
-                            {opt.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Visibility</label>
-                      <select
-                        value={selectedVisibility}
-                        onChange={e => {
-                          setSelectedVisibility(e.target.value as 'PRIVATE' | 'TEAM' | 'PUBLIC');
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="PRIVATE">Private — Only you</option>
-                        <option value="TEAM">Team — Team members only</option>
-                        <option value="PUBLIC">Public — All organization users</option>
-                      </select>
-                      <p className="text-[11px] text-gray-500 mt-1">Controls who can view and edit this document.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* Divider */}
               <hr className="border-gray-200" />
 
@@ -437,6 +360,86 @@ export default function WikiPageEdit() {
           </div>
         </div>
       </div>
+
+      {showFolderVisibilityModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center"
+            onClick={() => setShowFolderVisibilityModal(false)}
+          />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
+            <div
+              className="pointer-events-auto w-[420px] max-w-[92vw] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Folder &amp; Visibility</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {title || '(Untitled)'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-5 py-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Folder</label>
+                  <select
+                    value={selectedFolderId ?? ''}
+                    onChange={(e) => {
+                      setSelectedFolderId(e.target.value ? Number(e.target.value) : null);
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  >
+                    <option value="">— Root (no folder) —</option>
+                    {flattenFolders(folders, 0).map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {'— '.repeat(opt.depth)}
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Visibility</label>
+                  <select
+                    value={selectedVisibility}
+                    onChange={(e) => {
+                      setSelectedVisibility(e.target.value as 'PRIVATE' | 'TEAM' | 'PUBLIC');
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  >
+                    <option value="PRIVATE">Private — Only you</option>
+                    <option value="TEAM">Team — Team members only</option>
+                    <option value="PUBLIC">Public — All organization users</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Controls who can view and edit this document.</p>
+                </div>
+              </div>
+
+              <div className="px-5 py-3.5 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowFolderVisibilityModal(false)}
+                  className="px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFolderVisibilityModal(false)}
+                  className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </Layout>
   );
 }

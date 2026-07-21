@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
-import RichTextEditor, { DocumentOutline } from '@/components/RichTextEditor';
+const RichTextEditorEx = dynamic(() => import('@/components/RichTextEditor/RichTextEditorEx'), { ssr: false });
+const DocumentOutline = dynamic(() => import('@/components/RichTextEditor').then((mod) => ({ default: mod.DocumentOutline })), { ssr: false });
 import { ArrowLeft, ChevronLeft, ChevronRight, FolderOpen, Save, Send, Settings } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { wikiApi, CreateWikiPageRequest, normalizeWikiMediaUrlsToRelative, WikiFolderResponse } from '@/services/api';
@@ -25,7 +27,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
   };
 }
 
-export default function NewDocument() {
+export default function NewDocumentEx() {
   const router = useRouter();
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -89,7 +91,6 @@ export default function NewDocument() {
     loadFolders();
   }, []);
 
-  // If arriving via sidebar "Add document under folder" action: pre-select folder from query
   useEffect(() => {
     if (!router.isReady) return;
     const raw = router.query.folderId;
@@ -97,10 +98,9 @@ export default function NewDocument() {
     const folderId = Number(raw);
     if (!Number.isFinite(folderId) || folderId <= 0) return;
     setSelectedFolderId(folderId);
-    // Clean folderId from URL so refresh doesn't override later user edits
     const { folderId: _strip, ...rest } = router.query;
     router.replace({
-      pathname: '/wiki/new-document',
+      pathname: '/wiki/new-document-ex',
       query: rest,
     }, undefined, { shallow: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,7 +184,6 @@ export default function NewDocument() {
   return (
     <Layout>
       <div className="h-full flex flex-col">
-        {/* Header Bar */}
         <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between">
           <button
             onClick={() => router.push('/wiki')}
@@ -261,12 +260,9 @@ export default function NewDocument() {
           </div>
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel - 70% Width */}
           <div className={`flex-1 overflow-y-auto transition-all duration-300 ${isRightPanelCollapsed ? 'w-full' : 'w-[70%]'}`}>
-            <div className="px-8 py-6 flex flex-col h-full" style={{ height: 'calc(100vh - 200px)' }}>
-              {/* Document Title */}
+            <div className="px-8 py-2 flex flex-col h-full" style={{ height: 'calc(100vh - 200px)' }}>
               <input
                 type="text"
                 value={title}
@@ -283,28 +279,24 @@ export default function NewDocument() {
                 <div className="mt-1 text-sm text-red-600">{titleError}</div>
               )}
 
-              {/* Author Info */}
               <div className="text-sm text-gray-500">
                 <span className="font-medium">Author:</span> {user?.name || 'Unknown User'}
               </div>
 
-              {/* Divider */}
               <hr className="border-gray-200" />
 
-              {/* Document Body */}
               <div className="flex-1 min-h-[500px] mt-4">
-                <RichTextEditor
+                <RichTextEditorEx
                   value={editorContent}
                   onChange={handleContentChange}
                   placeholder="Start writing your document... You can add text, create tables, insert images, and more."
-                  data-testid="wiki-document-editor"
+                  data-testid="wiki-document-editor-ex"
                   onReady={handleEditorReady}
                 />
               </div>
             </div>
           </div>
 
-          {/* Right Panel - 30% Width */}
           <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-[30%]'} transition-all duration-300 border-l border-gray-200 flex flex-col`}>
             <div className="flex-1 overflow-y-auto p-4">
               <DocumentOutline editor={editorInstance} />
