@@ -20,6 +20,7 @@ import { TextAlign } from '@tiptap/extension-text-align';
 
 import { DragHandleEx } from './DragHandleEx';
 import { runChecksInBrowser } from './tests/verifyHandles';
+import { setupDragDropVerification } from './verifyDragDrop';
 
 import {
   Bold, Italic, Underline, Strikethrough,
@@ -333,6 +334,8 @@ function RichTextEditorEx({
         __EDITOR__?: unknown;
         __VERIFY_HANDLES__?: (editor: unknown) => void;
         __TEST_SLASH_ACTION__?: (index: number) => void;
+        __VERIFY_DRAG_DROP__?: () => Promise<boolean>;
+        __TEST_DRAG_BLOCK__?: () => void;
       };
       w.__EDITOR__ = editor;
       w.__VERIFY_HANDLES__ = runChecksInBrowser;
@@ -343,6 +346,7 @@ function RichTextEditorEx({
           items[index].action();
         }
       };
+      setupDragDropVerification(editor);
     },
     editorProps: {
       handleKeyDown: (view, event) => {
@@ -1057,6 +1061,68 @@ function RichTextEditorEx({
           color: #adb5bd;
           pointer-events: none;
           height: 0;
+        }
+        .tiptap-drop-indicator {
+          position: absolute;
+          height: 3px;
+          background: linear-gradient(90deg, #3b82f6, #60a5fa, #3b82f6);
+          border-radius: 2px;
+          box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+          pointer-events: none;
+          z-index: 50;
+          transform: translateY(-1px);
+        }
+        .tiptap-drop-indicator::before,
+        .tiptap-drop-indicator::after {
+          content: '';
+          position: absolute;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #3b82f6;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+        .tiptap-drop-indicator::before {
+          left: -5px;
+        }
+        .tiptap-drop-indicator::after {
+          right: -5px;
+        }
+        .tiptap-editor .dragging-source-block {
+          opacity: 0.4 !important;
+          outline: 2px dashed #3b82f6 !important;
+          outline-offset: 2px !important;
+          border-radius: 4px !important;
+          background: rgba(59, 130, 246, 0.1) !important;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), inset 0 0 20px rgba(59, 130, 246, 0.1) !important;
+          transform: scale(0.98) !important;
+          filter: saturate(0.7) !important;
+          transition: all 0.15s ease !important;
+          position: relative !important;
+        }
+        .tiptap-editor .dragging-source-block::before {
+          content: '' !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 8px,
+            rgba(59, 130, 246, 0.08) 8px,
+            rgba(59, 130, 246, 0.08) 16px
+          ) !important;
+          border-radius: inherit !important;
+          pointer-events: none !important;
+          animation: drag-ghost-pulse 1s ease-in-out infinite !important;
+        }
+        @keyframes drag-ghost-pulse {
+          0%, 100% {
+            opacity: 0.6;
+          }
+          50% {
+            opacity: 1;
+          }
         }
         .tiptap-editor .text-left {
           text-align: left;

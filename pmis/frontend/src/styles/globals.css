@@ -39,8 +39,12 @@ body {
   background: #f1f5f9;
   color: #0f172a;
   border-color: #e2e8f0;
+  opacity: 1;
 }
-.tiptap-drag-handle:active { cursor: grabbing; }
+.tiptap-drag-handle:active { 
+  cursor: grabbing; 
+  opacity: 1;
+}
 
 .ProseMirror *:hover + .tiptap-drag-handle {
   opacity: 1;
@@ -211,6 +215,7 @@ body {
 }
 
 .tiptap-editor {
+  position: relative;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
