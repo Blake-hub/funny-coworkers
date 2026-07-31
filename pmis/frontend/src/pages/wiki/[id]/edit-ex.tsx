@@ -5,9 +5,9 @@ import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 const RichTextEditorEx = dynamic(() => import('@/components/RichTextEditor/RichTextEditorEx'), { ssr: false });
 const DocumentOutlineEx = dynamic(() => import('@/components/RichTextEditor/RichTextEditorEx').then((mod) => ({ default: mod.DocumentOutlineEx })), { ssr: false });
-import { ArrowLeft, ChevronLeft, ChevronRight, FolderOpen, Save, Send, Settings } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Save, Send, Eye, Settings } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
-import { wikiApi, CreateWikiPageRequest, UpdateWikiPageRequest, normalizeWikiMediaUrlsToRelative, WikiFolderResponse } from '@/services/api';
+import { wikiApi, UpdateWikiPageRequest, WikiPageResponse, rewriteWikiMediaUrls, normalizeWikiMediaUrlsToRelative, WikiFolderResponse } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
@@ -27,10 +27,11 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
   };
 }
 
-export default function NewDocumentEx() {
+export default function WikiPageEditEx() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { addToast } = useToast();
+  const { id } = router.query;
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [title, setTitle] = useState('');
   const [editorContent, setEditorContent] = useState<string>('');
@@ -39,20 +40,79 @@ export default function NewDocumentEx() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [page, setPage] = useState<WikiPageResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [folders, setFolders] = useState<WikiFolderResponse[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [selectedVisibility, setSelectedVisibility] = useState<'PRIVATE' | 'TEAM' | 'PUBLIC'>('PRIVATE');
   const [titleError, setTitleError] = useState<string | null>(null);
-  
-  // New state for enhanced save features
+
+  // Enhanced save features
   const [isDirty, setIsDirty] = useState(false);
   const [isAutoSave, setIsAutoSave] = useState(false);
-  const [savedPageId, setSavedPageId] = useState<number | null>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMount = useRef(true);
 
   const [showFolderVisibilityModal, setShowFolderVisibilityModal] = useState(false);
   const [fvError, setFvError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    if (id) {
+      loadPage();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    const loadFolders = async () => {
+      try {
+        const result = await wikiApi.getAllFolders();
+        setFolders(result);
+      } catch (err) {
+        console.error('Failed to load wiki folders:', err);
+      }
+    };
+    loadFolders();
+  }, []);
+
+  const loadPage = async () => {
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      const pageData = await wikiApi.getPageById(Number(id));
+      setPage(pageData);
+      setTitle(pageData.title);
+      setSelectedFolderId(pageData.folderId ?? null);
+      if (
+        pageData.visibility === 'PUBLIC' ||
+        pageData.visibility === 'TEAM' ||
+        pageData.visibility === 'PRIVATE'
+      ) {
+        setSelectedVisibility(pageData.visibility);
+      }
+
+      if (pageData.contentHtml) {
+        setEditorContent(rewriteWikiMediaUrls(pageData.contentHtml));
+      }
+
+      // Mark initial mount as complete after loading
+      setTimeout(() => {
+        isInitialMount.current = false;
+      }, 500);
+    } catch (err) {
+      console.error('Failed to load wiki page:', err);
+      addToast('error', err instanceof Error ? err.message : 'Failed to load wiki page');
+      router.push('/wiki');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEditorReady = useCallback((editor: unknown) => {
     setEditorInstance(editor);
@@ -65,13 +125,6 @@ export default function NewDocumentEx() {
       setIsDirty(true);
     }
   }, []);
-
-  // Mark initial mount as complete after first content change
-  useEffect(() => {
-    if (editorContent && editorContent.length > 0) {
-      isInitialMount.current = false;
-    }
-  }, [editorContent]);
 
   const normalizeJsonMediaUrls = (jsonString: string): string => {
     if (!jsonString) return jsonString;
@@ -96,33 +149,6 @@ export default function NewDocumentEx() {
     }
   };
 
-  useEffect(() => {
-    const loadFolders = async () => {
-      try {
-        const result = await wikiApi.getAllFolders();
-        setFolders(result);
-      } catch (err) {
-        console.error('Failed to load wiki folders:', err);
-      }
-    };
-    loadFolders();
-  }, []);
-
-  useEffect(() => {
-    if (!router.isReady) return;
-    const raw = router.query.folderId;
-    if (raw == null) return;
-    const folderId = Number(raw);
-    if (!Number.isFinite(folderId) || folderId <= 0) return;
-    setSelectedFolderId(folderId);
-    const { folderId: _strip, ...rest } = router.query;
-    router.replace({
-      pathname: '/wiki/new-document-ex',
-      query: rest,
-    }, undefined, { shallow: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, router.query.folderId]);
-
   const flattenFolders = (
     folderList: WikiFolderResponse[],
     depth: number
@@ -144,6 +170,8 @@ export default function NewDocumentEx() {
       }
       return;
     }
+
+    if (!id) return;
 
     setTitleError(null);
 
@@ -169,54 +197,25 @@ export default function NewDocumentEx() {
         preview: normalizedHtml.substring(0, 100)
       });
 
-      if (savedPageId) {
-        // Update existing page
-        const updateData: UpdateWikiPageRequest = {
-          title: title.trim(),
-          contentHtml: normalizedHtml,
-          contentJson: normalizedJson,
-          isPublished: publish,
-          folderId: selectedFolderId ?? undefined,
-          visibility: selectedVisibility,
-        };
+      const updateData: UpdateWikiPageRequest = {
+        title: title.trim(),
+        contentHtml: normalizedHtml,
+        contentJson: normalizedJson,
+        isPublished: publish,
+        folderId: selectedFolderId ?? undefined,
+        visibility: selectedVisibility,
+      };
 
-        const updated = await wikiApi.updatePage(savedPageId, updateData);
-        setLastSaved(new Date());
-        setIsDirty(false);
+      await wikiApi.updatePage(Number(id), updateData);
+      setLastSaved(new Date());
+      setIsDirty(false);
 
-        if (publish) {
-          addToast('success', 'Document published successfully!');
-          router.push(`/wiki/${updated.id}`);
-        } else {
-          if (!autoSave) {
-            addToast('success', 'Document saved as draft');
-            router.push(`/wiki/${updated.id}/edit-ex`);
-          }
-        }
+      if (publish) {
+        addToast('success', 'Document published successfully!');
+        router.push(`/wiki/${id}`);
       } else {
-        // Create new page
-        const pageData: CreateWikiPageRequest = {
-          title: title.trim(),
-          contentHtml: normalizedHtml,
-          contentJson: normalizedJson,
-          isPublished: publish,
-          folderId: selectedFolderId ?? undefined,
-          visibility: selectedVisibility,
-        };
-
-        const created = await wikiApi.createPage(pageData);
-        setSavedPageId(created.id);
-        setLastSaved(new Date());
-        setIsDirty(false);
-
-        if (publish) {
-          addToast('success', 'Document published successfully!');
-          router.push(`/wiki/${created.id}`);
-        } else {
-          if (!autoSave) {
-            addToast('success', 'Document saved as draft');
-            router.push(`/wiki/${created.id}/edit-ex`);
-          }
+        if (!autoSave) {
+          addToast('success', 'Document saved as draft');
         }
       }
     } catch (err) {
@@ -243,7 +242,7 @@ export default function NewDocumentEx() {
 
   // Auto-save feature: save automatically when content changes with 3-second debounce
   useEffect(() => {
-    if (!isDirty || isSaving || isPublishing) return;
+    if (!isDirty || isSaving || isPublishing || loading) return;
 
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -260,7 +259,7 @@ export default function NewDocumentEx() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [isDirty, isSaving, isPublishing, title, editorContent, editorJson, selectedFolderId, selectedVisibility]);
+  }, [isDirty, isSaving, isPublishing, loading, title, editorContent, editorJson, selectedFolderId, selectedVisibility]);
 
   // Keyboard shortcut: Ctrl+S to save
   useEffect(() => {
@@ -299,9 +298,20 @@ export default function NewDocumentEx() {
     return lastSaved.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="h-full flex flex-col">
+        {/* Header Bar */}
         <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between">
           <button
             onClick={() => router.push('/wiki')}
@@ -316,7 +326,6 @@ export default function NewDocumentEx() {
             const match = flat.find(f => f.id === selectedFolderId);
             return (
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
                 <span className="font-medium max-w-[200px] truncate">
                   {match ? match.name : 'Folder'}
                 </span>
@@ -355,6 +364,14 @@ export default function NewDocumentEx() {
                 Last saved: {formatLastSaved()}
               </span>
             )}
+
+            <button
+              onClick={() => router.push(`/wiki/${id}`)}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="text-sm font-medium">View</span>
+            </button>
 
             <button
               onClick={() => handleSave(false)}
@@ -404,14 +421,18 @@ export default function NewDocumentEx() {
           </div>
         </div>
 
+        {/* Content Area */}
         <div className="flex-1 flex overflow-hidden">
+          {/* Left Panel - Main editor area */}
           <div className={`flex-1 overflow-y-auto transition-all duration-300 ${isRightPanelCollapsed ? 'w-full' : 'w-[70%]'}`}>
             <div className="px-8 py-2 flex flex-col h-full" style={{ height: 'calc(100vh - 200px)' }}>
+              {/* Document Title */}
               <input
                 type="text"
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value);
+                  setIsDirty(true);
                   if (titleError) setTitleError(null);
                 }}
                 placeholder="Enter document title..."
@@ -423,8 +444,9 @@ export default function NewDocumentEx() {
                 <div className="mt-1 text-sm text-red-600">{titleError}</div>
               )}
 
+              {/* Author Info */}
               <div className="text-sm text-gray-500">
-                <span className="font-medium">Author:</span> {user?.name || 'Unknown User'}
+                <span className="font-medium">Author:</span> {page?.lastModifiedByName || user?.name || 'Unknown User'}
               </div>
 
               <hr className="border-gray-200" />
@@ -441,6 +463,7 @@ export default function NewDocumentEx() {
             </div>
           </div>
 
+          {/* Right Panel - Document Outline */}
           <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-[30%]'} transition-all duration-300 border-l border-gray-200 flex flex-col`}>
             <div className="flex-1 overflow-y-auto p-4">
               <DocumentOutlineEx editor={editorInstance} />
@@ -479,6 +502,7 @@ export default function NewDocumentEx() {
                     value={selectedFolderId ?? ''}
                     onChange={(e) => {
                       setSelectedFolderId(e.target.value ? Number(e.target.value) : null);
+                      setIsDirty(true);
                       if (fvError) setFvError(null);
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -499,6 +523,7 @@ export default function NewDocumentEx() {
                     value={selectedVisibility}
                     onChange={(e) => {
                       setSelectedVisibility(e.target.value as 'PRIVATE' | 'TEAM' | 'PUBLIC');
+                      setIsDirty(true);
                       if (fvError) setFvError(null);
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"

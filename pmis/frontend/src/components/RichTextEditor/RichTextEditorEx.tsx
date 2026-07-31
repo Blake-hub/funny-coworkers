@@ -330,6 +330,8 @@ function RichTextEditorEx({
     },
     onCreate: ({ editor }) => {
       if (onReady) onReady(editor);
+      // Fire initial content to parent so editorContent state is populated
+      if (onChange) onChange(editor.getHTML() as string, JSON.stringify(editor.getJSON()));
       const w = window as unknown as {
         __EDITOR__?: unknown;
         __VERIFY_HANDLES__?: (editor: unknown) => void;
@@ -1242,3 +1244,307 @@ function RichTextEditorEx({
 }
 
 export default RichTextEditorEx;
+
+export const DocumentOutlineEx = ({ editor }: { editor: any }) => {
+  const [headings, setHeadings] = useState<any[]>([]);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateHeadings = () => {
+      const newHeadings: any[] = [];
+      let idCounter = 0;
+
+      editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'heading') {
+          const level = node.attrs.level;
+          const text = node.textContent || `Heading ${level}`;
+          newHeadings.push({
+            id: `heading-${idCounter++}`,
+            level,
+            text,
+            pos,
+          });
+        }
+        return true;
+      });
+
+      setHeadings(newHeadings);
+    };
+
+    updateHeadings();
+    editor.on('update', updateHeadings);
+
+    return () => {
+      editor.off('update', updateHeadings);
+    };
+  }, [editor]);
+
+  const toggleExpand = (id: string) => {
+    const newExpanded = new Set(expandedItems);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedItems(newExpanded);
+  };
+
+  const scrollToHeading = (pos: number) => {
+    setTimeout(() => {
+      try {
+        const targetHeading = headings.find((h: any) => h.pos === pos);
+        if (!targetHeading) return;
+
+        const outerScrollContainer = document.querySelector('.flex-1.overflow-y-auto');
+
+        const createHighlightOverlay = (headingElement: HTMLElement) => {
+          const existingOverlay = document.querySelector('.heading-highlight-overlay-ex');
+          if (existingOverlay) {
+            existingOverlay.remove();
+          }
+
+          const overlay = document.createElement('div');
+          overlay.className = 'heading-highlight-overlay-ex';
+          overlay.textContent = '';
+
+          const rect = headingElement.getBoundingClientRect();
+          overlay.style.position = 'fixed';
+          overlay.style.left = rect.left + 'px';
+          overlay.style.top = rect.top + 'px';
+          overlay.style.width = rect.width + 'px';
+          overlay.style.height = rect.height + 'px';
+          overlay.style.borderRadius = '8px';
+          overlay.style.pointerEvents = 'none';
+          overlay.style.zIndex = '1000';
+          overlay.style.animation = 'headingHighlightEx 2s ease-out forwards';
+
+          document.body.appendChild(overlay);
+
+          const updatePosition = () => {
+            const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            for (let i = 0; i < headings.length; i++) {
+              const h = headings[i] as HTMLElement;
+              if (h.textContent?.trim() === targetHeading.text.trim()) {
+                const newRect = h.getBoundingClientRect();
+                overlay.style.left = newRect.left + 'px';
+                overlay.style.top = newRect.top + 'px';
+                overlay.style.width = newRect.width + 'px';
+                overlay.style.height = newRect.height + 'px';
+                break;
+              }
+            }
+          };
+
+          let rafId = requestAnimationFrame(function animate() {
+            updatePosition();
+            rafId = requestAnimationFrame(animate);
+          });
+
+          setTimeout(() => {
+            cancelAnimationFrame(rafId);
+            overlay.remove();
+          }, 2000);
+        };
+
+        if (outerScrollContainer) {
+          const container = outerScrollContainer as HTMLElement;
+          const allHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+          let headingElement: HTMLElement | null = null;
+
+          for (let i = 0; i < allHeadings.length; i++) {
+            const el = allHeadings[i] as HTMLElement;
+            if (el.textContent?.trim() === targetHeading.text.trim()) {
+              headingElement = el;
+              break;
+            }
+          }
+
+          if (!headingElement) return;
+
+          const elementRect = headingElement.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const targetScroll = container.scrollTop + (elementRect.top - containerRect.top) - 80;
+          container.scrollTop = Math.max(0, targetScroll);
+
+          setTimeout(() => {
+            const updatedHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            for (let i = 0; i < updatedHeadings.length; i++) {
+              const el = updatedHeadings[i] as HTMLElement;
+              if (el.textContent?.trim() === targetHeading.text.trim()) {
+                createHighlightOverlay(el);
+                break;
+              }
+            }
+          }, 200);
+        } else {
+          const allHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+          let headingElement: HTMLElement | null = null;
+
+          for (let i = 0; i < allHeadings.length; i++) {
+            const el = allHeadings[i] as HTMLElement;
+            if (el.textContent?.trim() === targetHeading.text.trim()) {
+              headingElement = el;
+              break;
+            }
+          }
+
+          if (headingElement) {
+            headingElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+            createHighlightOverlay(headingElement);
+          }
+        }
+      } catch (error) {
+        console.error('scrollToHeading error:', error);
+      }
+    }, 100);
+  };
+
+  const buildTree = () => {
+    const tree: any[] = [];
+    const stack: any[] = [];
+
+    for (const heading of headings) {
+      while (stack.length > 0 && stack[stack.length - 1].level >= heading.level) {
+        stack.pop();
+      }
+
+      const node = {
+        ...heading,
+        children: [],
+      };
+
+      if (stack.length === 0) {
+        tree.push(node);
+      } else {
+        stack[stack.length - 1].children.push(node);
+      }
+
+      stack.push(node);
+    }
+
+    return tree;
+  };
+
+  const TreeItem = ({ item, depth = 0 }: { item: any; depth?: number }) => (
+    <div key={item.id}>
+      <button
+        onClick={() => {
+          if (item.children.length > 0) {
+            toggleExpand(item.id);
+          }
+          scrollToHeading(item.pos);
+        }}
+        className="outline-item-ex"
+        style={{ paddingLeft: `${depth * 12 + 16}px` }}
+      >
+        <span className="w-3 h-3 flex items-center justify-center flex-shrink-0">
+          {item.children.length > 0 ? (
+            expandedItems.has(item.id) ? (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            )
+          ) : (
+            <span className="w-3" />
+          )}
+        </span>
+        <span className="flex-1 truncate" style={{ fontWeight: item.level <= 2 ? '600' : '400' }}>
+          {item.text}
+        </span>
+        <span className="text-xs">H{item.level}</span>
+      </button>
+      {item.children.length > 0 && expandedItems.has(item.id) && (
+        <div>
+          {item.children.map((child: any) => (
+            <TreeItem key={child.id} item={child} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const tree = buildTree();
+
+  if (headings.length === 0) {
+    return (
+      <div className="document-outline-ex">
+        <h3 className="outline-title">Document Outline</h3>
+        <p className="text-xs text-gray-400 mt-2">No headings found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="document-outline-ex">
+      <h3 className="outline-title">Document Outline</h3>
+      <div className="mt-4 space-y-0">
+        {tree.map((item) => (
+          <TreeItem key={item.id} item={item} />
+        ))}
+      </div>
+      <style>{`
+        @keyframes headingHighlightEx {
+          0% {
+            background-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4), 0 0 30px rgba(59, 130, 246, 0.3);
+            transform: scale(1);
+            opacity: 1;
+          }
+          40% {
+            background-color: rgba(59, 130, 246, 0.15);
+            box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.2), 0 0 40px rgba(59, 130, 246, 0.15);
+          }
+          70% {
+            background-color: rgba(59, 130, 246, 0.08);
+            box-shadow: 0 0 0 12px rgba(59, 130, 246, 0.1), 0 0 50px rgba(59, 130, 246, 0.08);
+          }
+          100% {
+            background-color: transparent;
+            box-shadow: none;
+            transform: scale(1);
+            opacity: 0;
+          }
+        }
+        .heading-highlight-overlay-ex {
+          animation: headingHighlightEx 2s ease-out forwards;
+        }
+        .document-outline-ex {
+          padding: 12px 16px;
+        }
+        .outline-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: #374151;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 8px;
+        }
+        .outline-item-ex {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 6px 0;
+          background: none;
+          border: none;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          font-size: 13px;
+          color: #374151;
+        }
+        .outline-item-ex:hover {
+          color: #1d4ed8;
+          background: #eff6ff;
+          border-radius: 4px;
+        }
+      `}</style>
+    </div>
+  );
+};

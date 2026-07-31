@@ -322,7 +322,7 @@ export default function WikiPageView() {
             )}
 
             <button
-              onClick={() => router.push(`/wiki/${id}/edit`)}
+              onClick={() => router.push(`/wiki/${id}/edit-ex`)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
             >
               <Edit3 className="w-4 h-4" />

@@ -357,7 +357,7 @@ export default function Wiki() {
                       <Eye className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => router.push(`/wiki/${page.id}/edit`)}
+                      onClick={() => router.push(`/wiki/${page.id}/edit-ex`)}
                       className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                       title="Edit"
                     >
