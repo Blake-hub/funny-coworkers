@@ -29,6 +29,9 @@ public class WikiPage {
     @Column(name = "content_json", columnDefinition = "text")
     private String contentJson;
 
+    @Column(name = "content_text", columnDefinition = "text")
+    private String contentText;
+
     @Column(name = "parent_page_id")
     private Long parentPageId;
 

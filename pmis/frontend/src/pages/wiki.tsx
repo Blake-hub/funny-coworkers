@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
@@ -10,9 +10,11 @@ import {
   Eye,
   Trash2,
   X,
+  Search as SearchIcon,
+  Loader2,
 } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
-import { wikiApi, WikiPageResponse, WikiFolderResponse } from '@/services/api';
+import { wikiApi, WikiPageResponse, WikiFolderResponse, WikiSearchResult } from '@/services/api';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
   const token = context.req.cookies['pmis-token'];
@@ -38,6 +40,13 @@ export default function Wiki() {
   const [wikiPages, setWikiPages] = useState<WikiPageResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Search-related state
+  const [searchResults, setSearchResults] = useState<WikiSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchTotalCount, setSearchTotalCount] = useState(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   const [folders, setFolders] = useState<WikiFolderResponse[]>([]);
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'mine' | 'team' | 'public'>('all');
@@ -125,6 +134,64 @@ export default function Wiki() {
       console.error('Failed to delete wiki page:', err);
       alert(err instanceof Error ? err.message : 'Failed to delete page');
     }
+  };
+
+  const performSearch = useCallback(async (keyword: string) => {
+    if (!keyword.trim()) {
+      setSearchResults([]);
+      setSearchTotalCount(0);
+      setSearchLoading(false);
+      return;
+    }
+
+    // Cancel previous search if still running
+    if (searchAbortRef.current) {
+      searchAbortRef.current.abort();
+    }
+
+    setSearchLoading(true);
+    try {
+      const response = await wikiApi.searchPages(keyword.trim());
+      setSearchResults(response.results);
+      setSearchTotalCount(response.totalCount);
+    } catch (err) {
+      console.error('Search failed:', err);
+      setSearchResults([]);
+      setSearchTotalCount(0);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  const handleSearchInputChange = (value: string) => {
+    setSearchQuery(value);
+
+    // Debounce search by 400ms
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    if (!value.trim()) {
+      // Clear search immediately if input is empty
+      if (searchAbortRef.current) {
+        searchAbortRef.current.abort();
+      }
+      setSearchResults([]);
+      setSearchTotalCount(0);
+      setSearchLoading(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(() => {
+      performSearch(value);
+    }, 400);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchTotalCount(0);
+    setSearchLoading(false);
   };
 
   const handleNewPage = () => {
@@ -270,9 +337,17 @@ export default function Wiki() {
               type="text"
               placeholder="Search wiki..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+              onChange={(e) => handleSearchInputChange(e.target.value)}
+              className="pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
             />
+            {searchQuery && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -285,15 +360,100 @@ export default function Wiki() {
             </div>
           )}
 
+          {/* Search Loading State */}
+          {searchLoading && (
+            <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              <span className="text-sm">Searching...</span>
+            </div>
+          )}
+
+          {/* Search Results */}
+          {!searchLoading && searchQuery.trim() && searchResults.length > 0 && (
+            <>
+              <div className="px-3 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+                <SearchIcon className="w-3.5 h-3.5" />
+                <span>
+                  Found {searchTotalCount} result{searchTotalCount !== 1 ? 's' : ''} for "{searchQuery}"
+                </span>
+              </div>
+              <div className="min-w-full divide-y divide-gray-100">
+                {searchResults.map((result) => (
+                  <div
+                    key={result.id}
+                    className="p-3 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                  >
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <FileText className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-medium text-gray-800 truncate">{result.title}</h3>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              result.matchField === 'TITLE'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {result.matchField === 'TITLE' ? 'Title' : 'Content'}
+                          </span>
+                        </div>
+                        {result.snippet && (
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                            {result.snippet}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                          {result.updatedByName && (
+                            <span>{result.updatedByName}</span>
+                          )}
+                          <span>·</span>
+                          <span>{formatDate(result.updatedAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-3">
+                      <button
+                        onClick={() => router.push(`/wiki/${result.id}?q=${encodeURIComponent(searchQuery)}`)}
+                        className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="View with highlights"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => router.push(`/wiki/${result.id}/edit-ex`)}
+                        className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* No Search Results */}
+          {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <SearchIcon className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm font-medium">No results found</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Try different keywords or check your spelling
+              </p>
+            </div>
+          )}
+
           {/* Loading State */}
-          {loading && (
+          {!searchQuery.trim() && loading && (
             <div className="p-8 text-center text-gray-500">
               Loading wiki pages...
             </div>
           )}
 
           {/* Empty State */}
-          {!loading && filteredPages.length === 0 && !error && (
+          {!searchQuery.trim() && !loading && filteredPages.length === 0 && !error && (
             <div className="text-center py-8 text-gray-500">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               <p className="text-sm font-medium">No wiki pages yet</p>
@@ -311,7 +471,7 @@ export default function Wiki() {
           )}
 
           {/* Wiki Pages List */}
-          {!loading && filteredPages.length > 0 && (
+          {!searchQuery.trim() && !loading && filteredPages.length > 0 && (
             <div className="min-w-full divide-y divide-gray-100">
               {filteredPages.map((page) => (
                 <div

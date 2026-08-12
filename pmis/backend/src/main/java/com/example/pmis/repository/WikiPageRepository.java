@@ -20,4 +20,12 @@ public interface WikiPageRepository extends JpaRepository<WikiPage, Long> {
     List<WikiPage> findConflictingByTitleGlobally(
             @Param("title") String title,
             @Param("excludeId") Long excludeId);
+
+    @Query("SELECT p FROM WikiPage p WHERE " +
+            "(LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR LOWER(p.contentText) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND p.isPublished = true " +
+            "ORDER BY CASE WHEN LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%')) THEN 3 ELSE 1 END DESC, " +
+            "p.lastModifiedAt DESC")
+    List<WikiPage> searchPublishedByKeyword(@Param("keyword") String keyword);
 }

@@ -3,6 +3,7 @@ package com.example.pmis.service;
 import com.example.pmis.dto.CreateWikiPageRequest;
 import com.example.pmis.dto.UpdateWikiPageRequest;
 import com.example.pmis.dto.WikiPageDTO;
+import com.example.pmis.dto.WikiSearchResponse;
 import com.example.pmis.entity.Notification;
 import com.example.pmis.entity.User;
 import com.example.pmis.entity.WikiFolder;
@@ -17,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -40,9 +42,21 @@ public class WikiPageService {
             "(?i)@|class\\s*=\\s*([\"'])[^\"']*\\bmention\\b|data-type\\s*=\\s*([\"'])mention"
     );
 
+    private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]+>");
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
+
     private static boolean looksLikeItContainsMentions(String html) {
         if (html == null || html.isBlank()) return false;
         return MENTION_LIKE_MARKER.matcher(html).find();
+    }
+
+    /**
+     * Strips HTML tags and collapses whitespace to produce plain text for search indexing.
+     */
+    static String stripHtmlToText(String html) {
+        if (html == null || html.isBlank()) return "";
+        String stripped = HTML_TAG_PATTERN.matcher(html).replaceAll(" ");
+        return WHITESPACE_PATTERN.matcher(stripped).replaceAll(" ").trim();
     }
 
     private static String snippet(String s, int max) {
@@ -171,10 +185,13 @@ public class WikiPageService {
 
         validateTitleUniqueGlobally(request.getTitle(), null);
 
+        String contentText = stripHtmlToText(request.getContentHtml());
+
         WikiPage wikiPage = WikiPage.builder()
                 .title(request.getTitle())
                 .contentHtml(request.getContentHtml())
                 .contentJson(request.getContentJson())
+                .contentText(contentText)
                 .parentPageId(request.getParentPageId())
                 .folderId(request.getFolderId())
                 .isPublished(request.getIsPublished() != null ? request.getIsPublished() : false)
@@ -202,6 +219,7 @@ public class WikiPageService {
         }
         if (request.getContentHtml() != null) {
             wikiPage.setContentHtml(request.getContentHtml());
+            wikiPage.setContentText(stripHtmlToText(request.getContentHtml()));
         }
         if (request.getContentJson() != null) {
             wikiPage.setContentJson(request.getContentJson());
@@ -280,6 +298,95 @@ public class WikiPageService {
             throw new RuntimeException("No edit access to wiki page with id: " + id);
         }
         wikiPageRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public WikiSearchResponse searchWikiPages(String keyword, User currentUser) {
+        if (keyword == null || keyword.isBlank()) {
+            return WikiSearchResponse.builder()
+                    .results(new ArrayList<>())
+                    .totalCount(0)
+                    .build();
+        }
+
+        String trimmedKeyword = keyword.trim();
+        List<WikiPage> allMatching = wikiPageRepository.searchPublishedByKeyword(trimmedKeyword);
+
+        // Filter by visibility access
+        List<WikiPage> accessiblePages = allMatching.stream()
+                .filter(page -> hasViewAccess(page, currentUser))
+                .collect(Collectors.toList());
+
+        // Build search results with snippets
+        List<WikiSearchResponse.SearchResult> results = new ArrayList<>();
+        int limit = 20;
+        long totalCount = 0;
+
+        for (WikiPage page : accessiblePages) {
+            boolean titleMatch = page.getTitle().toLowerCase().contains(trimmedKeyword.toLowerCase());
+            boolean contentMatch = page.getContentText() != null &&
+                    page.getContentText().toLowerCase().contains(trimmedKeyword.toLowerCase());
+
+            if (!titleMatch && !contentMatch) continue;
+
+            totalCount++;
+            if (results.size() >= limit) continue;
+
+            String matchField = titleMatch ? "TITLE" : "CONTENT";
+            int score = titleMatch ? 3 : 1;
+
+            String snippet = "";
+            if (contentMatch) {
+                snippet = buildSnippet(page.getContentText(), trimmedKeyword);
+            } else {
+                snippet = page.getContentText() != null && !page.getContentText().isEmpty()
+                        ? buildSnippet(page.getContentText(), trimmedKeyword)
+                        : "(No content preview available)";
+            }
+
+            String updatedByName = "";
+            if (page.getLastModifiedBy() != null) {
+                updatedByName = userRepository.findById(page.getLastModifiedBy())
+                        .map(User::getName)
+                        .orElse("Unknown");
+            }
+
+            results.add(WikiSearchResponse.SearchResult.builder()
+                    .id(page.getId())
+                    .title(page.getTitle())
+                    .snippet(snippet)
+                    .matchField(matchField)
+                    .score(score)
+                    .updatedAt(page.getLastModifiedAt())
+                    .updatedByName(updatedByName)
+                    .build());
+        }
+
+        return WikiSearchResponse.builder()
+                .results(results)
+                .totalCount(totalCount)
+                .build();
+    }
+
+    private String buildSnippet(String content, String keyword) {
+        if (content == null || content.isBlank()) return "(No content preview)";
+        if (keyword == null || keyword.isBlank()) {
+            return content.length() > 120 ? content.substring(0, 120) + "..." : content;
+        }
+
+        int idx = content.toLowerCase().indexOf(keyword.toLowerCase());
+        if (idx < 0) {
+            return content.length() > 120 ? content.substring(0, 120) + "..." : content;
+        }
+
+        int contextLen = 50;
+        int start = Math.max(0, idx - contextLen);
+        int end = Math.min(content.length(), idx + keyword.length() + contextLen);
+
+        String prefix = start > 0 ? "..." : "";
+        String suffix = end < content.length() ? "..." : "";
+
+        return prefix + content.substring(start, end) + suffix;
     }
 
     public boolean hasViewAccess(WikiPage page, User user) {

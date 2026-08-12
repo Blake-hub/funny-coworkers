@@ -40,7 +40,7 @@ test.describe('Wiki - Drag and Drop Verification', () => {
 
   // Helper function to verify ghost overlay visual effect
   const verifyGhostOverlay = async (page: any, handleSelector: string, blockType: string) => {
-    const result = await page.evaluate(({ selector, type }) => {
+    const result = await page.evaluate(({ selector, type }: { selector: string; type: string }) => {
       const handle = document.querySelector(selector) as HTMLElement;
       if (!handle) {
         return { success: false, error: `Handle not found for ${type}` };
@@ -840,9 +840,9 @@ test.describe('Wiki - Drag and Drop Verification', () => {
 
       console.log(`Testing ${blockType} block...`);
 
-      const result = await page.evaluate(({ selector, type }) => {
-        const allHandles = document.querySelectorAll('.tiptap-drag-handle');
-        
+      const result = await page.evaluate(({ selector, type }: { selector: string; type: string }) => {
+        const allHandles = Array.from(document.querySelectorAll('.tiptap-drag-handle'));
+
         // Find the handle for this block type
         let targetHandle: HTMLElement | null = null;
         for (const h of allHandles) {
@@ -853,12 +853,12 @@ test.describe('Wiki - Drag and Drop Verification', () => {
         }
         
         if (!targetHandle) {
-          return { success: false, error: `Handle not found for ${type}` };
+          return { success: false, blockType: type, error: `Handle not found for ${type}` };
         }
 
         const rect = targetHandle.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) {
-          return { success: false, error: `Handle has zero dimensions for ${type}` };
+          return { success: false, blockType: type, error: `Handle has zero dimensions for ${type}` };
         }
 
         // Trigger mousedown to start drag
@@ -879,7 +879,7 @@ test.describe('Wiki - Drag and Drop Verification', () => {
             clientX: rect.left + 5,
             clientY: rect.top + 5,
           }));
-          return { success: false, error: 'Ghost overlay not created' };
+          return { success: false, blockType: type, error: 'Ghost overlay not created' };
         }
 
         // Verify overlay properties
@@ -1231,8 +1231,8 @@ test.describe('Wiki - Drag and Drop Verification', () => {
 
     // Find drag handles and verify they correspond to the paragraphs
     const handleInfo = await page.evaluate(() => {
-      const handles = document.querySelectorAll('.tiptap-drag-handle');
-      const paragraphs = document.querySelectorAll('.ProseMirror p');
+      const handles = Array.from(document.querySelectorAll('.tiptap-drag-handle'));
+      const paragraphs = Array.from(document.querySelectorAll('.ProseMirror p'));
       
       const result: { 
         idx: number; 

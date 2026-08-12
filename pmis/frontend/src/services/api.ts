@@ -769,6 +769,21 @@ export interface UpdateWikiPageRequest {
   folderId?: number;
 }
 
+export interface WikiSearchResult {
+  id: number;
+  title: string;
+  snippet: string;
+  matchField: string; // "TITLE" or "CONTENT"
+  score: number;
+  updatedAt: string;
+  updatedByName: string;
+}
+
+export interface WikiSearchResponse {
+  results: WikiSearchResult[];
+  totalCount: number;
+}
+
 export interface WikiFolderResponse {
   id: number;
   name: string;
@@ -850,6 +865,11 @@ export const wikiApi = {
     return fetchApi<void>(`/wiki/pages/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  searchPages: async (keyword: string): Promise<WikiSearchResponse> => {
+    const qs = encodeURIComponent(keyword);
+    return fetchApi<WikiSearchResponse>(`/wiki/pages/search?q=${qs}`);
   },
 
   uploadImage: async (file: File, userId?: number): Promise<ImageUploadResponse> => {

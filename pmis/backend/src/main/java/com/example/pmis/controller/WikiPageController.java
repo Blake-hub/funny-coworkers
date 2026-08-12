@@ -3,6 +3,7 @@ package com.example.pmis.controller;
 import com.example.pmis.dto.CreateWikiPageRequest;
 import com.example.pmis.dto.UpdateWikiPageRequest;
 import com.example.pmis.dto.WikiPageDTO;
+import com.example.pmis.dto.WikiSearchResponse;
 import com.example.pmis.entity.User;
 import com.example.pmis.service.WikiPageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -98,6 +99,17 @@ public class WikiPageController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(wikiPageService.publishWikiPage(id, currentUser));
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Search wiki pages by keyword")
+    public ResponseEntity<WikiSearchResponse> searchWikiPages(
+            @RequestParam("q") String keyword) {
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(wikiPageService.searchWikiPages(keyword, currentUser));
     }
 
     @DeleteMapping("/{id}")

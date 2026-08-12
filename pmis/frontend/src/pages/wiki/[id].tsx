@@ -5,6 +5,7 @@ import Layout from '@/components/Layout/Layout';
 import { ArrowLeft, Edit3, Clock, User, Send, Trash2, ChevronRight, ChevronLeft } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { wikiApi, WikiPageResponse, WikiCommentResponse, rewriteWikiMediaUrls } from '@/services/api';
+import { highlightSearchTerm, removeHighlights } from '@/lib/highlight';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
   const token = context.req.cookies['pmis-token'];
@@ -135,6 +136,33 @@ export default function WikiPageView() {
 
     return () => clearTimeout(timer);
   }, [headings.length]);
+
+  // Apply search highlighting when ?q= is present in URL
+  useEffect(() => {
+    const searchQuery = router.query.q as string | undefined;
+
+    if (!searchQuery || !searchQuery.trim()) {
+      // Remove any existing highlights
+      if (contentRef.current) {
+        removeHighlights(contentRef.current);
+      }
+      return;
+    }
+
+    // Apply highlighting after content is rendered
+    const highlightTimer = setTimeout(() => {
+      if (contentRef.current && htmlContent) {
+        highlightSearchTerm(contentRef.current, searchQuery);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(highlightTimer);
+      if (contentRef.current) {
+        removeHighlights(contentRef.current);
+      }
+    };
+  }, [router.query.q, htmlContent]);
 
   const scrollToHeading = (headingIndex: number) => {
     const targetHeading = headings[headingIndex];
@@ -297,7 +325,7 @@ export default function WikiPageView() {
     <Layout>
       <div className="w-full">
         {/* Header Bar */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between mb-6">
+        <div className="bg-white border-b border-gray-200 px-6 pt-0 pb-2 flex items-center justify-between mb-4">
           <button
             onClick={() => router.push('/wiki')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
@@ -362,7 +390,7 @@ export default function WikiPageView() {
                   <h1 className="text-3xl font-bold text-gray-800 mb-4">{page.title}</h1>
 
                   {/* Meta Info */}
-                  <div className="flex items-center gap-4 text-sm text-gray-500 mb-6 pb-6 border-b border-gray-200">
+                  <div className="flex items-center gap-4 text-sm text-gray-500 pb-2 border-b border-gray-200">
                     {page.lastModifiedByName && (
                       <div className="flex items-center gap-1">
                         <User className="w-4 h-4" />
