@@ -36,7 +36,7 @@ springdoc:
 
 logging:
   level:
-    com.example.pmis: DEBUG
+    com.blake.pmis: DEBUG
     org.hibernate.SQL: DEBUG
 
 jwt:
