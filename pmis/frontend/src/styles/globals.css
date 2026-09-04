@@ -138,13 +138,6 @@ body {
   list-style-type: inherit;
 }
 
-.ProseMirror img {
-  max-width: 100%;
-  border-radius: 8px;
-  display: block;
-  margin: 8px 0;
-}
-
 .ProseMirror hr {
   border: none;
   border-top: 2px dashed #e2e8f0;
@@ -152,9 +145,12 @@ body {
 }
 
 .ProseMirror table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   margin: 12px 0;
+  table-layout: fixed;
   width: 100%;
+  overflow: hidden;
 }
 .ProseMirror th,
 .ProseMirror td {
@@ -162,11 +158,80 @@ body {
   padding: 8px 12px;
   min-width: 60px;
   vertical-align: top;
+  position: relative;
+  box-sizing: border-box;
 }
 .ProseMirror th {
   background: #f8fafc;
   font-weight: 600;
   text-align: left;
+}
+
+.ProseMirror table td.selectedCell,
+.ProseMirror table th.selectedCell {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.ProseMirror .column-resize-handle,
+.ProseMirror table .cursor-col-resize {
+  position: absolute !important;
+  right: -2px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 4px !important;
+  height: auto !important;
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  pointer-events: auto !important;
+  cursor: col-resize !important;
+  z-index: 20 !important;
+  border-radius: 2px;
+}
+.ProseMirror .column-resize-handle:hover,
+.ProseMirror table .cursor-col-resize:hover {
+  background-color: rgba(59, 130, 246, 0.5) !important;
+  width: 6px !important;
+  right: -3px !important;
+}
+
+/* When table column resize is active, cursor shows as col-resize */
+.ProseMirror.resize-cursor,
+.ProseMirror.resize-cursor * {
+  cursor: ew-resize !important;
+  cursor: col-resize !important;
+}
+
+/* Column width display during resizing */
+.ProseMirror table col {
+  transition: width 0.1s ease;
+}
+
+/* Ensure tableWrapper does not clip resize handles */
+.ProseMirror .tableWrapper {
+  overflow: visible !important;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+  display: block;
+  margin: 8px 0;
+}
+.ProseMirror img.image-align-left {
+  float: left;
+  margin-right: 16px;
+}
+.ProseMirror img.image-align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+.ProseMirror img.image-align-right {
+  float: right;
+  margin-left: 16px;
+}
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
 }
 
 .toolbar {

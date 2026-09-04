@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useRef } from 'react';
+import { memo, useEffect, useState, useRef, useCallback } from 'react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Trash2, LayoutGrid, Square, Layout, Minus } from 'lucide-react';
 
 interface TableToolbarProps {
@@ -10,21 +10,34 @@ export const TableToolbar = memo(({ editor, show }: TableToolbarProps) => {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
-  useEffect(() => {
+  const updatePosition = useCallback(() => {
     if (!show || !editor) return;
 
-    const tableElement = document.querySelector('.tiptap-editor table') as HTMLElement;
-    if (tableElement) {
-      const rect = tableElement.getBoundingClientRect();
-      const editorContainer = document.querySelector('.relative.rounded-lg') as HTMLElement;
-      const containerRect = editorContainer?.getBoundingClientRect();
+    const editorContainer = document.querySelector('.tiptap-editor') as HTMLElement;
+    if (!editorContainer) return;
 
-      setPosition({
-        top: rect.top - (containerRect?.top || 0) - 50,
-        left: rect.left - (containerRect?.left || 0)
-      });
-    }
+    const tableElement = editorContainer.querySelector('table') as HTMLElement;
+    if (!tableElement) return;
+
+    const containerRect = editorContainer.getBoundingClientRect();
+    const tableRect = tableElement.getBoundingClientRect();
+
+    setPosition({
+      top: tableRect.top - containerRect.top - 50,
+      left: tableRect.left - containerRect.left,
+    });
   }, [show, editor]);
+
+  useEffect(() => {
+    updatePosition();
+    const handleScrollOrResize = () => updatePosition();
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [updatePosition]);
 
   if (!show || !editor) return null;
 

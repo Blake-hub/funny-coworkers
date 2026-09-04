@@ -11,6 +11,7 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { Image } from '@tiptap/extension-image';
+import { mergeAttributes } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Color } from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -20,6 +21,8 @@ import { TextAlign } from '@tiptap/extension-text-align';
 import { Mention } from '@tiptap/extension-mention';
 
 import { DragHandleEx } from './DragHandleEx';
+import { TableToolbar } from './TableToolbar';
+import { FloatingToolbar } from './FloatingToolbar';
 import { runChecksInBrowser } from './tests/verifyHandles';
 import { setupDragDropVerification } from './verifyDragDrop';
 import { userApi } from '@/services/api';
@@ -28,7 +31,7 @@ import type { UserResponse } from '@/services/api';
 import {
   Bold, Italic, Underline, Strikethrough,
   List, ListOrdered, Quote, Code, Type, Link2, ImageIcon, FileText,
-  Undo, Redo, Highlighter, Table, ChevronDown,
+  Undo, Redo, Highlighter, Table as TableIcon, ChevronDown,
   Heading1, Heading2, Heading3, Heading4, Heading5, Heading6,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Minus, Eye, EyeOff,
@@ -463,6 +466,15 @@ function RichTextEditorEx({
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
   const [slashQuery, setSlashQuery] = useState('');
 
+  const [isTableActive, setIsTableActive] = useState(false);
+  const [tableToolbarShow, setTableToolbarShow] = useState(false);
+  const [imageSelected, setImageSelected] = useState(false);
+
+  const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
+  const [floatingToolbarPosition, setFloatingToolbarPosition] = useState({ x: 0, y: 0 });
+
+  const [floatingMenuPos, setFloatingMenuPos] = useState<{ top: number; left: number } | null>(null);
+
   const [headingDropdownOpen, setHeadingDropdownOpen] = useState(false);
   const [headingDropdownPosition, setHeadingDropdownPosition] = useState({ left: 0, top: 0 });
   const headingDropdownRef = useRef<HTMLDivElement>(null);
@@ -494,6 +506,13 @@ function RichTextEditorEx({
   const slashQueryRef = useRef('');
   useEffect(() => { slashQueryRef.current = slashQuery; }, [slashQuery]);
 
+  const slashItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Keep the keyboard-selected item visible in the scrollable list.
+  useEffect(() => {
+    const el = slashItemRefs.current[selectedSlashIndex];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [selectedSlashIndex, slashMenuItems]);
+
   const slashMenuRef = useRef<HTMLDivElement>(null);
 
   const closeSlashMenu = useCallback(() => {
@@ -518,7 +537,7 @@ function RichTextEditorEx({
     { icon: Quote, label: 'Quote', action: () => { const e = (window as any).__EDITOR__; e?.chain().focus().toggleBlockquote().run(); } },
     { icon: Code, label: 'Inline Code', action: () => { const e = (window as any).__EDITOR__; e?.chain().focus().toggleCode().run(); } },
     { icon: Type, label: 'Code Block', action: () => { const e = (window as any).__EDITOR__; e?.chain().focus().toggleCodeBlock().run(); } },
-    { icon: Table, label: 'Table', action: () => insertTableRef.current() },
+    { icon: TableIcon, label: 'Table', action: () => insertTableRef.current() },
     { icon: Minus, label: 'Horizontal Rule', action: () => { const e = (window as any).__EDITOR__; e?.chain().focus().setHorizontalRule().run(); } },
   ];
 
@@ -554,17 +573,66 @@ function RichTextEditorEx({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ codeBlock: false, link: false }),
-      TableExtension.configure({ resizable: true }),
+      TableExtension.configure({
+        resizable: true,
+        handleWidth: 5,
+        cellMinWidth: 50,
+        lastColumnResizable: true,
+      }),
       TableRow,
       TableCell,
       TableHeader,
-      Image.configure({ inline: false, allowBase64: true }),
+      Image.extend({
+        renderHTML({ HTMLAttributes }) {
+          const { textAlign, ...restAttrs } = HTMLAttributes as any;
+          // Default to center alignment so newly inserted images appear centered
+          const align = textAlign || 'center';
+          const alignClass = `image-align-${align}`;
+          const existingClass = restAttrs.class || '';
+          const combinedClass = [existingClass, alignClass].filter(Boolean).join(' ');
+          return ['img', mergeAttributes(this.options.HTMLAttributes, {
+            ...restAttrs,
+            ...(combinedClass ? { class: combinedClass } : {})
+          })];
+        },
+        addNodeView() {
+          // Custom NodeView so that the `image-align-*` class (derived from the
+          // `textAlign` attribute) is recomputed when the attribute changes via
+          // setTextAlign. The node-level renderHTML is not re-run on attribute
+          // updates, so without this the DOM class never reflects the new align.
+          return ({ node }) => {
+            const dom = document.createElement('img');
+            const sync = (n: any) => {
+              const align = n.attrs.textAlign || 'center';
+              // Recompute alignment classes, keep others (e.g. ProseMirror-selectednode)
+              dom.classList.forEach((c) => {
+                if (c.startsWith('image-align-')) dom.classList.remove(c);
+              });
+              dom.classList.add(`image-align-${align}`);
+              if (n.attrs.src) dom.setAttribute('src', n.attrs.src); else dom.removeAttribute('src');
+              if (n.attrs.alt != null && n.attrs.alt !== '') dom.setAttribute('alt', n.attrs.alt); else dom.removeAttribute('alt');
+              if (n.attrs.title) dom.setAttribute('title', n.attrs.title); else dom.removeAttribute('title');
+              if (n.attrs.width) dom.setAttribute('width', String(n.attrs.width)); else dom.removeAttribute('width');
+              if (n.attrs.height) dom.setAttribute('height', String(n.attrs.height)); else dom.removeAttribute('height');
+            };
+            sync(node);
+            return {
+              dom,
+              update: (updatedNode: any) => {
+                if (updatedNode.type !== node.type) return false;
+                sync(updatedNode);
+                return true;
+              },
+            };
+          };
+        },
+      }).configure({ inline: false, allowBase64: true }),
       CodeBlockLowlight.configure({ lowlight }),
       Color,
       TextStyle,
       Link.configure({ openOnClick: false }),
       Highlight,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextAlign.configure({ types: ['heading', 'paragraph', 'image'] }),
       Mention.configure({
         HTMLAttributes: {
           class: 'mention',
@@ -616,6 +684,44 @@ function RichTextEditorEx({
       };
       setupDragDropVerification(editor);
     },
+    onSelectionUpdate: ({ editor }) => {
+      setIsTableActive(editor.isActive('table'));
+      setImageSelected(editor.isActive('image'));
+
+      // The table float menu is opened by clicking the table's drag handle
+      // (see the `open-table-menu` listener). It is closed automatically when
+      // the selection leaves the table.
+      if (!editor.isActive('table')) {
+        setTableToolbarShow(false);
+        setFloatingMenuPos(null);
+      }
+
+      // Floating toolbar (Issue 1): show when a non-empty text range is
+      // selected, so the user can still style content when the main toolbar
+      // is scrolled out of view. Hide for code blocks (no inline marks there)
+      // and for node selections (e.g. a selected image has its own styling).
+      const selection = editor.state.selection;
+      const isNodeSelection = !!(editor.state.selection as any).node;
+      if (
+        selection &&
+        !selection.empty &&
+        !editor.isActive('codeBlock') &&
+        !isNodeSelection
+      ) {
+        const domSelection = window.getSelection();
+        if (domSelection && domSelection.rangeCount > 0) {
+          const range = domSelection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          setFloatingToolbarPosition({
+            x: rect.left + rect.width / 2,
+            y: rect.top - 50,
+          });
+          setShowFloatingToolbar(true);
+        }
+      } else {
+        setShowFloatingToolbar(false);
+      }
+    },
     editorProps: {
       handleKeyDown: (view, event) => {
         if (!showSlashMenuRef.current) return false;
@@ -626,12 +732,14 @@ function RichTextEditorEx({
         if (event.key === 'ArrowDown') {
           event.preventDefault();
           event.stopPropagation();
-          setSelectedSlashIndex((prev) => Math.min(prev + 1, maxIndex));
+          const len = items.length || 1;
+          setSelectedSlashIndex((prev) => (prev + 1) % len);
           return true;
         } else if (event.key === 'ArrowUp') {
           event.preventDefault();
           event.stopPropagation();
-          setSelectedSlashIndex((prev) => Math.max(prev - 1, 0));
+          const len = items.length || 1;
+          setSelectedSlashIndex((prev) => (prev - 1 + len) % len);
           return true;
         } else if (event.key === 'Enter') {
           event.preventDefault();
@@ -722,7 +830,7 @@ function RichTextEditorEx({
     if (!editor) return;
 
     const updatePosition = () => {
-      const codeBlocks = document.querySelectorAll('.tiptap-editor pre') as NodeListOf<HTMLElement>;
+      const codeBlocks = Array.from(document.querySelectorAll('.tiptap-editor pre') as NodeListOf<HTMLElement>);
       let activeCodeBlock: HTMLElement | null = null;
       let isCursorInCode = false;
 
@@ -790,6 +898,7 @@ function RichTextEditorEx({
   };
 
   const handleCodeLangSelect = (lang: string) => {
+    if (!editor) return;
     editor.chain().focus().setCodeBlock({ language: lang }).run();
     setCodeLangDropdownOpen(false);
   };
@@ -828,6 +937,20 @@ function RichTextEditorEx({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Open the table float menu when the table's drag handle is clicked.
+  // The DragHandleEx plugin dispatches this event on the editor DOM (a click,
+  // not a drag, on the table handle). DnD is unaffected: actual movement
+  // still performs a block move.
+  useEffect(() => {
+    if (!editor) return;
+    const editorDom = editor.view.dom as HTMLElement;
+    const handler = () => {
+      setTableToolbarShow(true);
+    };
+    editorDom.addEventListener('open-table-menu', handler);
+    return () => editorDom.removeEventListener('open-table-menu', handler);
+  }, [editor]);
 
   if (!editor) return null;
 
@@ -923,7 +1046,7 @@ function RichTextEditorEx({
   return (
     <div className="relative w-full">
       {showToolbar && (
-        <div className="flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
+        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center gap-1">
             <button
               onClick={testSlashMenu}
@@ -1054,6 +1177,7 @@ function RichTextEditorEx({
           <button
             ref={alignTriggerRef}
             onClick={handleAlignOpen}
+            onMouseDown={(e) => e.preventDefault()}
             className="flex items-center gap-1 px-2 py-1.5 rounded hover:bg-gray-200 transition-colors"
             title="Align"
           >
@@ -1069,6 +1193,7 @@ function RichTextEditorEx({
               {alignmentOptions.map((option) => (
                 <button
                   key={option.align}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     editor.chain().focus().setTextAlign(option.align).run();
                     setAlignDropdownOpen(false);
@@ -1100,7 +1225,7 @@ function RichTextEditorEx({
             className="p-2 rounded hover:bg-gray-200 transition-colors"
             title="Table"
           >
-            <Table size={18} />
+            <TableIcon size={18} />
           </button>
           <button
             onClick={handleImageUpload}
@@ -1159,8 +1284,16 @@ function RichTextEditorEx({
         </button>
       )}
 
-      <div className="flex-1 overflow-y-auto bg-white">
-        <div className="tiptap-editor">
+      <div className="flex-1 overflow-y-auto bg-white relative">
+        <div className="tiptap-editor relative">
+          {tableToolbarShow && (
+            <TableToolbar editor={editor} show={tableToolbarShow} />
+          )}
+          <FloatingToolbar
+            show={showFloatingToolbar}
+            position={floatingToolbarPosition}
+            editor={editor}
+          />
           <EditorContent
             editor={editor}
             data-testid={dataTestid}
@@ -1233,13 +1366,13 @@ function RichTextEditorEx({
               }}
               onKeyDown={(e) => {
                 const items = slashMenuItemsRef.current;
-                const maxIndex = items.length - 1;
+                const len = items.length || 1;
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
-                  setSelectedSlashIndex((prev) => Math.min(prev + 1, maxIndex));
+                  setSelectedSlashIndex((prev) => (prev + 1) % len);
                 } else if (e.key === 'ArrowUp') {
                   e.preventDefault();
-                  setSelectedSlashIndex((prev) => Math.max(prev - 1, 0));
+                  setSelectedSlashIndex((prev) => (prev - 1 + len) % len);
                 } else if (e.key === 'Enter') {
                   e.preventDefault();
                   const item = items[selectedSlashIndexRef.current];
@@ -1254,13 +1387,16 @@ function RichTextEditorEx({
               }}
               placeholder="Search commands..."
               className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autoFocus
+              readOnly
+              tabIndex={-1}
+              onMouseDown={(e) => e.preventDefault()}
             />
           </div>
           <div className="overflow-y-auto max-h-[340px]">
             {slashMenuItems.map((item, index) => (
               <button
                 key={item.label}
+                ref={(el) => { slashItemRefs.current[index] = el; }}
                 onClick={() => {
                   item.action();
                   closeSlashMenu();

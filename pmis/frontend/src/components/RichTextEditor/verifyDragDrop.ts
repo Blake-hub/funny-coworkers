@@ -65,7 +65,7 @@ export function setupDragDropVerification(editor: any) {
     console.log('=== Drag and Drop Verification ===\n')
 
     console.log('Step 1: Checking for drag handles...')
-    const handles = document.querySelectorAll('.tiptap-drag-handle')
+    const handles = document.querySelectorAll('.tiptap-drag-handle') as NodeListOf<HTMLElement>
     if (handles.length === 0) {
       console.error('❌ No drag handles found!')
       console.log('Possible issues:')

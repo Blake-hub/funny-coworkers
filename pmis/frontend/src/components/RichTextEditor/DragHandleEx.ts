@@ -62,6 +62,9 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
       previewStartX: number
       previewStartY: number
       targetPos: number | null
+      isClickCandidate: boolean
+      clickStartX: number
+      clickStartY: number
     } = {
       dragging: false,
       sourceFrom: -1,
@@ -74,6 +77,9 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
       previewStartX: 0,
       previewStartY: 0,
       targetPos: null,
+      isClickCandidate: false,
+      clickStartX: 0,
+      clickStartY: 0,
     }
 
     const removeIndicator = () => {
@@ -159,23 +165,23 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
         
         // For specific node types like images, try to find the actual DOM element
         if (nodeType === 'image') {
-          if (n.nodeType === 1 && (n as HTMLElement).tagName === 'IMG') {
+          if (n && n.nodeType === 1 && (n as HTMLElement).tagName === 'IMG') {
             return n as HTMLElement
           }
-          const imgEl = (n as HTMLElement).querySelector?.('img')
+          const imgEl = n ? (n as HTMLElement).querySelector?.('img') : null
           if (imgEl) return imgEl as HTMLElement
-          if (n.parentNode) {
+          if (n?.parentNode) {
             const parentImg = (n.parentNode as HTMLElement).querySelector?.('img')
             if (parentImg) return parentImg as HTMLElement
           }
         } else if (nodeType === 'horizontalRule') {
-          if (n.nodeType === 1 && (n as HTMLElement).tagName === 'HR') {
+          if (n && n.nodeType === 1 && (n as HTMLElement).tagName === 'HR') {
             return n as HTMLElement
           }
-          const hrEl = (n as HTMLElement).querySelector?.('hr')
+          const hrEl = n ? (n as HTMLElement).querySelector?.('hr') : null
           if (hrEl) return hrEl as HTMLElement
         } else if (nodeType === 'table') {
-          if (n.nodeType === 1) {
+          if (n && n.nodeType === 1) {
             const el = n as HTMLElement
             if (el.tagName === 'TABLE' || el.classList?.contains('tableWrapper')) {
               return el
@@ -236,6 +242,26 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
 
     const handleMouseMove = (view: any, event: MouseEvent) => {
       if (!dragState.dragging) return
+
+      // Click vs drag detection for the TABLE drag handle:
+      // a click (no meaningful movement) should open the table float menu,
+      // while actual movement should start the drag (DnD). Defer preview/ghost
+      // creation until movement exceeds a small threshold.
+      if (dragState.isClickCandidate) {
+        const dx = event.clientX - dragState.clickStartX
+        const dy = event.clientY - dragState.clickStartY
+        if (dx * dx + dy * dy < 25) return // < 5px movement: still a click
+        // Movement exceeded threshold -> promote to a real drag
+        dragState.isClickCandidate = false
+        if (dragState.sourceBlockEl) {
+          applyGhostEffect(dragState.sourceBlockEl)
+          dragState.previewEl = createDraggedBlockPreview(
+            dragState.sourceBlockEl,
+            event.clientX,
+            event.clientY,
+          )
+        }
+      }
 
       document.body.style.cursor = 'grabbing'
       updateDraggedBlockPreview(event.clientX, event.clientY)
@@ -345,6 +371,29 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
 
     const handleMouseUp = (view: any) => {
       if (!dragState.dragging) return
+
+      // If this was a click on a table drag handle (no drag movement),
+      // open the table float menu instead of performing a drop.
+      if (dragState.isClickCandidate) {
+        dragState.isClickCandidate = false
+        const editorDom = view.dom as HTMLElement
+        editorDom.dispatchEvent(
+          new CustomEvent('open-table-menu', {
+            detail: { pos: dragState.sourceFrom },
+          }),
+        )
+        dragState.dragging = false
+        dragState.sourceFrom = -1
+        dragState.sourceTo = -1
+        dragState.sourceBlockEl = null
+        dragState.sourceNodeType = null
+        document.body.style.cursor = ''
+        removeIndicator()
+        removePreview()
+        removeGhostOverlay()
+        return
+      }
+
       const { sourceFrom, sourceTo, targetPos } = dragState
       const s = dragState.sourceFrom
       
@@ -421,6 +470,14 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
           handleDOMEvents: {
             mousedown: (view, event) => {
               const target = event.target as HTMLElement
+
+              // When clicking inside a table cell, don't initiate any drag
+              // to avoid interfering with text selection inside cells
+              if (target.closest('td, th')) {
+                dragState.dragging = false
+                return false
+              }
+
               const btn = target.closest(`.${handleClass}`) as HTMLElement | null
               if (!btn) return false
 
@@ -501,7 +558,7 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
               dragState.dragging = true
               dragState.sourceFrom = foundFrom
               dragState.sourceTo = foundTo
-              dragState.sourceNodeType = nodeType
+              dragState.sourceNodeType = nodeType ?? null
               dragState.previewStartX = event.clientX
               dragState.previewStartY = event.clientY
 
@@ -561,9 +618,20 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
 
               if (blockDom) {
                 dragState.sourceBlockEl = blockDom
-                applyGhostEffect(blockDom)
-                dragState.previewEl = createDraggedBlockPreview(blockDom, event.clientX, event.clientY)
-                console.log('[DragDrop] Preview created, ghost effect applied')
+                if (nodeType === 'table') {
+                  // For tables, a click on the drag handle should open the
+                  // float menu, while a drag should move the block. Defer
+                  // preview/ghost creation until movement is detected (see
+                  // handleMouseMove / handleMouseUp) so a pure click shows no
+                  // drag visuals.
+                  dragState.isClickCandidate = true
+                  dragState.clickStartX = event.clientX
+                  dragState.clickStartY = event.clientY
+                } else {
+                  applyGhostEffect(blockDom)
+                  dragState.previewEl = createDraggedBlockPreview(blockDom, event.clientX, event.clientY)
+                  console.log('[DragDrop] Preview created, ghost effect applied')
+                }
               } else {
                 console.warn('[DragDrop] Could not create preview - blockDom not found')
               }
@@ -576,6 +644,22 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
               if (target.classList?.contains(handleClass)) {
                 event.preventDefault()
                 return true
+              }
+              return false
+            },
+
+            mouseup: (view, event) => {
+              // If releasing inside a table cell, ensure drag state is reset
+              // to prevent interference with text selection
+              const target = event.target as HTMLElement
+              if (target.closest('td, th')) {
+                dragState.dragging = false
+                dragState.sourceBlockEl = null
+                dragState.sourceNodeType = null
+                removeIndicator()
+                removePreview()
+                removeGhostOverlay()
+                return false
               }
               return false
             },
@@ -666,6 +750,22 @@ export const DragHandleEx = Extension.create<DragHandleOptions>({
 
           const handleDocumentMouseMove = (e: MouseEvent) => {
             if (!dragState.dragging) return
+            // Don't handle drag moves when inside a table cell, EXCEPT when
+            // the drag source is the table block itself: dragging a table
+            // necessarily moves the cursor over its own cells, and cancelling
+            // there would break table DnD. (Clicking inside a cell to select
+            // text is already prevented from starting a drag in the mousedown
+            // handler, so Issue 5 stays fixed.)
+            const target = e.target as HTMLElement
+            if (target?.closest?.('td, th') && dragState.sourceNodeType !== 'table') {
+              dragState.dragging = false
+              dragState.sourceBlockEl = null
+              dragState.sourceNodeType = null
+              removeIndicator()
+              removePreview()
+              removeGhostOverlay()
+              return
+            }
             handleMouseMove(view, e)
           }
 
@@ -726,7 +826,7 @@ function buildDecorations(
         key: `drag-handle-${pos}`,
         raw: true,
         side: -1,
-        stopEvent: false,
+        stopEvent: () => false,
         ignoreSelection: true,
       }),
     )
