@@ -9,6 +9,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, FolderOpen, Save, Send, Settings 
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { wikiApi, CreateWikiPageRequest, UpdateWikiPageRequest, normalizeWikiMediaUrlsToRelative, WikiFolderResponse } from '@/services/api';
 import { useToast } from '@/context/ToastContext';
+import { useTranslation } from 'react-i18next';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
   const token = context.req.cookies['pmis-token'];
@@ -31,6 +32,7 @@ export default function NewDocumentEx() {
   const router = useRouter();
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { t } = useTranslation();
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [title, setTitle] = useState('');
   const [editorContent, setEditorContent] = useState<string>('');
@@ -140,7 +142,7 @@ export default function NewDocumentEx() {
   const handleSave = async (publish: boolean = false, autoSave: boolean = false) => {
     if (!title.trim()) {
       if (!autoSave) {
-        addToast('error', 'Please enter a title');
+        addToast('error', t('nav.documentTitleEmpty'));
       }
       return;
     }
@@ -185,11 +187,11 @@ export default function NewDocumentEx() {
         setIsDirty(false);
 
         if (publish) {
-          addToast('success', 'Document published successfully!');
+          addToast('success', t('wiki.published'));
           router.push(`/wiki/${updated.id}`);
         } else {
           if (!autoSave) {
-            addToast('success', 'Document saved as draft');
+            addToast('success', t('wiki.savedAsDraft'));
             router.push(`/wiki/${updated.id}/edit-ex`);
           }
         }
@@ -210,11 +212,11 @@ export default function NewDocumentEx() {
         setIsDirty(false);
 
         if (publish) {
-          addToast('success', 'Document published successfully!');
+          addToast('success', t('wiki.published'));
           router.push(`/wiki/${created.id}`);
         } else {
           if (!autoSave) {
-            addToast('success', 'Document saved as draft');
+            addToast('success', t('wiki.savedAsDraft'));
             router.push(`/wiki/${created.id}/edit-ex`);
           }
         }
@@ -222,7 +224,7 @@ export default function NewDocumentEx() {
     } catch (err) {
       console.error('Failed to save document:', err);
       if (!autoSave) {
-        const msg = err instanceof Error ? err.message : 'Failed to save document';
+        const msg = err instanceof Error ? err.message : t('wiki.saveFailed');
         const lower = msg.toLowerCase();
         const isNameConflict =
           (lower.includes('already exists') || lower.includes('already in use')) &&
@@ -308,7 +310,7 @@ export default function NewDocumentEx() {
             className="flex items-center gap-1 text-gray-600 hover:text-gray-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Back to Wiki</span>
+            <span className="text-sm font-medium">{t('wiki.backToWiki')}</span>
           </button>
 
           {selectedFolderId != null && (() => {
@@ -318,7 +320,7 @@ export default function NewDocumentEx() {
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs">
                 <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
                 <span className="font-medium max-w-[200px] truncate">
-                  {match ? match.name : 'Folder'}
+                  {match ? match.name : t('wiki.folder')}
                 </span>
               </div>
             );
@@ -329,7 +331,7 @@ export default function NewDocumentEx() {
             {isDirty && (
               <span className="flex items-center gap-1 text-xs text-amber-600">
                 <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                Unsaved changes
+                {t('wiki.unsaved')}
               </span>
             )}
 
@@ -340,7 +342,7 @@ export default function NewDocumentEx() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4zm2 5.3l2.6 2.6C7.5 21.5 12 24 12 24v-4c-3.3 0-6.2-1.5-8-4z" />
                 </svg>
-                Auto-saving...
+                {t('wiki.saving')}
               </span>
             )}
 
@@ -364,7 +366,7 @@ export default function NewDocumentEx() {
             >
               <Save className="w-4 h-4" />
               <span className="text-sm font-medium">
-                {isSaving ? 'Saving...' : 'Save Draft'}
+                {isSaving ? t('wiki.saving') : t('wiki.save')}
               </span>
             </button>
 
@@ -375,7 +377,7 @@ export default function NewDocumentEx() {
             >
               <Send className="w-4 h-4" />
               <span className="text-sm font-medium">
-                {isPublishing ? 'Publishing...' : 'Publish'}
+                {isPublishing ? t('wiki.publishing') : t('wiki.publish')}
               </span>
             </button>
 
@@ -396,10 +398,10 @@ export default function NewDocumentEx() {
                 setFvError(null);
               }}
               className="flex items-center gap-2 px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
-              title="Folder & Visibility Settings"
+              title={t('wiki.folderVisibilityTitle')}
             >
               <Settings className="w-4 h-4" />
-              <span className="text-sm font-medium">Settings</span>
+              <span className="text-sm font-medium">{t('wiki.settings')}</span>
             </button>
           </div>
         </div>
@@ -414,7 +416,7 @@ export default function NewDocumentEx() {
                   setTitle(e.target.value);
                   if (titleError) setTitleError(null);
                 }}
-                placeholder="Enter document title..."
+                placeholder={t('nav.documentTitlePlaceholder')}
                 className={`w-full text-2xl font-bold text-gray-800 border-0 px-0 py-2 focus:ring-0 focus:outline-none bg-transparent placeholder-gray-400 ${
                   titleError ? 'ring-0' : ''
                 }`}
@@ -424,7 +426,7 @@ export default function NewDocumentEx() {
               )}
 
               <div className="text-sm text-gray-500">
-                <span className="font-medium">Author:</span> {user?.name || 'Unknown User'}
+                <span className="font-medium">{t('wiki.author')}:</span> {user?.name || t('nav.unknownUser')}
               </div>
 
               <hr className="border-gray-200" />
@@ -465,16 +467,16 @@ export default function NewDocumentEx() {
             >
               <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">Folder &amp; Visibility</h3>
+                  <h3 className="text-base font-semibold text-gray-900">{t('wiki.folderVisibilityTitle')}</h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {title || '(Untitled)'}
+                    {title || t('nav.untitled')}
                   </p>
                 </div>
               </div>
 
               <div className="px-5 py-4 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Folder</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('wiki.folder')}</label>
                   <select
                     value={selectedFolderId ?? ''}
                     onChange={(e) => {
@@ -483,7 +485,7 @@ export default function NewDocumentEx() {
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   >
-                    <option value="">— Root (no folder) —</option>
+                    <option value="">{t('wiki.rootFolder')}</option>
                     {flattenFolders(folders, 0).map((opt) => (
                       <option key={opt.id} value={opt.id}>
                         {'— '.repeat(opt.depth)}
@@ -494,7 +496,7 @@ export default function NewDocumentEx() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Visibility</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('wiki.visibility')}</label>
                   <select
                     value={selectedVisibility}
                     onChange={(e) => {
@@ -503,11 +505,11 @@ export default function NewDocumentEx() {
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   >
-                    <option value="PRIVATE">Private — Only you</option>
-                    <option value="TEAM">Team — Team members only</option>
-                    <option value="PUBLIC">Public — All organization users</option>
+                    <option value="PRIVATE">{t('wiki.visPrivate')}</option>
+                    <option value="TEAM">{t('wiki.visTeam')}</option>
+                    <option value="PUBLIC">{t('wiki.visPublic')}</option>
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Controls who can view and edit this document.</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('wiki.visibilityHint')}</p>
                 </div>
 
                 {fvError && (
@@ -526,7 +528,7 @@ export default function NewDocumentEx() {
                   }}
                   className="px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import ToastContainer from '../Toast/ToastContainer';
+import LanguageSwitcher from './LanguageSwitcher';
 import { Menu, X, GripVertical } from 'lucide-react';
 
 interface LayoutProps {
@@ -10,6 +11,7 @@ interface LayoutProps {
 const MIN_WIDTH_PX = 64;
 const COLLAPSED_WIDTH_PX = 80;
 const DEFAULT_WIDTH_PX = 256;
+const MOBILE_WIDTH_PX = 220;
 const MOBILE_BREAKPOINT = 768;
 
 export default function Layout({ children }: LayoutProps) {
@@ -120,7 +122,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex h-screen overflow-hidden">
+    <div className="min-h-screen bg-gray-100 flex h-screen overflow-hidden" style={{ height: '100dvh' }}>
       {/* Mobile Menu Button */}
       {isMobile && (
         <button
@@ -141,16 +143,16 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Sidebar - Desktop: takes space, Mobile: fixed overlay */}
-      <div 
+      <div
         className={`transition-transform duration-300 ease-in-out ${
-          isMobile ? 'fixed z-40 top-0 left-0 h-screen shadow-2xl' : 'flex-shrink-0'
+          isMobile ? 'fixed z-40 top-0 left-0 bottom-0 shadow-2xl' : 'flex-shrink-0'
         }`}
         style={{
-          width: isMobile ? DEFAULT_WIDTH_PX : `${sidebarWidth}px`,
+          width: isMobile ? `${MOBILE_WIDTH_PX}px` : `${sidebarWidth}px`,
           transform: isMobile ? (isMobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
         }}
       >
-        <Sidebar width={isMobile ? DEFAULT_WIDTH_PX : sidebarWidth} isCollapsed={isCollapsed} isMobile={isMobile} />
+        <Sidebar width={isMobile ? MOBILE_WIDTH_PX : sidebarWidth} isCollapsed={isCollapsed} isMobile={isMobile} />
       </div>
       
       {/* Main Content - fills remaining space */}
@@ -188,8 +190,11 @@ export default function Layout({ children }: LayoutProps) {
           </>
         )}
         
-        <main className="p-4 flex-1 overflow-hidden">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 h-full overflow-y-auto">
+        <main className="p-2 sm:p-4 flex-1 overflow-hidden relative">
+          <div className="absolute top-2 right-2 sm:right-4 z-40">
+            <LanguageSwitcher />
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-6 h-full overflow-y-auto">
             {children}
           </div>
         </main>

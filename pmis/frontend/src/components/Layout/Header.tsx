@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { Search, Bell, User, X, CheckCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import type { NotificationResponse } from '@/services/api';
+import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Header() {
+  const { t } = useTranslation();
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [popupAnchorLeft, setPopupAnchorLeft] = useState(false);
@@ -65,9 +68,14 @@ export default function Header() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search issues, projects, wiki..."
+            placeholder={t('search.placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && searchQuery.trim()) {
+                router.push('/search');
+              }
+            }}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
@@ -93,10 +101,10 @@ export default function Header() {
             }`}>
               <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">Notifications</h3>
+                  <h3 className="font-semibold">{t('notifications.title')}</h3>
                   {unreadCount > 0 && (
                     <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
-                      {unreadCount} unread
+                      {t('notifications.unread', { count: unreadCount })}
                     </span>
                   )}
                 </div>
@@ -105,7 +113,7 @@ export default function Header() {
                     <button
                       onClick={handleMarkAllRead}
                       className="p-1.5 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors"
-                      title="Mark all as read"
+                      title={t('notifications.markAllRead')}
                     >
                       <CheckCheck className="w-4 h-4" />
                     </button>
@@ -124,9 +132,9 @@ export default function Header() {
                     <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                       <Bell className="w-6 h-6 text-gray-400" />
                     </div>
-                    <p className="text-sm text-gray-500 font-medium">No notifications yet</p>
+                    <p className="text-sm text-gray-500 font-medium">{t('notifications.empty')}</p>
                     <p className="text-xs text-gray-400 mt-1">
-                      When someone @mentions you in a wiki, you&apos;ll see it here.
+                      {t('notifications.mentionsHint')}
                     </p>
                   </div>
                 ) : (
@@ -171,13 +179,15 @@ export default function Header() {
           )}
         </div>
 
+        <LanguageSwitcher />
+
         <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
           <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
             {user?.name ? user.name.charAt(0) : '?'}
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-medium">{user?.name || 'Unknown User'}</p>
-            <p className="text-xs text-gray-500">{user?.role || 'Unknown Role'}</p>
+            <p className="text-sm font-medium">{user?.name || t('nav.unknownUser')}</p>
+            <p className="text-xs text-gray-500">{user?.role || t('nav.unknownRole')}</p>
           </div>
           <User className="w-5 h-5 text-gray-400" />
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import { Plus, Search, Users, Pencil, X, Trash2, UserPlus } from 'lucide-react';
@@ -25,6 +26,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 }
 
 export default function Teams() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,7 +93,7 @@ export default function Teams() {
 
   const handleRemoveMember = async (userId: number) => {
     if (!selectedTeam) return;
-    if (!confirm('Are you sure you want to remove this member from the team?')) return;
+    if (!confirm(t('teams.removeConfirm'))) return;
     try {
       await teamApi.removeTeamMember(selectedTeam.id, userId);
       const members = await teamApi.getTeamMembers(selectedTeam.id);
@@ -135,7 +137,7 @@ export default function Teams() {
       return (
         <div className="text-center py-12">
           <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">No teams found</p>
+          <p className="text-gray-500">{t('teams.empty')}</p>
         </div>
       );
     }
@@ -155,24 +157,24 @@ export default function Teams() {
           <div className="flex items-center gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-gray-800">{team.memberCount}</p>
-              <p className="text-sm text-gray-500">Members</p>
+              <p className="text-sm text-gray-500">{t('teams.members')}</p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">Lead</p>
+              <p className="text-sm text-gray-500">{t('teams.lead')}</p>
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium">
                   {team.leadName ? team.leadName.charAt(0) : '?'}
                 </div>
-                <span className="text-sm font-medium text-gray-700">{team.leadName || 'N/A'}</span>
+                <span className="text-sm font-medium text-gray-700">{team.leadName || t('common.notSet')}</span>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">Owner</p>
+              <p className="text-sm text-gray-500">{t('teams.owner')}</p>
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 bg-blue-200 rounded-full flex items-center justify-center text-sm font-medium text-blue-700">
                   {team.ownerName ? team.ownerName.charAt(0) : '?'}
                 </div>
-                <span className="text-sm font-medium text-gray-700">{team.ownerName || 'N/A'}</span>
+                <span className="text-sm font-medium text-gray-700">{team.ownerName || t('common.notSet')}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -181,14 +183,14 @@ export default function Teams() {
                 className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
               >
                 <Users className="w-4 h-4" />
-                Members
+                {t('teams.viewMembers')}
               </button>
               <a
                 href={`/teams/edit/${team.id}`}
                 className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer font-medium text-sm"
               >
                 <Pencil className="w-4 h-4" />
-                Edit
+                {t('teams.edit')}
               </a>
             </div>
           </div>
@@ -200,8 +202,8 @@ export default function Teams() {
   return (
     <Layout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">My Teams</h1>
-        <p className="text-gray-500 mt-1">View and manage your teams.</p>
+        <h1 className="text-2xl font-bold text-gray-800">{t('teams.title')}</h1>
+        <p className="text-gray-500 mt-1">{t('teams.subtitle')}</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -210,7 +212,7 @@ export default function Teams() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search teams..."
+              placeholder={t('teams.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -221,7 +223,7 @@ export default function Teams() {
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            New Team
+            {t('teams.newTeam')}
           </button>
         </div>
       </div>
@@ -235,7 +237,7 @@ export default function Teams() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">Team Members</h3>
+                <h3 className="text-lg font-semibold text-gray-800">{t('teams.membersTitle')}</h3>
                 <p className="text-sm text-gray-500">{selectedTeam.name}</p>
               </div>
               <button onClick={() => setShowMembersModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -249,20 +251,20 @@ export default function Teams() {
                   className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm"
                 >
                   <UserPlus className="w-4 h-4" />
-                  Add Member
+                  {t('teams.addMember')}
                 </button>
               </div>
               <div className="bg-gray-50 rounded-lg p-4 max-h-[50vh] overflow-y-auto">
                 {teamMembers.length === 0 ? (
-                  <p className="text-gray-500 text-sm text-center py-8">No members in this team yet.</p>
+                  <p className="text-gray-500 text-sm text-center py-8">{t('teams.membersEmpty')}</p>
                 ) : (
                   <table className="w-full">
                     <thead>
                       <tr className="text-left text-sm text-gray-500 border-b border-gray-200">
-                        <th className="pb-2 font-medium">Name</th>
-                        <th className="pb-2 font-medium">Email</th>
-                        <th className="pb-2 font-medium">Role</th>
-                        <th className="pb-2 font-medium">Actions</th>
+                        <th className="pb-2 font-medium">{t('teams.colName')}</th>
+                        <th className="pb-2 font-medium">{t('teams.colEmail')}</th>
+                        <th className="pb-2 font-medium">{t('teams.colRole')}</th>
+                        <th className="pb-2 font-medium">{t('teams.colActions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -283,8 +285,8 @@ export default function Teams() {
                               onChange={(e) => handleUpdateRole(member.id, e.target.value)}
                               className="px-2 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                              <option value="TEAM_OWNER">Team Owner</option>
-                              <option value="TEAM_MEMBER">Team Member</option>
+                              <option value="TEAM_OWNER">{t('teams.roleOwner')}</option>
+                              <option value="TEAM_MEMBER">{t('teams.roleMember')}</option>
                             </select>
                           </td>
                           <td className="py-3">
@@ -310,33 +312,33 @@ export default function Teams() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Add Team Member</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{t('teams.addTitle')}</h3>
               <button onClick={() => setShowAddMemberModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select User</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('teams.selectUser')}</label>
                 <select
                   onChange={(e) => setSelectedUserForRole(allUsers.find(u => u.id === Number(e.target.value)) || null)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select a user</option>
+                  <option value="">{t('teams.selectUserOption')}</option>
                   {getUsersNotInTeam().map(user => (
                     <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('teams.role')}</label>
                 <select
                   value={newMemberRole}
                   onChange={(e) => setNewMemberRole(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="TEAM_OWNER">Team Owner</option>
-                  <option value="TEAM_MEMBER">Team Member</option>
+                  <option value="TEAM_OWNER">{t('teams.roleOwner')}</option>
+                  <option value="TEAM_MEMBER">{t('teams.roleMember')}</option>
                 </select>
               </div>
             </div>
@@ -345,14 +347,14 @@ export default function Teams() {
                 onClick={() => setShowAddMemberModal(false)}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => selectedUserForRole && handleAddMember(selectedUserForRole.id)}
                 disabled={!selectedUserForRole}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add
+                {t('teams.add')}
               </button>
             </div>
           </div>

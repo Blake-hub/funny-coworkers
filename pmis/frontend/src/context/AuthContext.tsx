@@ -137,6 +137,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
+  // Sync auth state across browser tabs — when another tab logs in/out,
+  // update this tab's React state to match localStorage.
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'pmis-token' || e.key === 'pmis-user' || e.key === null) {
+        const newToken = localStorage.getItem('pmis-token');
+        const newUserStr = localStorage.getItem('pmis-user');
+        if (newToken && newUserStr) {
+          try {
+            const parsedUser = JSON.parse(newUserStr);
+            setUser(parsedUser);
+            setToken(newToken);
+          } catch { /* ignore parse error */ }
+        } else {
+          setUser(null);
+          setToken(null);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await authApi.login({ email, password });

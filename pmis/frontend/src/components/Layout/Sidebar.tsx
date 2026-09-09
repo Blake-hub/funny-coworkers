@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { 
-  LayoutDashboard, 
-  Bug, 
-  FolderOpen, 
+import {
+  LayoutDashboard,
+  Bug,
+  FolderOpen,
   Folder,
-  Users, 
-  FileText, 
+  Users,
+  FileText,
   FolderPlus,
   BarChart3,
   Settings,
@@ -23,11 +23,14 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
-  CheckCheck
+  CheckCheck,
+  MessageSquare
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { teamApi, type TeamResponse, wikiApi, type WikiFolderResponse, type WikiPageResponse, type CreateWikiFolderRequest, type UpdateWikiFolderRequest, type NotificationResponse } from '@/services/api';
+import { retroApi } from '@/services/retroApi';
 import { mockIssues, mockProjects } from '@/data/mockData';
 
 interface SidebarProps {
@@ -46,6 +49,7 @@ interface MenuItem {
 
 export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { logout, user } = useAuth();
   const {
     notifications,
@@ -78,6 +82,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
   const [fvVisibility, setFvVisibility] = useState<'PRIVATE' | 'TEAM' | 'PUBLIC'>('PRIVATE');
   const [fvSaving, setFvSaving] = useState(false);
   const [fvError, setFvError] = useState<string | null>(null);
+  const [activeRetroCount, setActiveRetroCount] = useState(0);
 
   const forceReloadWikiTree = useCallback(() => setWikiReloadToken(t => t + 1), []);
   const hasLoadedPersistedStateRef = useRef(false);
@@ -133,12 +138,13 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
   }, [renamingPageId]);
 
   const getMenuItems = () => [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
-    { id: 'issues', label: 'My Issues', icon: Bug, href: '/issues', badge: mockIssues.length },
-    { id: 'projects', label: 'My Projects', icon: FolderOpen, href: '/projects', badge: mockProjects.length },
-    { id: 'teams', label: 'My Teams', icon: Users, badge: teams.length },
-    { id: 'wiki', label: 'Wiki', icon: FileText, href: '/wiki' },
-    { id: 'reports', label: 'Reports', icon: BarChart3, href: '/reports' },
+    { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, href: '/' },
+    { id: 'issues', label: t('nav.issues'), icon: Bug, href: '/issues', badge: mockIssues.length },
+    { id: 'projects', label: t('nav.projects'), icon: FolderOpen, href: '/projects', badge: mockProjects.length },
+    { id: 'teams', label: t('nav.teams'), icon: Users, badge: teams.length },
+    { id: 'wiki', label: t('nav.wiki'), icon: FileText, href: '/wiki' },
+    { id: 'retro', label: t('nav.retro'), icon: MessageSquare, href: '/retro', badge: activeRetroCount },
+    { id: 'reports', label: t('nav.reports'), icon: BarChart3, href: '/reports' },
   ];
 
   const SS_KEY_MENU = 'sidebar:expandedMenu';
@@ -213,7 +219,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
   useEffect(() => {
     const fetchTeams = async () => {
       if (!user?.id) return;
-      
+
       try {
         const teamsData = await teamApi.getTeamsForUser(Number(user.id));
         setTeams(teamsData);
@@ -226,6 +232,21 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
       fetchTeams();
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    const fetchActiveRetroCount = async () => {
+      if (!user?.id) return;
+      try {
+        const boards = await retroApi.listBoards('joined');
+        setActiveRetroCount(boards.filter((b) => b.status === 'ACTIVE').length);
+      } catch (error) {
+        console.error('Failed to fetch active retro count:', error);
+      }
+    };
+    if (user?.id) {
+      fetchActiveRetroCount();
+    }
+  }, [user?.id, router.asPath]);
 
   useEffect(() => {
     const fetchFolders = async () => {
@@ -388,7 +409,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                 ref={renameInputRef}
                 className="flex-1 px-1.5 py-0.5 text-sm bg-white border border-blue-400 rounded outline-none ring-2 ring-blue-200 min-w-0"
                 value={renamingFolderName}
-                placeholder="Folder name"
+                placeholder={t('nav.folderNamePlaceholder')}
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -408,7 +429,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                     e.preventDefault();
                     const newName = renamingFolderName.trim();
                     if (!newName) {
-                      alert('Folder name cannot be empty.');
+                      alert(t('nav.folderNameEmpty'));
                       return;
                     }
                     if (newName === folder.name) {
@@ -423,7 +444,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       forceReloadWikiTree();
                     } catch (err) {
                       console.error('Failed to rename folder', err);
-                      alert('Failed to rename folder.');
+                      alert(t('nav.folderRenameFailed'));
                     }
                   }
                 }}
@@ -474,7 +495,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       showFolderActionsMenuForId === folder.id ? null : folder.id
                     );
                   }}
-                  title="Folder options"
+                  title={t('nav.folderOptions')}
                 >
                   <MoreVertical className="w-3.5 h-3.5" />
                 </button>
@@ -499,16 +520,14 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                         }}
                       >
                         <Pencil className="w-4 h-4 text-slate-500" />
-                        <span>Rename</span>
+                        <span>{t('nav.rename')}</span>
                       </button>
                       <button
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                         onClick={async (e) => {
                           e.stopPropagation();
                           setShowFolderActionsMenuForId(null);
-                          const ok = window.confirm(
-                            `Delete folder "${folder.name}"?\n\nAny subfolders inside may also be removed. Documents will be moved to the root (no folder) or deleted depending on server settings.\n\nThis cannot be undone.`
-                          );
+                          const ok = window.confirm(t('nav.folderDeleteConfirm', { name: folder.name }));
                           if (!ok) return;
                           try {
                             await wikiApi.deleteFolder(folder.id);
@@ -528,12 +547,12 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                             forceReloadWikiTree();
                           } catch (err) {
                             console.error('Failed to delete folder', err);
-                            alert('Failed to delete folder.');
+                            alert(t('nav.folderDeleteFailed'));
                           }
                         }}
                       >
                         <Trash2 className="w-4 h-4 text-red-500" />
-                        <span>Delete</span>
+                        <span>{t('nav.delete')}</span>
                       </button>
                     </div>
                   </>
@@ -554,7 +573,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       showFolderCreateMenuForId === folder.id ? null : folder.id
                     );
                   }}
-                  title="Add document or subfolder"
+                  title={t('nav.addToWiki')}
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -581,7 +600,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                         }}
                       >
                         <FileText className="w-4 h-4 text-slate-500" />
-                        <span>Document</span>
+                        <span>{t('nav.document')}</span>
                       </button>
                       <button
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -595,7 +614,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                         }}
                       >
                         <FolderPlus className="w-4 h-4 text-amber-500" />
-                        <span>Subfolder</span>
+                        <span>{t('nav.subfolder')}</span>
                       </button>
                     </div>
                   </>
@@ -644,7 +663,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
             ref={renameInputRef}
             className="flex-1 px-1.5 py-0.5 text-sm bg-white border border-blue-400 rounded outline-none ring-2 ring-blue-200 min-w-0"
             value={renamingPageTitle}
-            placeholder="Document title"
+            placeholder={t('nav.documentTitlePlaceholder')}
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
             onMouseDown={(e) => e.stopPropagation()}
             onChange={(e) => setRenamingPageTitle(e.target.value)}
@@ -660,7 +679,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                 e.stopPropagation();
                 e.preventDefault();
                 const newTitle = renamingPageTitle.trim();
-                if (!newTitle) { alert('Document title cannot be empty.'); return; }
+                if (!newTitle) { alert(t('nav.documentTitleEmpty')); return; }
                 if (newTitle === page.title) { setRenamingPageId(null); setRenamingPageTitle(''); return; }
                 try {
                   await wikiApi.updatePage(page.id, { title: newTitle });
@@ -669,7 +688,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                   forceReloadWikiTree();
                 } catch (err) {
                   console.error('Failed to rename page', err);
-                  alert(err instanceof Error ? err.message : 'Failed to rename document.');
+                  alert(err instanceof Error ? err.message : t('nav.documentRenameFailed'));
                 }
               }
             }}
@@ -689,9 +708,9 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
           />
         ) : (
           <>
-            <span className="flex-1 truncate text-left">{page.title || '(Untitled)'}</span>
+            <span className="flex-1 truncate text-left">{page.title || t('nav.untitled')}</span>
             {!page.isPublished && (
-              <span className="ml-1 px-1.5 py-0.5 bg-yellow-50 text-yellow-700 rounded text-[10px] border border-yellow-200 flex-shrink-0">Draft</span>
+              <span className="ml-1 px-1.5 py-0.5 bg-yellow-50 text-yellow-700 rounded text-[10px] border border-yellow-200 flex-shrink-0">{t('nav.draft')}</span>
             )}
             <div className="relative ml-0.5">
               <button
@@ -705,7 +724,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                   setShowFolderActionsMenuForId(null);
                   setShowPageActionsMenuForId(showPageActionsMenuForId === page.id ? null : page.id);
                 }}
-                title="Document options"
+                title={t('nav.documentOptions')}
               >
                 <MoreVertical className="w-3.5 h-3.5" />
               </button>
@@ -726,7 +745,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       }}
                     >
                       <Pencil className="w-4 h-4 text-slate-500" />
-                      <span>Rename</span>
+                      <span>{t('nav.rename')}</span>
                     </button>
                     <button
                       className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -737,7 +756,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       }}
                     >
                       <Settings className="w-4 h-4 text-indigo-500" />
-                      <span>Folder &amp; Visibility…</span>
+                      <span>{t('nav.folderAndVisibility')}</span>
                     </button>
                     <div className="my-1 border-t border-gray-100" />
                     <button
@@ -745,7 +764,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       onClick={async (e) => {
                         e.stopPropagation();
                         setShowPageActionsMenuForId(null);
-                        const ok = window.confirm(`Delete document "${page.title || '(Untitled)'}"?\n\nThis cannot be undone.`);
+                        const ok = window.confirm(t('nav.documentDeleteConfirm', { name: page.title || t('nav.untitled') }));
                         if (!ok) return;
                         try {
                           await wikiApi.deletePage(page.id);
@@ -756,12 +775,12 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                           forceReloadWikiTree();
                         } catch (err) {
                           console.error('Failed to delete page', err);
-                          alert(err instanceof Error ? err.message : 'Failed to delete document.');
+                          alert(err instanceof Error ? err.message : t('nav.documentRenameFailed'));
                         }
                       }}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
-                      <span>Delete</span>
+                      <span>{t('nav.delete')}</span>
                     </button>
                   </div>
                 </>
@@ -774,8 +793,8 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
   };
 
   return (
-    <aside 
-      className={`h-screen bg-gray-100 transition-all duration-300 flex-shrink-0 ${
+    <aside
+      className={`bg-gray-100 transition-all duration-300 flex-shrink-0 h-full ${
         isMobile ? 'shadow-2xl' : ''
       }`}
       style={{ width: `${width}px` }}
@@ -783,28 +802,28 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
       <div className="h-full flex flex-col">
         {/* User Profile & Actions - Same Row */}
         {!isCreateTeamPage && (
-          <div className={`p-3 border-b border-gray-200 ${isMobile ? 'p-4' : ''}`}>
+          <div className={`p-3 border-b border-gray-200 ${isMobile ? 'p-3' : ''}`}>
             <div className="flex items-center justify-between">
               {/* User Profile */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className={`${isMobile ? 'w-10 h-10 text-base' : 'w-8 h-8 text-sm'} rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0`}>
+                <div className={`${isMobile ? 'w-9 h-9 text-sm' : 'w-8 h-8 text-sm'} rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0`}>
                   {user?.name ? user.name.charAt(0) : '?'}
                 </div>
                 {!isCollapsed && (
                   <div className="min-w-0">
-                    <p className={`font-medium text-gray-800 truncate ${isMobile ? 'text-base' : 'text-sm'}`}>{user?.name || 'Unknown User'}</p>
-                    <p className="text-xs text-gray-500 truncate">{user?.role || 'Unknown Role'}</p>
+                    <p className={`font-medium text-gray-800 truncate ${isMobile ? 'text-sm' : 'text-sm'}`}>{user?.name || t('nav.unknownUser')}</p>
+                    <p className="text-xs text-gray-500 truncate">{user?.role || t('nav.unknownRole')}</p>
                   </div>
                 )}
               </div>
-              
+
               {/* Search & Notifications & Mobile Close */}
-              <div className={`flex items-center gap-1 flex-shrink-0 ${isMobile ? 'gap-2' : ''}`}>
-                <button 
+              <div className={`flex items-center gap-1 flex-shrink-0 ${isMobile ? 'gap-1.5' : ''}`}>
+                <button
                   onClick={handleSearchClick}
-                  className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors ${isMobile ? 'p-3' : ''}`}
-                  title="Search"
-                  aria-label="Search"
+                  className={`p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors ${isMobile ? 'p-2' : ''}`}
+                  title={t('nav.search')}
+                  aria-label={t('nav.search')}
                 >
                   <Search className="w-4 h-4" />
                 </button>
@@ -812,7 +831,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                   <button 
                     onClick={() => setShowNotifications(!showNotifications)}
                     className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
-                    title="Notifications"
+                    title={t('nav.notifications')}
                   >
                     <Bell className="w-4 h-4" />
                     {unreadCount > 0 && (
@@ -828,7 +847,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                     }`}>
                       <div className="p-2.5 border-b border-gray-200 flex justify-between items-center">
                         <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-semibold text-gray-800">Notifications</h4>
+                          <h4 className="text-xs font-semibold text-gray-800">{t('notifications.title')}</h4>
                           {unreadCount > 0 && (
                             <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
                               {unreadCount}
@@ -839,7 +858,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                           <button
                             onClick={handleMarkAllRead}
                             className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 transition-colors"
-                            title="Mark all as read"
+                            title={t('notifications.markAllRead')}
                           >
                             <CheckCheck className="w-3.5 h-3.5" />
                           </button>
@@ -851,9 +870,9 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                             <div className="w-10 h-10 mx-auto mb-2 bg-gray-100 rounded-full flex items-center justify-center">
                               <Bell className="w-5 h-5 text-gray-400" />
                             </div>
-                            <p className="text-xs text-gray-500 font-medium">No notifications yet</p>
+                            <p className="text-xs text-gray-500 font-medium">{t('notifications.empty')}</p>
                             <p className="text-[11px] text-gray-400 mt-1">
-                              @mentions appear here
+                              {t('notifications.mentionsHint')}
                             </p>
                           </div>
                         ) : (
@@ -903,14 +922,14 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
         )}
 
         {/* Navigation Menu */}
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto min-h-0">
           {isCreateTeamPage ? (
             <button
               onClick={() => router.back()}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-all duration-200 ease-in-out text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm`}
             >
-              <ArrowLeft className={`w-4 h-4 ${isMobile ? 'w-5 h-5' : ''}`} />
-              {!isCollapsed && <span>{isMobile ? 'Back' : 'Back to app'}</span>}
+              <ArrowLeft className={`w-4 h-4`} />
+              {!isCollapsed && <span>{isMobile ? t('nav.back') : t('nav.backToApp')}</span>}
             </button>
           ) : (
             getMenuItems().map((item) => {
@@ -925,10 +944,10 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       isActive 
                         ? 'bg-gray-500 text-white shadow-md' 
                         : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-                    } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
+                    } ${isMobile ? 'px-3 py-2 text-sm' : 'px-2 py-1.5'}`}
                     onClick={handleTeamsClick}
                   >
-                    <Icon className={`w-4 h-4 transition-transform duration-200 ${isMobile ? 'w-5 h-5' : ''}`} />
+                    <Icon className={`w-4 h-4 transition-transform duration-200`} />
                     {!isCollapsed && (
                       <div className="flex-1 flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -955,7 +974,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                               e.stopPropagation();
                               router.push('/teams/new');
                             }}
-                            title="Add Team"
+                            title={t('nav.addTeam')}
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -996,7 +1015,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                                   e.stopPropagation();
                                   router.push(`/teams/edit/${team.id}`);
                                 }}
-                                title="Edit Team"
+                                title={t('nav.editTeam')}
                               >
                                 <MoreHorizontal className="w-4 h-4" />
                               </button>
@@ -1007,13 +1026,13 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                                   className="w-full text-left px-2 py-1 rounded text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all duration-200"
                                 >
                                   <Bug className="w-3 h-3 inline mr-2" />
-                                  Issues
+                                  {t('nav.teamIssues')}
                                 </button>
                                 <button
                                   className="w-full text-left px-2 py-1 rounded text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all duration-200"
                                 >
                                   <FolderOpen className="w-3 h-3 inline mr-2" />
-                                  Projects
+                                  {t('nav.teamProjects')}
                                 </button>
                               </div>
                             )}
@@ -1036,10 +1055,10 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       onWikiPage
                         ? 'bg-gray-500 text-white shadow-md'
                         : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-                    } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
+                    } ${isMobile ? 'px-3 py-2 text-sm' : 'px-2 py-1.5'}`}
                     onClick={handleWikiClick}
                   >
-                    <Icon className={`w-4 h-4 transition-transform duration-200 ${isMobile ? 'w-5 h-5' : ''}`} />
+                    <Icon className={`w-4 h-4 transition-transform duration-200`} />
                     {!isCollapsed && (
                       <div className="flex-1 flex items-center justify-between">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1052,7 +1071,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                               e.stopPropagation();
                               setExpandedMenu(expandedMenu === 'wiki' ? null : 'wiki');
                             }}
-                            title={expandedMenu === 'wiki' ? 'Collapse' : 'Expand'}
+                            title={expandedMenu === 'wiki' ? t('nav.collapse') : t('nav.expand')}
                           >
                             {expandedMenu === 'wiki' ? (
                               <ChevronDown className="w-4 h-4 transition-transform duration-200" />
@@ -1070,7 +1089,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                               e.stopPropagation();
                               setShowWikiMenu(!showWikiMenu);
                             }}
-                            title="Add to Wiki"
+                            title={t('nav.addToWiki')}
                           >
                             <Plus className="w-4 h-4" />
                           </button>
@@ -1091,7 +1110,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                                   }}
                                 >
                                   <FileText className="w-4 h-4" />
-                                  <span>Document</span>
+                                  <span>{t('nav.document')}</span>
                                 </button>
                                 <button
                                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -1106,7 +1125,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                                   }}
                                 >
                                   <FolderPlus className="w-4 h-4" />
-                                  <span>Folder</span>
+                                  <span>{t('nav.folder')}</span>
                                 </button>
                               </div>
                             </>
@@ -1155,7 +1174,56 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                 </div>
               );
             }
-            
+
+            if (item.id === 'retro') {
+              const onRetroPage = router.pathname === '/retro' || router.pathname.startsWith('/retro/');
+              return (
+                <div key={item.id}>
+                  <div
+                    className={`flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out cursor-pointer ${
+                      onRetroPage
+                        ? 'bg-gray-500 text-white shadow-md'
+                        : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
+                    } ${isMobile ? 'px-3 py-2 text-sm' : 'px-2 py-1.5'}`}
+                    onClick={() => router.push('/retro')}
+                  >
+                    <Icon className={`w-4 h-4 transition-transform duration-200`} />
+                    {!isCollapsed && (
+                      <div className="flex-1 flex items-center justify-between">
+                        <span>{item.label}</span>
+                        <div className="flex items-center gap-1">
+                          {item.badge != null && item.badge > 0 && (
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs transition-colors duration-200 ${
+                              onRetroPage ? 'bg-white/20' : 'bg-gray-200 text-gray-700'
+                            }`}>
+                              {item.badge}
+                            </span>
+                          )}
+                          <button
+                            className={`p-1 rounded transition-colors duration-200 ${
+                              onRetroPage ? 'hover:bg-white/20' : 'hover:bg-gray-300'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push('/retro?new=1');
+                            }}
+                            title="创建回顾会"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {isCollapsed && item.badge != null && item.badge > 0 && (
+                      <span className="bg-gray-200 text-gray-700 w-4 h-4 rounded-full flex items-center justify-center text-xs">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.id}
@@ -1164,9 +1232,9 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                   isActive 
                     ? 'bg-gray-500 text-white shadow-md' 
                     : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm hover:scale-[1.02]'
-                } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
+                } ${isMobile ? 'px-3 py-2 text-sm' : 'px-2 py-1.5'}`}
               >
-                <Icon className={`w-4 h-4 transition-transform duration-200 ${isMobile ? 'w-5 h-5' : ''}`} />
+                <Icon className={`w-4 h-4 transition-transform duration-200`} />
                 {!isCollapsed && (
                   <>
                     <span className="flex-1 text-left">{item.label}</span>
@@ -1192,24 +1260,24 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
 
         {/* Bottom Actions */}
         {!isCreateTeamPage && (
-          <div className={`p-3 border-t border-gray-200 space-y-1 ${isMobile ? 'p-4 space-y-2' : ''}`}>
+          <div className={`p-3 border-t border-gray-200 space-y-1 ${isMobile ? 'p-3 space-y-1' : ''}`}>
             <button
               onClick={() => router.push('/settings/')}
               className={`w-full flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out ${
                 isCollapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-              } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
+              } ${isMobile ? 'px-3 py-2 text-sm' : 'px-2 py-1.5'}`}
               title="Settings"
             >
-              <Settings className={`w-4 h-4 ${isMobile ? 'w-5 h-5' : ''}`} />
+              <Settings className={`w-4 h-4`} />
               {!isCollapsed && <span>Settings</span>}
             </button>
-            <button 
+            <button
               onClick={handleLogout}
               className={`w-full flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out ${
                 isCollapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-              } ${isMobile ? 'px-4 py-3 text-base' : 'px-2 py-1.5'}`}
+              } ${isMobile ? 'px-3 py-2 text-sm' : 'px-2 py-1.5'}`}
               title="Logout">
-              <LogOut className={`w-4 h-4 ${isMobile ? 'w-5 h-5' : ''}`} />
+              <LogOut className={`w-4 h-4`} />
               {!isCollapsed && <span>Logout</span>}
             </button>
           </div>
@@ -1234,11 +1302,11 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
             >
               <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">Folder &amp; Visibility</h3>
+                  <h3 className="text-base font-semibold text-gray-900">{t('wiki.folderVisibilityTitle')}</h3>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {(() => {
                       const p = wikiPages.find(x => x.id === showFolderVisibilityModal);
-                      return p ? (p.title || '(Untitled)') : '';
+                      return p ? (p.title || t('nav.untitled')) : '';
                     })()}
                   </p>
                 </div>
@@ -1246,7 +1314,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
 
               <div className="px-5 py-4 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Folder</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('wiki.folder')}</label>
                   <select
                     value={fvFolderId}
                     disabled={fvSaving}
@@ -1256,7 +1324,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="">— Root (no folder) —</option>
+                    <option value="">{t('wiki.rootFolder')}</option>
                     {flattenFoldersSidebar(wikiFolders, 0).map((opt) => (
                       <option key={opt.id} value={opt.id}>
                         {'— '.repeat(opt.depth)}
@@ -1267,7 +1335,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Visibility</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('wiki.visibility')}</label>
                   <select
                     value={fvVisibility}
                     disabled={fvSaving}
@@ -1277,11 +1345,11 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                     }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="PRIVATE">Private — Only you</option>
-                    <option value="TEAM">Team — Team members only</option>
-                    <option value="PUBLIC">Public — All organization users</option>
+                    <option value="PRIVATE">{t('wiki.visPrivate')}</option>
+                    <option value="TEAM">{t('wiki.visTeam')}</option>
+                    <option value="PUBLIC">{t('wiki.visPublic')}</option>
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Controls who can view and edit this document.</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('wiki.visibilityHint')}</p>
                 </div>
 
                 {fvError && (
@@ -1301,7 +1369,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                   }}
                   className="px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
@@ -1323,7 +1391,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                     } catch (err) {
                       console.error('Failed to update folder/visibility', err);
                       setFvError(
-                        err instanceof Error ? err.message : 'Failed to update settings.'
+                        err instanceof Error ? err.message : t('wiki.settingsFailed')
                       );
                     } finally {
                       setFvSaving(false);
@@ -1331,7 +1399,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                   }}
                   className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-wait"
                 >
-                  {fvSaving ? 'Saving…' : 'Save'}
+                  {fvSaving ? t('wiki.saving') : t('wiki.save')}
                 </button>
               </div>
             </div>

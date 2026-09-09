@@ -7,6 +7,8 @@ import com.blake.pmis.entity.WikiPage;
 import com.blake.pmis.repository.NotificationRepository;
 import com.blake.pmis.repository.UserRepository;
 import com.blake.pmis.repository.WikiPageRepository;
+import com.blake.pmis.retro.entity.Board;
+import com.blake.pmis.retro.repository.BoardRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,6 +34,8 @@ public class NotificationService {
 
     public static final String TYPE_WIKI_MENTION = "WIKI_MENTION";
     public static final String TARGET_TYPE_WIKI_PAGE = "WIKI_PAGE";
+    public static final String TYPE_RETRO_INVITE = "RETRO_INVITE";
+    public static final String TARGET_TYPE_RETRO_BOARD = "RETRO_BOARD";
 
     private static final int MAX_LIMIT = 50;
     private static final int DEFAULT_LIMIT = 30;
@@ -39,6 +43,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final WikiPageRepository wikiPageRepository;
     private final UserRepository userRepository;
+    private final BoardRepository boardRepository;
 
     @Transactional
     public List<Notification> notifyWikiMentions(WikiPage savedPage, Set<Long> mentionedUserIds, User actor) {
@@ -76,6 +81,30 @@ public class NotificationService {
         return notificationRepository.saveAll(toSave);
     }
 
+    @Transactional
+    public List<Notification> notifyRetroInvite(Long boardId, String boardTitle, Set<Long> inviteeIds, User actor) {
+        if (inviteeIds == null || inviteeIds.isEmpty()
+                || boardId == null || actor == null || actor.getId() == null) {
+            return Collections.emptyList();
+        }
+        final Long actorId = actor.getId();
+        final List<Notification> toSave = new ArrayList<>(inviteeIds.size());
+        for (Long recipientId : inviteeIds) {
+            if (recipientId == null) continue;
+            if (Objects.equals(recipientId, actorId)) continue; // skip self
+            toSave.add(Notification.builder()
+                    .userId(recipientId)
+                    .type(TYPE_RETRO_INVITE)
+                    .targetType(TARGET_TYPE_RETRO_BOARD)
+                    .targetId(boardId)
+                    .actorUserId(actorId)
+                    .readStatus(false)
+                    .build());
+        }
+        if (toSave.isEmpty()) return Collections.emptyList();
+        return notificationRepository.saveAll(toSave);
+    }
+
     @Transactional(readOnly = true)
     public List<NotificationDTO> listDtosForUser(User user, int limit) {
         if (user == null || user.getId() == null) return Collections.emptyList();
@@ -88,12 +117,18 @@ public class NotificationService {
         if (rows.isEmpty()) return Collections.emptyList();
 
         final Set<Long> pageIds = new LinkedHashSet<>();
+        final Set<Long> retroBoardIds = new LinkedHashSet<>();
         final Set<Long> actorIds = new LinkedHashSet<>();
         for (Notification r : rows) {
             if (TYPE_WIKI_MENTION.equals(r.getType())
                     && TARGET_TYPE_WIKI_PAGE.equals(r.getTargetType())
                     && r.getTargetId() != null) {
                 pageIds.add(r.getTargetId());
+            }
+            if (TYPE_RETRO_INVITE.equals(r.getType())
+                    && TARGET_TYPE_RETRO_BOARD.equals(r.getTargetType())
+                    && r.getTargetId() != null) {
+                retroBoardIds.add(r.getTargetId());
             }
             if (r.getActorUserId() != null) actorIds.add(r.getActorUserId());
         }
@@ -102,6 +137,10 @@ public class NotificationService {
                 ? Collections.emptyMap()
                 : wikiPageRepository.findAllById(pageIds).stream()
                         .collect(Collectors.toMap(WikiPage::getId, Function.identity()));
+        final Map<Long, Board> boardMap = retroBoardIds.isEmpty()
+                ? Collections.emptyMap()
+                : boardRepository.findAllById(retroBoardIds).stream()
+                        .collect(Collectors.toMap(Board::getId, Function.identity()));
         final Map<Long, User> actorMap = actorIds.isEmpty()
                 ? Collections.emptyMap()
                 : userRepository.findAllById(actorIds).stream()
@@ -120,6 +159,15 @@ public class NotificationService {
                         ? a.getName() : "A user";
                 title = actorName + " mentioned you in \"" + pageTitle + "\"";
                 actionUrl = p != null ? ("/wiki/" + p.getId()) : "/wiki";
+            } else if (TYPE_RETRO_INVITE.equals(r.getType()) && TARGET_TYPE_RETRO_BOARD.equals(r.getTargetType())) {
+                final Board b = r.getTargetId() != null ? boardMap.get(r.getTargetId()) : null;
+                final User a = r.getActorUserId() != null ? actorMap.get(r.getActorUserId()) : null;
+                final String boardTitle = b != null && b.getTitle() != null && !b.getTitle().isBlank()
+                        ? b.getTitle() : "a retrospective";
+                final String actorName = a != null && a.getName() != null && !a.getName().isBlank()
+                        ? a.getName() : "A user";
+                title = actorName + " invited you to retrospective \"" + boardTitle + "\"";
+                actionUrl = b != null ? ("/retro/" + b.getId()) : "/retro";
             } else {
                 // Fallback for any notification types added later in the UI
                 title = "New notification (type: " + r.getType() + ")";

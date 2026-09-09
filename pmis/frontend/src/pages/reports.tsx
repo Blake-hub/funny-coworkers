@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import { mockProjects, mockIssues } from '@/data/mockData';
@@ -24,8 +25,16 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 }
 
 export default function Reports() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+
+  const statusLabels: Record<string, string> = {
+    backlog: t('common.statusBacklog'),
+    todo: t('common.statusTodo'),
+    in_progress: t('common.statusInProgress'),
+    done: t('common.statusDone'),
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -45,12 +54,12 @@ export default function Reports() {
       <div className="mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Reports</h1>
-            <p className="text-gray-500 mt-1">View analytics and insights.</p>
+            <h1 className="text-2xl font-bold text-gray-800">{t('reports.title')}</h1>
+            <p className="text-gray-500 mt-1">{t('reports.subtitle')}</p>
           </div>
           <button className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
             <Download className="w-4 h-4" />
-            Export Report
+            {t('reports.export')}
           </button>
         </div>
       </div>
@@ -60,7 +69,7 @@ export default function Reports() {
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Projects</p>
+              <p className="text-sm text-gray-500">{t('reports.totalProjects')}</p>
               <p className="text-2xl font-bold text-gray-800">{totalProjects}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -72,7 +81,7 @@ export default function Reports() {
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Issues</p>
+              <p className="text-sm text-gray-500">{t('reports.totalIssues')}</p>
               <p className="text-2xl font-bold text-gray-800">{totalIssues}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -84,7 +93,7 @@ export default function Reports() {
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Completed Issues</p>
+              <p className="text-sm text-gray-500">{t('reports.completedIssues')}</p>
               <p className="text-2xl font-bold text-green-600">{completedIssues}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -96,7 +105,7 @@ export default function Reports() {
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Avg Progress</p>
+              <p className="text-sm text-gray-500">{t('reports.avgProgress')}</p>
               <p className="text-2xl font-bold text-blue-600">{avgProgress}%</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -110,7 +119,7 @@ export default function Reports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Progress Overview */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">Project Progress</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">{t('reports.projectProgress')}</h3>
           <div className="space-y-4">
             {mockProjects.map((project) => (
               <div key={project.id}>
@@ -131,7 +140,7 @@ export default function Reports() {
 
         {/* Issue Status Distribution */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-800 mb-4">Issue Status</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">{t('reports.issueStatus')}</h3>
           <div className="space-y-3">
             {['backlog', 'todo', 'in_progress', 'done'].map((status) => {
               const count = mockIssues.filter(i => i.status === status).length;
@@ -145,7 +154,7 @@ export default function Reports() {
               return (
                 <div key={status} className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${colors[status]}`} />
-                  <span className="flex-1 text-sm text-gray-600 capitalize">{status.replace('_', ' ')}</span>
+                  <span className="flex-1 text-sm text-gray-600 capitalize">{statusLabels[status]}</span>
                   <span className="text-sm font-medium text-gray-800">{count} ({percentage}%)</span>
                 </div>
               );

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import Layout from '@/components/Layout/Layout';
@@ -29,6 +30,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function ProjectDetail({ projectId }: { projectId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { addToast } = useToast();
   
@@ -129,27 +131,27 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   };
 
   const projectStatusOptions = [
-    { id: 'backlog', label: 'Backlog', value: 1, icon: Inbox },
-    { id: 'planned', label: 'Planned', value: 2, icon: Clock },
-    { id: 'in_progress', label: 'In Process', value: 3, icon: Play },
-    { id: 'completed', label: 'Completed', value: 4, icon: Check },
-    { id: 'canceled', label: 'Canceled', value: 5, icon: AlertCircle },
+    { id: 'backlog', label: t('projects.statusBacklog'), value: 1, icon: Inbox },
+    { id: 'planned', label: t('projects.statusPlanned'), value: 2, icon: Clock },
+    { id: 'in_progress', label: t('projects.statusInProcess'), value: 3, icon: Play },
+    { id: 'completed', label: t('projects.statusCompleted'), value: 4, icon: Check },
+    { id: 'canceled', label: t('projects.statusCanceled'), value: 5, icon: AlertCircle },
   ];
 
   const projectPriorityOptions = [
-    { id: 'no_priority', label: 'No priority', value: 0, icon: Minus },
-    { id: 'urgent', label: 'Urgent', value: 1, icon: AlertTriangle },
-    { id: 'high', label: 'High', value: 2, icon: ArrowUp },
-    { id: 'medium', label: 'Medium', value: 3, icon: Minus },
-    { id: 'low', label: 'Low', value: 4, icon: ArrowDown },
+    { id: 'no_priority', label: t('common.priorityNone'), value: 0, icon: Minus },
+    { id: 'urgent', label: t('common.priorityUrgent'), value: 1, icon: AlertTriangle },
+    { id: 'high', label: t('common.priorityHigh'), value: 2, icon: ArrowUp },
+    { id: 'medium', label: t('common.priorityMedium'), value: 3, icon: Minus },
+    { id: 'low', label: t('common.priorityLow'), value: 4, icon: ArrowDown },
   ];
 
   const getStatusLabel = (status: number) => {
-    return projectStatusOptions.find(s => s.value === status)?.label || 'Unknown';
+    return projectStatusOptions.find(s => s.value === status)?.label || t('common.unknown');
   };
 
   const getPriorityLabel = (priority: number) => {
-    return projectPriorityOptions.find(p => p.value === priority)?.label || 'Unknown';
+    return projectPriorityOptions.find(p => p.value === priority)?.label || t('common.unknown');
   };
 
   const getStatusIcon = (status: number) => {
@@ -198,7 +200,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
       
       await projectApi.updateProject(project.id, updateData);
       setProject(prev => prev ? { ...prev, [editingField]: editValue } : null);
-      addToast('success', 'Changes saved');
+      addToast('success', t('common.changesSaved'));
     } catch (error) {
       console.error('Failed to update project:', error);
       if (error instanceof Error) {
@@ -239,7 +241,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
       }
       
       setEditingProperty(null);
-      addToast('success', 'Changes saved');
+      addToast('success', t('common.changesSaved'));
     } catch (error) {
       console.error('Failed to update project:', error);
       if (error instanceof Error) {
@@ -250,7 +252,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
   const handleAddMilestone = async () => {
     if (!newMilestone.name.trim()) {
-      addToast('error', 'Please enter a milestone name');
+      addToast('error', t('projects.milestoneNameRequired'));
       return;
     }
 
@@ -263,7 +265,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
       setMilestones(prev => [...prev, result]);
       setShowMilestoneForm(false);
       setNewMilestone({ name: '', description: '', dueDate: '' });
-      addToast('success', 'Milestone added');
+      addToast('success', t('projects.milestoneAdded'));
     } catch (error) {
       console.error('Failed to create milestone:', error);
       if (error instanceof Error) {
@@ -274,7 +276,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
   const handleUpdateMilestone = async () => {
     if (!editingMilestone || !editingMilestone.name.trim()) {
-      addToast('error', 'Please enter a milestone name');
+      addToast('error', t('projects.milestoneNameRequired'));
       return;
     }
 
@@ -290,7 +292,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
       );
       setMilestones(prev => prev.map(m => m.id === result.id ? result : m));
       setEditingMilestone(null);
-      addToast('success', 'Milestone updated');
+      addToast('success', t('projects.milestoneUpdated'));
     } catch (error) {
       console.error('Failed to update milestone:', error);
       if (error instanceof Error) {
@@ -303,7 +305,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     try {
       await milestoneApi.deleteMilestone(parseInt(projectId), milestoneId);
       setMilestones(prev => prev.filter(m => m.id !== milestoneId));
-      addToast('success', 'Milestone deleted');
+      addToast('success', t('projects.milestoneDeleted'));
     } catch (error) {
       console.error('Failed to delete milestone:', error);
       if (error instanceof Error) {
@@ -350,12 +352,12 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     }
     setShowLabelMenu(false);
     setLabelSearchText('');
-    addToast('success', 'Label added');
+    addToast('success', t('projects.labelAdded'));
   };
 
   const handleCreateNewLabel = () => {
     if (!labelSearchText.trim()) {
-      addToast('error', 'Please enter a label name');
+      addToast('error', t('projects.labelNameRequired'));
       return;
     }
     setNewLabelName(labelSearchText);
@@ -365,7 +367,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
   const handleSelectColorAndCreate = async (color: string) => {
     if (!newLabelName.trim()) {
-      addToast('error', 'Please enter a label name');
+      addToast('error', t('projects.labelNameRequired'));
       return;
     }
 
@@ -392,7 +394,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
       setLabelSearchText('');
       setNewLabelName('');
       setIsColorMode(false);
-      addToast('success', 'Label created');
+      addToast('success', t('projects.labelCreated'));
     } catch (error) {
       console.error('Failed to create label:', error);
       if (error instanceof Error) {
@@ -498,7 +500,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                     onChange={(e) => setEditValue(e.target.value)}
                     onBlur={handleSaveEdit}
                     className="w-full border-0 px-0 py-0 text-sm focus:ring-0 focus:outline-none bg-transparent"
-                    placeholder="Add a short summary for this project"
+                    placeholder={t('projects.summaryPlaceholder')}
                     autoFocus
                   />
                 ) : (
@@ -506,21 +508,21 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                     className="text-sm text-gray-600 cursor-pointer hover:text-gray-800 transition-colors"
                     onClick={() => handleStartEdit('summary', project.summary)}
                   >
-                    {project.summary || 'Add a short summary for this project'}
+                    {project.summary || t('projects.summaryPlaceholder')}
                   </p>
                 )}
               </div>
 
               {/* Description */}
               <div>
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</span>
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('common.description')}</span>
                 <div className="min-h-[60px] py-2">
                   {editingField === 'description' ? (
                     <RichTextEditor
                       value={editValue}
                       onChange={(content) => setEditValue(content)}
                       onBlur={() => handleSaveEdit()}
-                      placeholder="Write a project introduction, or other useful information...."
+                      placeholder={t('projects.introPlaceholder')}
                       className="border-0"
                       showToolbar={false}
                     />
@@ -537,13 +539,13 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
               {/* Milestones */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Milestones</span>
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('projects.milestone')}</span>
                 </div>
 
                 {/* Milestone List */}
                 <div className="space-y-2">
                   {milestones.length === 0 ? (
-                    <div className="text-sm text-gray-500 py-4">No milestones yet.</div>
+                    <div className="text-sm text-gray-500 py-4">{t('projects.noMilestones')}</div>
                   ) : (
                     milestones.map((milestone) => {
                       if (editingMilestone?.id === milestone.id) {
@@ -555,7 +557,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                                 value={editingMilestone.name}
                                 onChange={(e) => setEditingMilestone(prev => prev ? { ...prev, name: e.target.value } : null)}
                                 className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-300"
-                                placeholder="Milestone name"
+                                placeholder={t('projects.milestoneName')}
                               />
                               <button
                                 onClick={() => setEditingMilestone(null)}
@@ -577,7 +579,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                                 onClick={() => (document.getElementById(`edit-milestone-date-${milestone.id}`) as HTMLInputElement)?.showPicker()}
                               >
                                 <Calendar className="w-4 h-4" />
-                                {editingMilestone.dueDate || 'Select date'}
+                                {editingMilestone.dueDate || t('projects.selectDate')}
                               </button>
                               <input
                                 id={`edit-milestone-date-${milestone.id}`}
@@ -590,7 +592,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                                 onClick={handleUpdateMilestone}
                                 className="ml-auto px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700"
                               >
-                                Save
+                                {t('common.save')}
                               </button>
                             </div>
                           </div>
@@ -660,7 +662,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                         value={newMilestone.name}
                         onChange={(e) => setNewMilestone(prev => ({ ...prev, name: e.target.value }))}
                         className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-300"
-                        placeholder="Milestone name"
+                        placeholder={t('projects.milestoneName')}
                         autoFocus
                       />
                       <button
@@ -689,13 +691,13 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                         onClick={() => setShowMilestoneForm(false)}
                         className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </button>
                       <button
                         onClick={handleAddMilestone}
                         className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
                       >
-                        Add milestone
+                        {t('projects.addMilestone')}
                       </button>
                     </div>
                   </div>
@@ -710,7 +712,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                     className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors w-full justify-center"
                   >
                     <Plus className="w-4 h-4" />
-                    Milestone
+                    {t('projects.milestone')}
                   </button>
                 )}
               </div>
@@ -726,20 +728,20 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                   onClick={() => toggleCard('properties')}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
-                  <span className="text-sm font-medium text-gray-800">Properties</span>
+                  <span className="text-sm font-medium text-gray-800">{t('common.properties')}</span>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${cardExpandedStates.properties ? 'rotate-180' : ''}`} />
                 </button>
                 {cardExpandedStates.properties && (
                   <div className="px-4 pb-4 space-y-3">
                     {/* Leader */}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Leader</span>
+                      <span className="text-xs text-gray-500">{t('common.leaderLabel')}</span>
                       <div className="relative property-dropdown">
                         <button
                           onClick={() => setEditingProperty('leaderId')}
                           className="text-xs text-gray-700 cursor-pointer hover:text-gray-900 px-2 py-0.5 rounded hover:bg-gray-100 flex items-center gap-1"
                         >
-                          {project.leaderName || 'Not set'}
+                          {project.leaderName || t('common.notSet')}
                           <ChevronDown className="w-3 h-3" />
                         </button>
                         {editingProperty === 'leaderId' && (
@@ -748,7 +750,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                               onClick={() => handleUpdateProperty('leaderId', 0)}
                               className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
                             >
-                              Select leader
+                              {t('projects.selectLeader')}
                             </button>
                             {users.map((user) => (
                               <button
@@ -768,7 +770,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
                     {/* Status */}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Status</span>
+                      <span className="text-xs text-gray-500">{t('common.status')}</span>
                       <div className="relative property-dropdown">
                         <button
                           onClick={() => setEditingProperty('status')}
@@ -805,7 +807,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
                     {/* Priority */}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Priority</span>
+                      <span className="text-xs text-gray-500">{t('common.priority')}</span>
                       <div className="relative property-dropdown">
                         <button
                           onClick={() => setEditingProperty('priority')}
@@ -842,7 +844,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
                     {/* Labels */}
                     <div className="space-y-1">
-                      <span className="text-xs text-gray-500">Labels</span>
+                      <span className="text-xs text-gray-500">{t('common.labels')}</span>
                       <div className="flex flex-wrap gap-1">
                         {project.labels.length === 0 ? (
                           <button
@@ -850,7 +852,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                             className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
                           >
                             <Plus className="w-3 h-3" />
-                            Add label
+                            {t('common.addLabel')}
                           </button>
                         ) : (
                           <>
@@ -879,7 +881,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                       <div className="flex items-center justify-between">
                         <span className="flex items-center gap-1 text-xs text-gray-500">
                           <Calendar className="w-3 h-3" />
-                          Start Date
+                          {t('projects.startDate')}
                         </span>
                         <div className="relative property-dropdown">
                           {editingProperty === 'startDate' ? (
@@ -895,7 +897,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                               onClick={() => setEditingProperty('startDate')}
                               className="text-xs text-gray-700 cursor-pointer hover:text-gray-900 px-2 py-0.5 rounded hover:bg-gray-100 flex items-center gap-1"
                             >
-                              {project.startDate || 'Not set'}
+                              {project.startDate || t('common.notSet')}
                               <Calendar className="w-3 h-3" />
                             </button>
                           )}
@@ -904,7 +906,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                       <div className="flex items-center justify-between">
                         <span className="flex items-center gap-1 text-xs text-gray-500">
                           <Calendar className="w-3 h-3" />
-                          Target Date
+                          {t('projects.targetDate')}
                         </span>
                         <div className="relative property-dropdown">
                           {editingProperty === 'endDate' ? (
@@ -920,7 +922,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                               onClick={() => setEditingProperty('endDate')}
                               className="text-xs text-gray-700 cursor-pointer hover:text-gray-900 px-2 py-0.5 rounded hover:bg-gray-100 flex items-center gap-1"
                             >
-                              {project.endDate || 'Not set'}
+                              {project.endDate || t('common.notSet')}
                               <Calendar className="w-3 h-3" />
                             </button>
                           )}
@@ -937,14 +939,14 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                   onClick={() => toggleCard('progress')}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
-                  <span className="text-sm font-medium text-gray-800">Progress</span>
+                  <span className="text-sm font-medium text-gray-800">{t('projects.colProgress')}</span>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${cardExpandedStates.progress ? 'rotate-180' : ''}`} />
                 </button>
                 {cardExpandedStates.progress && (
                   <div className="px-4 pb-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-2xl font-bold text-gray-800">{progressPercent}%</span>
-                      <span className="text-xs text-gray-500">{completedMilestones} of {milestones.length} milestones</span>
+                      <span className="text-xs text-gray-500">{t('projects.milestonesProgress', { done: completedMilestones, total: milestones.length })}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
@@ -962,13 +964,13 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                   onClick={() => toggleCard('updates')}
                   className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
-                  <span className="text-sm font-medium text-gray-800">Updates</span>
+                  <span className="text-sm font-medium text-gray-800">{t('common.updates')}</span>
                   <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${cardExpandedStates.updates ? 'rotate-180' : ''}`} />
                 </button>
                 {cardExpandedStates.updates && (
                   <div className="px-4 pb-4">
                     <div className="text-sm text-gray-500 py-4 text-center">
-                      No updates yet
+                      {t('common.noUpdates')}
                     </div>
                   </div>
                 )}
@@ -991,7 +993,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                   type="text"
                   value={labelSearchText}
                   onChange={(e) => setLabelSearchText(e.target.value)}
-                  placeholder="pick up a color..."
+                  placeholder={t('projects.labelColorHint')}
                   className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-gray-400"
                 />
               </div>
@@ -1023,7 +1025,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                   type="text"
                   value={labelSearchText}
                   onChange={(e) => setLabelSearchText(e.target.value)}
-                  placeholder="Add label..."
+                  placeholder={t('projects.labelSearch')}
                   className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-gray-400"
                   autoFocus
                 />
@@ -1051,11 +1053,11 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 transition-colors"
                   >
                     <Plus className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-500">Create new label: {labelSearchText}</span>
+                    <span className="text-sm text-gray-500">{t('projects.labelCreate', { text: labelSearchText })}</span>
                   </button>
                 ) : (
                   <div className="text-sm text-gray-400 py-2 text-center">
-                    No labels available
+                    {t('projects.labelsEmpty')}
                   </div>
                 )}
               </div>

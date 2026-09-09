@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import Layout from '@/components/Layout/Layout';
@@ -28,6 +29,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function Projects() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
@@ -163,42 +165,42 @@ export default function Projects() {
   };
 
   const chipOptions = [
-    { id: 'all', label: 'All projects' },
-    { id: 'milestone', label: 'Has milestone' },
-    { id: 'no-milestone', label: 'No milestone' },
-    { id: 'archived', label: 'Archived' },
+    { id: 'all', label: t('projects.allProjects') },
+    { id: 'milestone', label: t('projects.hasMilestone') },
+    { id: 'no-milestone', label: t('projects.noMilestone') },
+    { id: 'archived', label: t('projects.archived') },
   ];
 
   const statusOptions = [
-    { id: 'active', label: 'Active' },
-    { id: 'completed', label: 'Completed' },
-    { id: 'paused', label: 'Paused' },
+    { id: 'active', label: t('projects.filterActive') },
+    { id: 'completed', label: t('projects.filterCompleted') },
+    { id: 'paused', label: t('projects.filterPaused') },
   ];
 
   const creatorOptions = users.map(user => ({ id: user.id.toString(), label: user.name }));
 
   const columnOptions = [
-    { id: 'name', label: 'Name' },
-    { id: 'description', label: 'Description' },
-    { id: 'progress', label: 'Progress' },
-    { id: 'issues', label: 'Issues' },
-    { id: 'leader', label: 'Leader' },
+    { id: 'name', label: t('projects.colName') },
+    { id: 'description', label: t('projects.colDescription') },
+    { id: 'progress', label: t('projects.colProgress') },
+    { id: 'issues', label: t('projects.colIssues') },
+    { id: 'leader', label: t('projects.colLeader') },
   ];
 
   const projectStatusOptions = [
-    { id: 'backlog', label: 'Backlog', value: 1, icon: Inbox },
-    { id: 'planned', label: 'Planned', value: 2, icon: Clock },
-    { id: 'in_progress', label: 'In Process', value: 3, icon: Play },
-    { id: 'completed', label: 'Completed', value: 4, icon: Check },
-    { id: 'canceled', label: 'Canceled', value: 5, icon: AlertCircle },
+    { id: 'backlog', label: t('projects.statusBacklog'), value: 1, icon: Inbox },
+    { id: 'planned', label: t('projects.statusPlanned'), value: 2, icon: Clock },
+    { id: 'in_progress', label: t('projects.statusInProcess'), value: 3, icon: Play },
+    { id: 'completed', label: t('projects.statusCompleted'), value: 4, icon: Check },
+    { id: 'canceled', label: t('projects.statusCanceled'), value: 5, icon: AlertCircle },
   ];
 
   const projectPriorityOptions = [
-    { id: 'no_priority', label: 'No priority', value: 0, icon: Minus },
-    { id: 'urgent', label: 'Urgent', value: 1, icon: AlertTriangle },
-    { id: 'high', label: 'High', value: 2, icon: ArrowUp },
-    { id: 'medium', label: 'Medium', value: 3, icon: Minus },
-    { id: 'low', label: 'Low', value: 4, icon: ArrowDown },
+    { id: 'no_priority', label: t('common.priorityNone'), value: 0, icon: Minus },
+    { id: 'urgent', label: t('common.priorityUrgent'), value: 1, icon: AlertTriangle },
+    { id: 'high', label: t('common.priorityHigh'), value: 2, icon: ArrowUp },
+    { id: 'medium', label: t('common.priorityMedium'), value: 3, icon: Minus },
+    { id: 'low', label: t('common.priorityLow'), value: 4, icon: ArrowDown },
   ];
 
   const filteredProjects = projects.filter(project => {
@@ -230,13 +232,13 @@ export default function Projects() {
 
   const handleCreateProject = async () => {
     if (!newProject.name.trim()) {
-      addToast('error', 'Please enter a project name');
+      addToast('error', t('projects.nameRequired'));
       return;
     }
 
-    const selectedTeam = teams.find(t => t.id.toString() === newProject.teamId) || teams[0];
+    const selectedTeam = teams.find(team => team.id.toString() === newProject.teamId) || teams[0];
     if (!selectedTeam) {
-      addToast('error', 'Please select a team');
+      addToast('error', t('projects.teamRequired'));
       return;
     }
 
@@ -268,7 +270,7 @@ export default function Projects() {
       };
 
       await projectApi.createProject(projectData);
-      addToast('success', 'Project created successfully');
+      addToast('success', t('projects.created'));
       
       setShowCreateDialog(false);
       setNewProject({
@@ -302,7 +304,7 @@ export default function Projects() {
 
   const handleAddMilestone = () => {
     if (!newMilestone.name.trim()) {
-      addToast('error', 'Please enter a milestone name');
+      addToast('error', t('projects.milestoneNameRequired'));
       return;
     }
     const newMilestoneItem = {
@@ -330,7 +332,7 @@ export default function Projects() {
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="mb-2 pb-2 border-b border-gray-200 flex items-center justify-between">
-          <h1 className="text-base font-semibold text-gray-800">Projects</h1>
+          <h1 className="text-base font-semibold text-gray-800">{t('projects.title')}</h1>
           <div className="relative group">
             <button
               onClick={() => {
@@ -345,7 +347,7 @@ export default function Projects() {
             </button>
             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Create a new project
+                {t('projects.create')}
               </div>
             </div>
           </div>
@@ -382,7 +384,7 @@ export default function Projects() {
                 className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
               >
                 <Filter className="w-3 h-3 text-gray-500" />
-                <span className="text-xs text-gray-600">Filter</span>
+                <span className="text-xs text-gray-600">{t('common.filter')}</span>
                 <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
               </button>
 
@@ -391,7 +393,7 @@ export default function Projects() {
                 <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                   {/* Status Filter */}
                   <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Status</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('common.status')}</p>
                     <div className="space-y-1">
                       {statusOptions.map((status) => (
                         <label
@@ -420,14 +422,14 @@ export default function Projects() {
                           onChange={() => setSelectedStatus(null)}
                           className="w-4 h-4 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">All</span>
+                        <span className="text-sm text-gray-700">{t('common.all')}</span>
                       </label>
                     </div>
                   </div>
 
                   {/* Creator Filter */}
                   <div className="px-4 py-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Creator</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('projects.creator')}</p>
                     <div className="space-y-1">
                       {creatorOptions.map((creator) => (
                         <label
@@ -456,7 +458,7 @@ export default function Projects() {
                           onChange={() => setSelectedCreator(null)}
                           className="w-4 h-4 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">All</span>
+                        <span className="text-sm text-gray-700">{t('common.all')}</span>
                       </label>
                     </div>
                   </div>
@@ -470,7 +472,7 @@ export default function Projects() {
                       }}
                       className="w-full text-left px-2 py-1 text-sm text-red-600 hover:bg-gray-50 rounded"
                     >
-                      Reset filters
+                      {t('common.resetFilters')}
                     </button>
                   </div>
                 </div>
@@ -487,7 +489,7 @@ export default function Projects() {
                 className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
               >
                 <Settings className="w-3 h-3 text-gray-500" />
-                <span className="text-xs text-gray-600">Columns</span>
+                <span className="text-xs text-gray-600">{t('common.columns')}</span>
                 <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showColumnsDropdown ? 'rotate-180' : ''}`} />
               </button>
 
@@ -495,7 +497,7 @@ export default function Projects() {
               {showColumnsDropdown && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
                   <div className="px-4 py-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Columns</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('common.columns')}</p>
                     <div className="space-y-1">
                       {columnOptions.map((column) => (
                         <label
@@ -533,19 +535,19 @@ export default function Projects() {
               <thead>
                 <tr className="bg-gray-50">
                   {enabledColumns.name && (
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('projects.colName')}</th>
                   )}
                   {enabledColumns.description && (
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('projects.colDescription')}</th>
                   )}
                   {enabledColumns.progress && (
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Progress</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('projects.colProgress')}</th>
                   )}
                   {enabledColumns.issues && (
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Issues</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('projects.colIssues')}</th>
                   )}
                   {enabledColumns.leader && (
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Leader</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">{t('projects.colLeader')}</th>
                   )}
                 </tr>
               </thead>
@@ -563,7 +565,7 @@ export default function Projects() {
                     )}
                     {enabledColumns.description && (
                       <td className="px-3 py-2">
-                        <span className="text-sm text-gray-500">{project.summary || project.description || 'No description'}</span>
+                        <span className="text-sm text-gray-500">{project.summary || project.description || t('common.noDescription')}</span>
                       </td>
                     )}
                     {enabledColumns.progress && (
@@ -595,7 +597,7 @@ export default function Projects() {
             </table>
             {filteredProjects.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                No projects found
+                {t('projects.empty')}
               </div>
             )}
           </div>
@@ -616,7 +618,7 @@ export default function Projects() {
                       }}
                       className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors"
                     >
-                      {teams.find(t => t.id.toString() === newProject.teamId)?.identifier || teams[0]?.identifier || 'Select team'}
+                      {teams.find(team => team.id.toString() === newProject.teamId)?.identifier || teams[0]?.identifier || t('common.selectTeam')}
                     </button>
                     {showTeamDropdown && (
                       <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
@@ -638,7 +640,7 @@ export default function Projects() {
                     )}
                   </div>
                   <ChevronRight className="w-3 h-3 text-gray-400" />
-                  <span className="text-sm font-semibold text-gray-800">Create new project</span>
+                  <span className="text-sm font-semibold text-gray-800">{t('projects.createTitle')}</span>
                 </div>
                 <button
                   onClick={() => setShowCreateDialog(false)}
@@ -656,7 +658,7 @@ export default function Projects() {
                     <div>
                       <input
                         type="text"
-                        placeholder="Project name"
+                        placeholder={t('projects.namePlaceholder')}
                         value={newProject.name}
                         onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                         className="w-full text-base font-semibold border-0 px-0 py-0 focus:ring-0 focus:outline-none"
@@ -667,7 +669,7 @@ export default function Projects() {
                     <div>
                       <input
                         type="text"
-                        placeholder="Add a short summary for this project"
+                        placeholder={t('projects.summaryPlaceholder')}
                         value={newProject.summary}
                         onChange={(e) => setNewProject({ ...newProject, summary: e.target.value })}
                         className="w-full border-0 px-0 py-0 text-sm focus:ring-0 focus:outline-none"
@@ -700,7 +702,7 @@ export default function Projects() {
                             </>
                           );
                         }
-                        return 'Status';
+                        return t('common.status');
                       })()}
                       <ChevronDown className="w-3 h-3" />
                     </button>
@@ -751,7 +753,7 @@ export default function Projects() {
                             </>
                           );
                         }
-                        return 'Priority';
+                        return t('common.priority');
                       })()}
                       <ChevronDown className="w-3 h-3" />
                     </button>
@@ -792,7 +794,7 @@ export default function Projects() {
                       className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs hover:bg-gray-200"
                     >
                       <User className="w-3 h-3" />
-                      {users.find(u => u.id.toString() === newProject.leaderId)?.name || 'Leader'}
+                      {users.find(u => u.id.toString() === newProject.leaderId)?.name || t('common.leader')}
                       <ChevronDown className="w-3 h-3" />
                     </button>
                     {showLeaderDropdown && (
@@ -828,7 +830,7 @@ export default function Projects() {
                       className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs hover:bg-gray-200"
                     >
                       <Users className="w-3 h-3" />
-                      Members ({newProject.memberIds.length})
+                      {t('projects.members', { count: newProject.memberIds.length })}
                       <ChevronDown className="w-3 h-3" />
                     </button>
                     {showMembersDropdown && (
@@ -855,7 +857,7 @@ export default function Projects() {
                     onClick={() => (document.getElementById('start-date-input') as HTMLInputElement)?.showPicker()}
                   >
                     <Calendar className="w-3 h-3" />
-                    <span>{newProject.startDate || 'Start'}</span>
+                    <span>{newProject.startDate || t('projects.start')}</span>
                     <input
                       id="start-date-input"
                       type="date"
@@ -872,7 +874,7 @@ export default function Projects() {
                     onClick={() => (document.getElementById('target-date-input') as HTMLInputElement)?.showPicker()}
                   >
                     <Calendar className="w-3 h-3" />
-                    <span>{newProject.endDate || 'Target'}</span>
+                    <span>{newProject.endDate || t('projects.target')}</span>
                     <input
                       id="target-date-input"
                       type="date"
@@ -885,7 +887,7 @@ export default function Projects() {
                   {/* Labels */}
                   <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs">
                     <Tag className="w-3 h-3" />
-                    <span>Labels</span>
+                    <span>{t('common.labels')}</span>
                   </div>
                 </div>
 
@@ -894,7 +896,7 @@ export default function Projects() {
                   <RichTextEditor
                     value={newProject.description}
                     onChange={(content) => setNewProject({ ...newProject, description: content })}
-                    placeholder="Write a project introduction, or other useful information...."
+                    placeholder={t('projects.introPlaceholder')}
                     className="border-0"
                   />
                 </div>
@@ -905,7 +907,7 @@ export default function Projects() {
               <div className="bg-gray-100 rounded-lg overflow-hidden">
                 {/* Milestone Title */}
                 <div className="flex items-center justify-between px-4 py-2">
-                  <span className="text-sm font-medium text-gray-700">Milestone</span>
+                  <span className="text-sm font-medium text-gray-700">{t('projects.milestone')}</span>
                   {!showMilestoneForm && (
                     <button
                       onClick={() => {
@@ -968,7 +970,7 @@ export default function Projects() {
                       <Clock className="w-4 h-4 text-gray-400" />
                       <input
                         type="text"
-                        placeholder="Milestone name"
+                        placeholder={t('projects.milestoneName')}
                         value={newMilestone.name}
                         onChange={(e) => setNewMilestone({ ...newMilestone, name: e.target.value })}
                         className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-0 focus:outline-none focus:border-gray-300"
@@ -1004,13 +1006,13 @@ export default function Projects() {
                         }}
                         className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </button>
                       <button
                         onClick={handleAddMilestone}
                         className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
                       >
-                        Add milestone
+                        {t('projects.addMilestone')}
                       </button>
                     </div>
                   </div>
@@ -1025,14 +1027,14 @@ export default function Projects() {
               onClick={() => setShowCreateDialog(false)}
               className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleCreateProject}
               disabled={isLoading}
               className="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creating...' : 'Create project'}
+              {isLoading ? t('common.creating') : t('projects.create')}
             </button>
           </div>
         </div>

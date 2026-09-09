@@ -6,6 +6,7 @@ import { ArrowLeft, Edit3, Clock, User, Send, Trash2, ChevronRight, ChevronLeft 
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { wikiApi, WikiPageResponse, WikiCommentResponse, rewriteWikiMediaUrls } from '@/services/api';
 import { highlightSearchTerm, removeHighlights } from '@/lib/highlight';
+import { useTranslation } from 'react-i18next';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<object>> {
   const token = context.req.cookies['pmis-token'];
@@ -27,6 +28,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 export default function WikiPageView() {
   const router = useRouter();
   const { isAuthenticated, user: authUser } = useAuth();
+  const { t } = useTranslation();
   const { id } = router.query;
   const [page, setPage] = useState<WikiPageResponse | null>(null);
   const [htmlContent, setHtmlContent] = useState<string>('');
@@ -331,7 +333,7 @@ export default function WikiPageView() {
             className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Back to Wiki</span>
+            <span className="text-sm font-medium">{t('wiki.backToWiki')}</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -354,7 +356,7 @@ export default function WikiPageView() {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
             >
               <Edit3 className="w-4 h-4" />
-              <span className="text-sm font-medium">Edit</span>
+              <span className="text-sm font-medium">{t('wiki.edit')}</span>
             </button>
           </div>
         </div>
@@ -362,7 +364,7 @@ export default function WikiPageView() {
         {/* Loading State */}
         {loading && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <div className="text-gray-500">Loading...</div>
+            <div className="text-gray-500">{t('common.loading')}</div>
           </div>
         )}
 
@@ -374,7 +376,7 @@ export default function WikiPageView() {
               onClick={() => router.push('/wiki')}
               className="text-blue-600 hover:underline"
             >
-              Return to Wiki
+              {t('wiki.backToWiki')}
             </button>
           </div>
         )}
@@ -403,7 +405,7 @@ export default function WikiPageView() {
                     </div>
                     {!page.isPublished && (
                       <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-medium">
-                        Draft
+                        {t('nav.draft')}
                       </span>
                     )}
                   </div>

@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { Plus, Filter, ChevronDown, Settings, X } from 'lucide-react';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
@@ -31,6 +32,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function IssuesPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [issues, setIssues] = useState<IssueResponse[]>([]);
   const [statuses, setStatuses] = useState<IssueStatusResponse[]>([]);
@@ -85,11 +87,11 @@ export default function IssuesPage() {
       console.log('IssuesPage - first team identifier:', teamsData.length > 0 ? teamsData[0].identifier : 'no teams');
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      toast.error('Failed to load data');
+      toast.error(t('common.failedToLoad'));
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -207,11 +209,11 @@ export default function IssuesPage() {
 
     try {
       await issueApi.updateIssueStatus(draggedIssueId, targetStatusId, newSortOrder);
-      toast.success(isSameStatus ? 'Issue reordered' : 'Issue moved');
+      toast.success(isSameStatus ? t('issues.reordered') : t('issues.moved'));
     } catch (error) {
       console.error('Failed to update issue:', error);
       setIssues(previousIssues);
-      toast.error('Failed to move issue');
+      toast.error(t('issues.moveFailed'));
     }
 
     setDraggingIssueId(null);
@@ -221,7 +223,7 @@ export default function IssuesPage() {
 
   const handleCreateIssue = async (data: CreateIssueData) => {
     if (!data.title.trim()) {
-      toast.error('Please enter an issue title');
+      toast.error(t('issues.titleRequired'));
       return;
     }
 
@@ -240,11 +242,11 @@ export default function IssuesPage() {
 
     try {
       await issueApi.createIssue(issueData);
-      toast.success('Issue created');
+      toast.success(t('issues.created'));
       await fetchData();
     } catch (error) {
       console.error('Failed to create issue:', error);
-      toast.error('Failed to create issue');
+      toast.error(t('issues.createFailed'));
     }
   };
 
@@ -279,7 +281,7 @@ export default function IssuesPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading...</div>
+          <div className="text-gray-500">{t('common.loading')}</div>
         </div>
       </Layout>
     );
@@ -289,7 +291,7 @@ export default function IssuesPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading issues...</div>
+          <div className="text-gray-500">{t('issues.loading')}</div>
         </div>
       </Layout>
     );
@@ -300,7 +302,7 @@ export default function IssuesPage() {
       <div className="h-full flex flex-col">
         {/* Header */}
         <div className="mb-2 pb-2 border-b border-gray-200 flex items-center justify-between">
-          <h1 className="text-base font-semibold text-gray-800">Issues</h1>
+          <h1 className="text-base font-semibold text-gray-800">{t('issues.title')}</h1>
           <div className="relative group">
             <button
               onClick={() => setShowCreateDialog(true)}
@@ -311,7 +313,7 @@ export default function IssuesPage() {
             </button>
             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                Create a new issue
+                {t('issues.create')}
               </div>
             </div>
           </div>
@@ -321,7 +323,7 @@ export default function IssuesPage() {
         <div ref={dropdownRef} className="mb-2 pb-2 border-b border-gray-200 flex items-center justify-between">
           {/* Chips Filters */}
           <div className="flex items-center gap-1">
-            {[{ id: 'all', label: 'All' }, { id: 'mine', label: 'Mine' }, { id: 'open', label: 'Open' }, { id: 'resolved', label: 'Resolved' }].map((chip) => (
+            {[{ id: 'all', label: t('issues.filterAll') }, { id: 'mine', label: t('issues.filterMine') }, { id: 'open', label: t('issues.filterOpen') }, { id: 'resolved', label: t('issues.filterResolved') }].map((chip) => (
               <button
                 key={chip.id}
                 onClick={() => setSelectedChip(chip.id)}
@@ -348,7 +350,7 @@ export default function IssuesPage() {
                 className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
               >
                 <Filter className="w-3 h-3 text-gray-500" />
-                <span className="text-xs text-gray-600">Filter</span>
+                <span className="text-xs text-gray-600">{t('common.filter')}</span>
                 <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
               </button>
 
@@ -358,7 +360,7 @@ export default function IssuesPage() {
                   {/* Status Filter */}
                   <div className="px-4 py-2 border-b border-gray-100">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('issues.status')}</p>
                       {selectedStatus && (
                         <button onClick={() => setSelectedStatus(null)} className="text-xs text-gray-400 hover:text-gray-600">
                           <X className="w-3 h-3" />
@@ -391,7 +393,7 @@ export default function IssuesPage() {
                           onChange={() => setSelectedStatus(null)}
                           className="w-3 h-3 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">All</span>
+                        <span className="text-sm text-gray-700">{t('common.all')}</span>
                       </label>
                     </div>
                   </div>
@@ -399,7 +401,7 @@ export default function IssuesPage() {
                   {/* Assignee Filter */}
                   <div className="px-4 py-2">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Assignee</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('issues.assignee')}</p>
                       {selectedAssignee && (
                         <button onClick={() => setSelectedAssignee(null)} className="text-xs text-gray-400 hover:text-gray-600">
                           <X className="w-3 h-3" />
@@ -429,7 +431,7 @@ export default function IssuesPage() {
                           onChange={() => setSelectedAssignee(null)}
                           className="w-3 h-3 text-blue-600"
                         />
-                        <span className="text-sm text-gray-700">All</span>
+                        <span className="text-sm text-gray-700">{t('common.all')}</span>
                       </label>
                     </div>
                   </div>
@@ -443,7 +445,7 @@ export default function IssuesPage() {
                       }}
                       className="w-full text-left px-2 py-1 text-sm text-red-600 hover:bg-gray-50 rounded"
                     >
-                      Reset filters
+                      {t('common.resetFilters')}
                     </button>
                   </div>
                 </div>
@@ -460,7 +462,7 @@ export default function IssuesPage() {
                 className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
               >
                 <Settings className="w-3 h-3 text-gray-500" />
-                <span className="text-xs text-gray-600">Columns</span>
+                <span className="text-xs text-gray-600">{t('common.columns')}</span>
                 <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showColumnsDropdown ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -491,7 +493,7 @@ export default function IssuesPage() {
 
           {filteredIssues.length === 0 && (
             <div className="text-center py-12 text-gray-500">
-              No issues match your filter criteria.
+              {t('issues.empty')}
             </div>
           )}
         </div>

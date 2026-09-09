@@ -1,24 +1,11 @@
 import { memo, type ReactNode } from 'react';
+import type { Editor } from '@tiptap/react';
 import { Bold, Italic, Underline, Heading1, Heading2, List, ListOrdered, Code, Link2 } from 'lucide-react';
 
 interface FloatingToolbarProps {
   show: boolean;
   position: { x: number; y: number };
-  editor: {
-    isActive: (name: string) => boolean;
-    chain: () => {
-      focus: () => {
-        toggleBold: () => { run: () => void };
-        toggleItalic: () => { run: () => void };
-        toggleUnderline: () => { run: () => void };
-        toggleHeading: (options: { level: number }) => { run: () => void };
-        toggleBulletList: () => { run: () => void };
-        toggleOrderedList: () => { run: () => void };
-        toggleCode: () => { run: () => void };
-        extendMarkRange: (name: string) => { toggleLink: () => { run: () => void } };
-      };
-    };
-  };
+  editor: Editor;
 }
 
 function FloatingToolbarComponent({ show, position, editor }: FloatingToolbarProps): ReactNode {

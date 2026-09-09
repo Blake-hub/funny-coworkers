@@ -31,6 +31,9 @@ dependencies {
     
     // Spring Boot Starter Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // Spring Boot Starter WebSocket
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
     
     // Spring Boot Starter Validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'

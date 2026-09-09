@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { teamApi } from '@/services/api';
@@ -25,6 +26,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 }
 
 export default function CreateTeam() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const { addToast } = useToast();
@@ -53,17 +55,17 @@ export default function CreateTeam() {
     const newErrors: Record<string, string> = {};
     
     if (!formData.name.trim()) {
-      newErrors.name = 'Team name is required';
+      newErrors.name = t('teams.nameRequired');
     } else if (formData.name.length < 2) {
-      newErrors.name = 'Team name must be at least 2 characters';
+      newErrors.name = t('teams.nameMinLength');
     }
 
     if (!formData.identifier.trim()) {
-      newErrors.identifier = 'Identifier is required';
+      newErrors.identifier = t('teams.identifierRequired');
     } else if (!/^[A-Z0-9]+$/.test(formData.identifier)) {
-      newErrors.identifier = 'Identifier must contain only uppercase letters and numbers';
+      newErrors.identifier = t('teams.identifierFormat');
     } else if (formData.identifier.length < 2 || formData.identifier.length > 10) {
-      newErrors.identifier = 'Identifier must be 2-10 characters';
+      newErrors.identifier = t('teams.identifierLength');
     }
 
     setErrors(newErrors);
@@ -89,14 +91,14 @@ export default function CreateTeam() {
         ownerId: user?.id ? Number(user.id) : undefined,
       });
 
-      addToast('success', 'Team created successfully!');
+      addToast('success', t('teams.created'));
       
       setTimeout(() => {
         router.push('/');
       }, 1000);
     } catch (error) {
       console.error('Failed to create team:', error);
-      addToast('error', 'Failed to create team. Please try again.');
+      addToast('error', t('teams.createFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -119,8 +121,8 @@ export default function CreateTeam() {
     <Layout>
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Create New Team</h1>
-          <p className="text-gray-500 mt-1">Add a new team to your organization</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('teams.createTitle')}</h1>
+          <p className="text-gray-500 mt-1">{t('teams.createSubtitle')}</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -129,7 +131,7 @@ export default function CreateTeam() {
             {/* Team Name */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Team Name
+                {t('teams.name')}
               </label>
               <div className="relative">
                 <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -137,7 +139,7 @@ export default function CreateTeam() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
-                  placeholder="Enter team name (e.g., Engineering Team)"
+                  placeholder={t('teams.namePlaceholder')}
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
                     errors.name
                       ? 'border-gray-300 focus:ring-gray-200 focus:border-gray-400'
@@ -153,7 +155,7 @@ export default function CreateTeam() {
             {/* Identifier */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Identifier
+                {t('teams.identifier')}
               </label>
               <div className="relative">
                 <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -161,7 +163,7 @@ export default function CreateTeam() {
                   type="text"
                   value={formData.identifier}
                   onChange={(e) => handleChange('identifier', e.target.value.toUpperCase())}
-                  placeholder="Enter identifier (e.g., ENG, QA)"
+                  placeholder={t('teams.identifierPlaceholder')}
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all uppercase ${
                     errors.identifier
                       ? 'border-gray-300 focus:ring-gray-200 focus:border-gray-400'
@@ -170,7 +172,7 @@ export default function CreateTeam() {
                 />
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                Must be 2-10 characters, uppercase letters and numbers only
+                {t('teams.identifierHint')}
               </p>
               {errors.identifier && (
                 <p className="mt-1 text-sm text-gray-600">{errors.identifier}</p>
@@ -180,12 +182,12 @@ export default function CreateTeam() {
             {/* Description */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description (optional)
+                {t('teams.descriptionOptional')}
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                placeholder="Enter team description..."
+                placeholder={t('teams.descriptionPlaceholder')}
                 rows={3}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400 transition-all resize-none"
               />
@@ -201,12 +203,12 @@ export default function CreateTeam() {
                 {isSubmitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Creating...
+                    {t('teams.creating')}
                   </>
                 ) : (
                   <>
                     <Plus className="w-4 h-4" />
-                    Create
+                    {t('teams.createButton')}
                   </>
                 )}
               </button>

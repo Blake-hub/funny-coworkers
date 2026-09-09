@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import { Search, Bug, FolderOpen, FileText, Users } from 'lucide-react';
@@ -24,6 +25,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 }
 
 export default function SearchPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,8 +54,8 @@ export default function SearchPage() {
     <Layout>
       {/* Search Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Search</h1>
-        <p className="text-gray-500 mt-1">Find issues, projects, teams, and more</p>
+        <h1 className="text-2xl font-bold text-gray-800">{t('search.title')}</h1>
+        <p className="text-gray-500 mt-1">{t('search.subtitle')}</p>
       </div>
 
       {/* Search Input */}
@@ -62,7 +64,7 @@ export default function SearchPage() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
           <input
             type="text"
-            placeholder="Search issues, projects, teams, wiki..."
+            placeholder={t('search.placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
@@ -77,7 +79,7 @@ export default function SearchPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200 flex items-center gap-2">
               <Bug className="w-5 h-5 text-gray-500" />
-              <h3 className="font-semibold text-gray-800">Issues ({filteredIssues.length})</h3>
+              <h3 className="font-semibold text-gray-800">{t('search.issues', { count: filteredIssues.length })}</h3>
             </div>
             <div className="divide-y divide-gray-100">
               {filteredIssues.map((issue) => (
@@ -101,7 +103,7 @@ export default function SearchPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200 flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-gray-500" />
-              <h3 className="font-semibold text-gray-800">Projects ({filteredProjects.length})</h3>
+              <h3 className="font-semibold text-gray-800">{t('search.projects', { count: filteredProjects.length })}</h3>
             </div>
             <div className="divide-y divide-gray-100">
               {filteredProjects.map((project) => (
@@ -123,7 +125,7 @@ export default function SearchPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200 flex items-center gap-2">
               <Users className="w-5 h-5 text-gray-500" />
-              <h3 className="font-semibold text-gray-800">Teams ({filteredTeams.length})</h3>
+              <h3 className="font-semibold text-gray-800">{t('search.teams', { count: filteredTeams.length })}</h3>
             </div>
             <div className="divide-y divide-gray-100">
               {filteredTeams.map((team) => (
@@ -133,7 +135,7 @@ export default function SearchPage() {
                   onClick={() => router.push('/teams')}
                 >
                   <h4 className="font-medium text-gray-800">{team.name}</h4>
-                  <p className="text-sm text-gray-500">{team.memberCount} members | Lead: {team.leadName}</p>
+                  <p className="text-sm text-gray-500">{t('search.teamCaption', { count: team.memberCount, name: team.leadName })}</p>
                 </div>
               ))}
             </div>
@@ -144,8 +146,8 @@ export default function SearchPage() {
         {searchQuery && filteredIssues.length === 0 && filteredProjects.length === 0 && filteredTeams.length === 0 && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
             <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="font-medium text-gray-800 mb-2">No results found</h3>
-            <p className="text-gray-500">Try different keywords or browse the sidebar</p>
+            <h3 className="font-medium text-gray-800 mb-2">{t('search.noResults')}</h3>
+            <p className="text-gray-500">{t('search.noResultsHint')}</p>
           </div>
         )}
 
@@ -153,8 +155,8 @@ export default function SearchPage() {
         {!searchQuery && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
             <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="font-medium text-gray-800 mb-2">Start searching</h3>
-            <p className="text-gray-500">Enter a keyword above to find issues, projects, teams, or wiki pages</p>
+            <h3 className="font-medium text-gray-800 mb-2">{t('search.startTitle')}</h3>
+            <p className="text-gray-500">{t('search.startHint')}</p>
           </div>
         )}
       </div>

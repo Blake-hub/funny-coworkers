@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import Layout from '@/components/Layout/Layout';
 import OrganizationTab from '@/components/Settings/OrganizationTab';
@@ -67,6 +68,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 }
 
 export default function Settings() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated, user, updateUser, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('organization');
@@ -119,13 +121,13 @@ export default function Settings() {
     setProfileSuccess('');
 
     if (!profileForm.name || !profileForm.email) {
-      setProfileError('Please fill in all required fields');
+      setProfileError(t('settings.fillAll'));
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(profileForm.email)) {
-      setProfileError('Please enter a valid email address');
+      setProfileError(t('settings.invalidEmail'));
       return;
     }
 
@@ -142,10 +144,10 @@ export default function Settings() {
         email: updatedUser.email,
         role: updatedUser.role,
       });
-      setProfileSuccess('Profile updated successfully!');
+      setProfileSuccess(t('settings.profileUpdated'));
       setIsEditingProfile(false);
     } catch (error: any) {
-      setProfileError(error.message || 'Failed to update profile');
+      setProfileError(error.message || t('settings.profileUpdateFailed'));
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -170,17 +172,17 @@ export default function Settings() {
     setPasswordSuccess('');
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Please fill in all fields');
+      setPasswordError(t('settings.passwordFillAll'));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError('New password and confirm password do not match');
+      setPasswordError(t('settings.passwordMismatch'));
       return;
     }
 
     if (newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
+      setPasswordError(t('settings.passwordTooShort'));
       return;
     }
 
@@ -188,12 +190,12 @@ export default function Settings() {
 
     try {
       await userApi.changePassword(parseInt(user!.id), currentPassword, newPassword);
-      setPasswordSuccess('Password changed successfully!');
+      setPasswordSuccess(t('settings.passwordChanged'));
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
-      setPasswordError(error.message || 'Failed to change password');
+      setPasswordError(error.message || t('settings.passwordChangeFailed'));
     } finally {
       setIsChangingPassword(false);
     }
@@ -212,17 +214,17 @@ export default function Settings() {
   const isAdmin = user?.role === 'ADMIN';
 
   const tabs = [
-    { id: 'profile' as TabType, label: 'Profile', enabled: true },
-    { id: 'organization' as TabType, label: 'Organization', enabled: isAdmin },
-    { id: 'notifications' as TabType, label: 'Notifications', enabled: true },
-    { id: 'security' as TabType, label: 'Security', enabled: true },
+    { id: 'profile' as TabType, label: t('settings.tabProfile'), enabled: true },
+    { id: 'organization' as TabType, label: t('settings.tabOrganization'), enabled: isAdmin },
+    { id: 'notifications' as TabType, label: t('settings.tabNotifications'), enabled: true },
+    { id: 'security' as TabType, label: t('settings.tabSecurity'), enabled: true },
   ];
 
   return (
     <Layout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
-        <p className="text-gray-500 mt-1">Manage your account and organization settings.</p>
+        <h1 className="text-2xl font-bold text-gray-800">{t('settings.title')}</h1>
+        <p className="text-gray-500 mt-1">{t('settings.subtitle')}</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -243,7 +245,7 @@ export default function Settings() {
               >
                 {tab.label}
                 {!tab.enabled && (
-                  <span className="ml-2 text-xs text-gray-400">(Admin only)</span>
+                  <span className="ml-2 text-xs text-gray-400">{t('settings.adminOnly')}</span>
                 )}
               </button>
             ))}
@@ -254,14 +256,14 @@ export default function Settings() {
           {activeTab === 'profile' && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-800">My Profile</h2>
+                <h2 className="text-lg font-semibold text-gray-800">{t('settings.myProfile')}</h2>
                 {!isEditingProfile && (
                   <button
                     onClick={() => setIsEditingProfile(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                   >
                     <Save className="w-4 h-4" />
-                    Edit Profile
+                    {t('settings.editProfile')}
                   </button>
                 )}
               </div>
@@ -282,7 +284,7 @@ export default function Settings() {
                 )}
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.name')}</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
@@ -300,7 +302,7 @@ export default function Settings() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.email')}</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
@@ -318,7 +320,7 @@ export default function Settings() {
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.role')}</label>
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <select
@@ -331,11 +333,11 @@ export default function Settings() {
                           : 'border-gray-200 bg-gray-50 cursor-not-allowed'
                       }`}
                     >
-                      <option value="Developer">Developer</option>
-                      <option value="Project Manager">Project Manager</option>
-                      <option value="Admin">Admin</option>
-                      <option value="QA Tester">QA Tester</option>
-                      <option value="Designer">Designer</option>
+                      <option value="Developer">{t('settings.roleDeveloper')}</option>
+                      <option value="Project Manager">{t('settings.roleManager')}</option>
+                      <option value="Admin">{t('settings.roleAdmin')}</option>
+                      <option value="QA Tester">{t('settings.roleQA')}</option>
+                      <option value="Designer">{t('settings.roleDesigner')}</option>
                     </select>
                   </div>
                 </div>
@@ -348,7 +350,7 @@ export default function Settings() {
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Save className="w-4 h-4" />
-                      {isUpdatingProfile ? 'Saving...' : 'Save Changes'}
+                      {isUpdatingProfile ? t('settings.saving') : t('settings.saveChanges')}
                     </button>
                     <button
                       type="button"
@@ -356,7 +358,7 @@ export default function Settings() {
                       className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
                     >
                       <X className="w-4 h-4" />
-                      Cancel
+                      {t('common.cancel')}
                     </button>
                   </div>
                 )}
@@ -370,13 +372,13 @@ export default function Settings() {
 
           {activeTab === 'notifications' && (
             <div className="text-gray-600">
-              <p>Notification settings coming soon...</p>
+              <p>{t('settings.notificationsComingSoon')}</p>
             </div>
           )}
 
           {activeTab === 'security' && (
             <div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Change Password</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('settings.changePassword')}</h2>
               
               {passwordSuccess && (
                 <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
@@ -394,14 +396,14 @@ export default function Settings() {
                 )}
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.currentPassword')}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type={showCurrentPassword ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="Enter current password"
+                      placeholder={t('settings.currentPasswordPlaceholder')}
                       className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <button
@@ -415,14 +417,14 @@ export default function Settings() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.newPassword')}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type={showNewPassword ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password"
+                      placeholder={t('settings.newPasswordPlaceholder')}
                       className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <button
@@ -433,11 +435,11 @@ export default function Settings() {
                       {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Password must be at least 6 characters</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('settings.passwordHint')}</p>
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('settings.confirmPassword')}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
@@ -462,7 +464,7 @@ export default function Settings() {
                   disabled={isChangingPassword}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isChangingPassword ? 'Changing password...' : 'Change Password'}
+                  {isChangingPassword ? t('settings.changing') : t('settings.changeButton')}
                 </button>
               </form>
             </div>
