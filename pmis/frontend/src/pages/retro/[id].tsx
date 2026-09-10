@@ -167,6 +167,19 @@ function CardEditDialog({ card, readOnly = false, onSave, onClose }: CardEditDia
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // ESC 快速关闭（浏览/编辑均生效，与取消按钮行为一致，不校验未保存修改）
+  useEffect(() => {
+    if (!card) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [card, onClose]);
+
   if (!card) return null;
 
   // Calculate dialog width: screen width minus 16px padding on each side, capped at 448px (md)
@@ -346,12 +359,15 @@ export default function RetroDetailPage() {
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   // 按票数排序的列（纯视图偏好，仅当前客户端生效，不调后端）；激活时该列禁用拖拽
-  const [voteSortCols, setVoteSortCols] = useState<Set<number>>(new Set());
+  // 三态：undefined=不排序, 'desc'=降序, 'asc'=升序
+  const [voteSortDirs, setVoteSortDirs] = useState<Map<number, 'desc' | 'asc'>>(new Map());
   const toggleVoteSort = useCallback((colId: number) => {
-    setVoteSortCols((prev) => {
-      const next = new Set(prev);
-      if (next.has(colId)) next.delete(colId);
-      else next.add(colId);
+    setVoteSortDirs((prev) => {
+      const next = new Map(prev);
+      const cur = next.get(colId);
+      if (!cur) next.set(colId, 'desc');
+      else if (cur === 'desc') next.set(colId, 'asc');
+      else next.delete(colId);
       return next;
     });
   }, []);
@@ -962,10 +978,14 @@ export default function RetroDetailPage() {
             <div className="flex gap-3 h-full p-3 min-w-max">
               {columns.map((col) => {
                 const colCards = cardsByColumn[col.id] || [];
-                const voteSorted = voteSortCols.has(col.id);
-                // 按票数排序：票数降序，同票按 position 升序保持稳定；默认按 position 顺序
-                const displayCards = voteSorted
-                  ? [...colCards].sort((a, b) => (b.votes - a.votes) || (a.position - b.position))
+                const sortDir = voteSortDirs.get(col.id);
+                const voteSorted = !!sortDir;
+                // 按票数排序：desc=票数降序, asc=票数升序；同票按 position 升序保持稳定
+                const displayCards = sortDir
+                  ? [...colCards].sort((a, b) => {
+                      const diff = sortDir === 'desc' ? b.votes - a.votes : a.votes - b.votes;
+                      return diff !== 0 ? diff : a.position - b.position;
+                    })
                   : colCards;
                 const colItems = displayCards.map((c) => `card-${c.id}`);
                 return (
@@ -1002,7 +1022,7 @@ export default function RetroDetailPage() {
                           <button
                             onClick={() => toggleVoteSort(col.id)}
                             className={`p-0.5 ${voteSorted ? 'text-blue-600' : 'text-gray-400 hover:text-gray-700'}`}
-                            title={voteSorted ? t('retro.detail.sortByVotesActive') : t('retro.detail.sortByVotes')}
+                            title={voteSorted ? (sortDir === 'desc' ? t('retro.detail.sortByVotesDesc') : t('retro.detail.sortByVotesAsc')) : t('retro.detail.sortByVotes')}
                           >
                             <ArrowUpDown className="w-3 h-3" />
                           </button>

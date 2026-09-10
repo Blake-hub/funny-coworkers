@@ -231,6 +231,8 @@ export const zh: Dictionary = {
       noDescription: '（无描述）',
       sortByVotes: '按票数排序',
       sortByVotesActive: '按票数排序中（点击恢复默认顺序）',
+      sortByVotesDesc: '按票数降序排列中（点击切换为升序）',
+      sortByVotesAsc: '按票数升序排列中（点击恢复默认顺序）',
       sortDefault: '默认顺序',
       title: '标题',
       noUsersToInvite: '没有可邀请的用户',

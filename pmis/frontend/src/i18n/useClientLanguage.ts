@@ -1,7 +1,10 @@
-import { useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n, { detectLanguage, persistLanguage } from './config';
 import type { AppLang } from './types';
+
+// SSR 时回退到 useEffect，避免 "useLayoutEffect does nothing on the server" 警告
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 /**
  * 客户端挂载后，在首帧绘制前把语言从初始 'zh' 切换到检测/记忆的语言。
@@ -10,7 +13,7 @@ import type { AppLang } from './types';
  */
 export function useClientLanguage() {
   const { i18n: i18nInstance } = useTranslation();
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const detected = detectLanguage();
     if (i18nInstance.language !== detected) {
       i18nInstance.changeLanguage(detected);

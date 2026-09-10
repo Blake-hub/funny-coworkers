@@ -231,6 +231,8 @@ export const en: Dictionary = {
       noDescription: '(No description)',
       sortByVotes: 'Sort by votes',
       sortByVotesActive: 'Sorted by votes (click to restore default order)',
+      sortByVotesDesc: 'Sorted by votes descending (click for ascending)',
+      sortByVotesAsc: 'Sorted by votes ascending (click to restore default order)',
       sortDefault: 'Default order',
       title: 'Title',
       noUsersToInvite: 'No users to invite',
