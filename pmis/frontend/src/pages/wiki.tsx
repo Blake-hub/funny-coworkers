@@ -195,7 +195,7 @@ export default function Wiki() {
   };
 
   const handleNewPage = () => {
-    router.push('/wiki/new-document');
+    router.push('/wiki/new-document-ex');
   };
 
   const filteredPages = wikiPages.filter(page => {

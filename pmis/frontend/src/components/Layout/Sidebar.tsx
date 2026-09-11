@@ -594,7 +594,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                           e.stopPropagation();
                           setShowFolderCreateMenuForId(null);
                           router.push({
-                            pathname: '/wiki/new-document',
+                            pathname: '/wiki/new-document-ex',
                             query: { folderId: String(folder.id) },
                           });
                         }}
@@ -1106,7 +1106,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShowWikiMenu(false);
-                                    router.push('/wiki/new-document');
+                                    router.push('/wiki/new-document-ex');
                                   }}
                                 >
                                   <FileText className="w-4 h-4" />

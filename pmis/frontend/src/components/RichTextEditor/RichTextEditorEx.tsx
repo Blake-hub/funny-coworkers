@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImper
 import { common, createLowlight } from 'lowlight';
 import { EditorContent, useEditor, ReactRenderer } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import type { CommandProps } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Table as TableExtension } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -392,6 +393,89 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
 
 const lowlight = createLowlight(common);
 
+/**
+ * 在 listItem 内部插入嵌套 codeBlock。
+ *
+ * 背景：listItem 的 content 表达式是 "paragraph block*"，第一个子节点必须是
+ * paragraph。在列表项内直接 toggleCodeBlock 时，ProseMirror 的 setBlockType
+ * 无法把唯一的首 paragraph 转成 codeBlock，Tiptap 的 setNode 会回退到
+ * clearNodes() 把节点提升到列表外层，导致有序列表被拆成两段、序号重新从 1 开始。
+ *
+ * 这里改为在当前 textblock 之后、listItem 内部插入一个空 codeBlock 并把光标移入，
+ * 保持列表结构完整、序号连续。
+ */
+function tryInsertNestedCodeBlock(props: CommandProps, attributes?: Record<string, unknown>): boolean {
+  const { state, dispatch } = props;
+  const { selection } = state;
+  if (!selection.empty) return false;
+  const { $from } = selection;
+  if (!$from.parent.isTextblock) return false;
+
+  const codeBlockType = state.schema.nodes.codeBlock;
+  // 已在 codeBlock 中（如切换语言），交给默认命令处理
+  if ($from.parent.type === codeBlockType) return false;
+
+  // 向上查找最近的 listItem
+  let listItemDepth = 0;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type.name === 'listItem') {
+      listItemDepth = d;
+      break;
+    }
+  }
+  if (!listItemDepth) return false;
+
+  // 当前 textblock 之后的位置（仍是 listItem 内部）
+  const insertPos = $from.after($from.depth);
+
+  // 紧邻的下一个兄弟已经是 codeBlock 时，直接把光标移进去，避免重复插入
+  if (insertPos < $from.end(listItemDepth)) {
+    const nextNode = state.doc.nodeAt(insertPos);
+    if (nextNode && nextNode.type === codeBlockType) {
+      if (dispatch) {
+        dispatch(state.tr.setSelection(TextSelection.create(state.doc, insertPos + 1)).scrollIntoView());
+      }
+      return true;
+    }
+  }
+
+  const codeBlockNode = codeBlockType.create(attributes);
+  const tr = state.tr.insert(insertPos, codeBlockNode);
+  tr.setSelection(TextSelection.create(tr.doc, insertPos + 1)).scrollIntoView();
+  if (dispatch) dispatch(tr);
+  return true;
+}
+
+const ListAwareCodeBlock = CodeBlockLowlight.extend({
+  addCommands() {
+    const parentCommands = this.parent?.();
+    return {
+      ...parentCommands,
+      setCodeBlock: (attributes) => (props: CommandProps) => {
+        return (
+          tryInsertNestedCodeBlock(props, attributes) ||
+          (parentCommands?.setCodeBlock
+            ? parentCommands.setCodeBlock(attributes)(props)
+            : false)
+        );
+      },
+      toggleCodeBlock: (attributes) => (props: CommandProps) => {
+        if (props.editor.isActive('codeBlock')) {
+          return parentCommands?.toggleCodeBlock
+            ? parentCommands.toggleCodeBlock(attributes)(props)
+            : false;
+        }
+        return (
+          tryInsertNestedCodeBlock(props, attributes) ||
+          (parentCommands?.toggleCodeBlock
+            ? parentCommands.toggleCodeBlock(attributes)(props)
+            : false)
+        );
+      },
+    };
+  },
+});
+
 const SAMPLE_IMAGE =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -627,7 +711,7 @@ function RichTextEditorEx({
           };
         },
       }).configure({ inline: false, allowBase64: true }),
-      CodeBlockLowlight.configure({ lowlight }),
+      ListAwareCodeBlock.configure({ lowlight }),
       Color,
       TextStyle,
       Link.configure({ openOnClick: false }),
