@@ -160,6 +160,8 @@ interface RichTextEditorProps {
   'data-testid'?: string;
   showToolbar?: boolean;
   onReady?: (editor: any) => void;
+  enableDragHandle?: boolean;
+  clickCoords?: { x: number; y: number } | null;
 }
 
 const slashCommands = [
@@ -1615,7 +1617,9 @@ function RichTextEditorClient({
   style,
   'data-testid': dataTestId,
   showToolbar = true,
-  onReady
+  onReady,
+  enableDragHandle = true,
+  clickCoords = null
 }: RichTextEditorProps) {
   const { useEditor, EditorContent } = require('@tiptap/react');
   const StarterKit = require('@tiptap/starter-kit').default;
@@ -1682,9 +1686,10 @@ function RichTextEditorClient({
   const BlockWrapperExtension = Extension.create({
     name: 'blockWrapper',
     addProseMirrorPlugins() {
+      if (!enableDragHandle) return [];
       const { GripVertical } = require('lucide-react');
       const { renderToString } = require('react-dom/server');
-      
+
       return [
         new (require('prosemirror-state').Plugin)({
           props: {
@@ -1697,7 +1702,7 @@ function RichTextEditorClient({
                   if (parent && parent.type && (parent.type.name === 'bulletList' || parent.type.name === 'orderedList' || parent.type.name === 'listItem' || parent.type.name === 'blockquote')) {
                     return true;
                   }
-                  
+
                   // Skip all nodes inside tables (except the table itself)
                   // We only want one drag handle for the entire table
                   if (node.type.name !== 'table') {
@@ -1705,7 +1710,7 @@ function RichTextEditorClient({
                     let currentPos = pos;
                     let $pos = state.doc.resolve(currentPos);
                     let isInsideTable = false;
-                    
+
                     // Walk up the depth to find if any ancestor is a table
                     for (let depth = $pos.depth; depth >= 0; depth--) {
                       const ancestorNode = $pos.node(depth);
@@ -1714,17 +1719,17 @@ function RichTextEditorClient({
                         break;
                       }
                     }
-                    
+
                     if (isInsideTable) {
                       return true;
                     }
                   }
-                  
+
                   const handle = document.createElement('span');
                   handle.className = 'drag-handle';
                   handle.setAttribute('data-pos', String(pos));
                   handle.innerHTML = renderToString(<GripVertical size={14} />);
-                  
+
                   decos.push(
                     require('prosemirror-view').Decoration.widget(
                       pos,
@@ -1911,12 +1916,29 @@ function RichTextEditorClient({
     content: typeof value === 'string' && !htmlHasDataUriImages(value)
       ? (preprocessEditorContent(value) as any)
       : undefined,
-    immediatelyRender: false,
+    immediatelyRender: !enableDragHandle,
     onUpdate: handleUpdate,
     onSelectionUpdate: handleSelectionUpdate,
     onCreate: ({ editor }: { editor: any }) => {
       editorRef.current = editor;
       syncContentDerivedState(editor);
+      lastAppliedValueRef.current = value;
+      lastEmittedHtmlRef.current = editor.getHTML();
+      if (!enableDragHandle) {
+        const view = editor.view;
+        if (clickCoords) {
+          const coords = { left: clickCoords.x, top: clickCoords.y };
+          const pos = view.posAtCoords(coords);
+          if (pos && pos.pos != null) {
+            editor.commands.focus();
+            view.dispatch(view.state.tr.setSelection(
+              require('@tiptap/pm/state').TextSelection.create(view.state.doc, pos.pos)
+            ));
+            return;
+          }
+        }
+        editor.commands.focus('end');
+      }
     },
   });
 
@@ -2169,6 +2191,7 @@ function RichTextEditorClient({
       const handles = editorElement.querySelectorAll('.drag-handle');
       handles.forEach((handle: Element) => {
         (handle as HTMLElement).style.opacity = '0';
+        (handle as HTMLElement).style.pointerEvents = 'none';
       });
     };
 
@@ -2193,6 +2216,7 @@ function RichTextEditorClient({
       hideAllHandles();
       if (handle) {
         handle.style.opacity = '1';
+        handle.style.pointerEvents = 'auto';
       }
     };
 
@@ -2210,6 +2234,7 @@ function RichTextEditorClient({
         if (previousSibling && previousSibling.classList.contains('drag-handle')) {
           hideAllHandles();
           previousSibling.style.opacity = '1';
+          previousSibling.style.pointerEvents = 'auto';
         }
       }
     };
@@ -2677,8 +2702,18 @@ function RichTextEditorClient({
   if (!editor) return null;
 
   return (
-    <div className={`relative rounded-lg focus:outline-none focus:border-transparent focus:ring-0 ${className} ${showToolbar ? 'with-toolbar' : ''} flex flex-col h-full`}
+    <div
+      className={`relative rounded-lg focus:outline-none focus:border-transparent focus:ring-0 ${className} ${showToolbar ? 'with-toolbar' : ''} ${enableDragHandle ? '' : 'inline-edit-mode'} flex flex-col h-full`}
       style={{ outline: 'none !important', boxShadow: 'none !important', border: 'none !important', cursor: 'text', ...style }}
+      onMouseDown={(e) => {
+        if (!enableDragHandle && editor) {
+          const pm = (e.currentTarget as HTMLElement).querySelector('.ProseMirror');
+          if (pm && !pm.contains(e.target as Node)) {
+            e.preventDefault();
+            editor.commands.blur();
+          }
+        }
+      }}
     >
       <style>{`
         .toolbar {
@@ -2749,6 +2784,10 @@ function RichTextEditorClient({
           outline: none;
           min-height: 100%;
           padding: 12px;
+          position: relative;
+        }
+        .inline-edit-mode .ProseMirror {
+          padding: 0;
         }
         .editor-placeholder {
           position: absolute;
@@ -3392,7 +3431,8 @@ function RichTextEditorClient({
           margin-left: 4px;
         }
         .drag-handle {
-          float: left;
+          position: absolute;
+          left: 2px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -3401,16 +3441,11 @@ function RichTextEditorClient({
           cursor: grab;
           color: #6b7280;
           opacity: 0;
+          pointer-events: none;
           transition: all 0.15s ease;
-          margin-right: 4px;
-          margin-top: 0;
-          margin-left: -2px;
           z-index: 10;
           border-radius: 4px;
           background: transparent;
-        }
-        .drag-handle:hover {
-          opacity: 1 !important;
         }
         .tiptap-editor p,
         .tiptap-editor h1,
@@ -3420,14 +3455,7 @@ function RichTextEditorClient({
         .tiptap-editor h5,
         .tiptap-editor h6,
         .tiptap-editor pre {
-          padding-left: 24px;
           margin-top: 0;
-        }
-        .tiptap-editor ul,
-        .tiptap-editor ol {
-          padding-left: 24px;
-          margin-top: 0;
-          list-style-position: inside;
         }
         .drag-handle:hover {
           color: #3b82f6;

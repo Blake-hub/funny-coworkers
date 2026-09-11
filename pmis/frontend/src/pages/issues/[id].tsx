@@ -58,6 +58,7 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [initialValue, setInitialValue] = useState('');
+  const [clickCoords, setClickCoords] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -118,10 +119,11 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
     }
   };
 
-  const handleStartEdit = (field: string, value: string) => {
+  const handleStartEdit = (field: string, value: string, e?: React.MouseEvent) => {
     setEditingField(field);
     setEditValue(value);
     setInitialValue(value);
+    setClickCoords(e ? { x: e.clientX, y: e.clientY } : null);
   };
 
   const handleCancelEdit = () => {
@@ -277,11 +279,13 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                       className="border-0"
                       data-testid="issue-description-editor"
                       showToolbar={false}
+                      enableDragHandle={false}
+                      clickCoords={clickCoords}
                     />
                   ) : (
                     <div
                       className="text-gray-700 min-h-[60px] [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_p]:mb-2 [&_p]:text-sm [&_strong]:font-bold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_blockquote]:mb-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:bg-gray-100 [&_code]:rounded [&_code]:text-sm [&_hr]:my-4 [&_hr]:border-gray-200 cursor-pointer hover:text-gray-800"
-                      onClick={() => handleStartEdit('description', issue.description || '')}
+                      onClick={(e) => handleStartEdit('description', issue.description || '', e)}
                       dangerouslySetInnerHTML={{ __html: issue.description || `<p class="text-gray-400 text-sm">${t('issues.descriptionPlaceholder')}</p>` }}
                     />
                   )}
@@ -363,6 +367,7 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                           className="border-0"
                           style={{ minHeight: '48px' }}
                           showToolbar={false}
+                          enableDragHandle={false}
                         />
                         <div className="flex items-center justify-end gap-3 px-3 pb-2">
                           <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors">

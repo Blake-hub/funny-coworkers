@@ -50,6 +50,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [editingProperty, setEditingProperty] = useState<string | null>(null);
+  const [clickCoords, setClickCoords] = useState<{ x: number; y: number } | null>(null);
   
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
   const [newMilestone, setNewMilestone] = useState({ name: '', description: '', dueDate: '' });
@@ -179,9 +180,10 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     }));
   };
 
-  const handleStartEdit = (field: string, value: string) => {
+  const handleStartEdit = (field: string, value: string, e?: React.MouseEvent) => {
     setEditingField(field);
     setEditValue(value);
+    setClickCoords(e ? { x: e.clientX, y: e.clientY } : null);
   };
 
   const handleSaveEdit = async () => {
@@ -525,11 +527,13 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                       placeholder={t('projects.introPlaceholder')}
                       className="border-0"
                       showToolbar={false}
+                      enableDragHandle={false}
+                      clickCoords={clickCoords}
                     />
                   ) : (
                     <div
                       className="text-gray-700 cursor-pointer hover:text-gray-800 transition-colors min-h-[40px] [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_p]:mb-2 [&_p]:text-sm [&_strong]:font-bold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_blockquote]:mb-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:bg-gray-100 [&_code]:rounded [&_code]:text-sm [&_hr]:my-4 [&_hr]:border-gray-200"
-                      onClick={() => handleStartEdit('description', project.description)}
+                      onClick={(e) => handleStartEdit('description', project.description, e)}
                       dangerouslySetInnerHTML={{ __html: project.description || '<p class="text-gray-400 text-sm">Write a project introduction, or other useful information....</p>' }}
                     />
                   )}
