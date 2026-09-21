@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { organizationApi, userApi, type OrganizationResponse, type DepartmentResponse, type UserResponse } from '@/services/api';
-import { Building2, Users, Network, Plus, Pencil, Trash2, ChevronRight, ChevronDown, X } from 'lucide-react';
+import { Building2, Users, Network, Plus, Pencil, Trash2, ChevronRight, ChevronDown, X, Upload } from 'lucide-react';
 import { useRouter } from 'next/router';
 
 interface DepartmentTreeNode extends DepartmentResponse {
@@ -32,6 +32,11 @@ export default function OrganizationTab() {
   const [editingEmp, setEditingEmp] = useState<UserResponse | null>(null);
   const [empForm, setEmpForm] = useState({ 
     name: '', email: '', password: '', departmentId: undefined as number | undefined });
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [csvEmails, setCsvEmails] = useState<string[]>([]);
+  const [csvFileName, setCsvFileName] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ totalRequested: number; totalCreated: number; skipped: number } | null>(null);
 
   const ORG_ID = 1;
 
@@ -95,6 +100,47 @@ export default function OrganizationTab() {
     } catch (error) {
       console.error('Failed to save employee:', error);
     }
+  };
+
+  const handleCsvFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = (ev.target?.result as string) || '';
+      const emails = text
+        .split(/[\r\n,;]+/)
+        .map(s => s.trim().toLowerCase())
+        .filter(s => s.includes('@') && s.includes('.'));
+      setCsvEmails(Array.from(new Set(emails)));
+      setImportResult(null);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCsvImport = async () => {
+    if (csvEmails.length === 0) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await userApi.batchImportUsers(csvEmails, ORG_ID);
+      setImportResult({ totalRequested: res.totalRequested, totalCreated: res.totalCreated, skipped: res.skipped });
+      loadData();
+    } catch (error) {
+      console.error('CSV import failed:', error);
+      alert('Import failed. Please check the console for details.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const resetCsvModal = () => {
+    setShowCsvModal(false);
+    setCsvEmails([]);
+    setCsvFileName('');
+    setImportResult(null);
+    setImporting(false);
   };
 
   const handleDeleteEmp = async (id: number) => {
@@ -381,17 +427,26 @@ export default function OrganizationTab() {
             <h2 className="text-lg font-semibold text-gray-800">Employees</h2>
             <span className="text-sm text-gray-500">({employees.length})</span>
           </div>
-          <button
-            onClick={() => {
-              setEditingEmp(null);
-              setEmpForm({ name: '', email: '', password: '', departmentId: undefined });
-              setShowEmpModal(true);
-            }}
-            className="flex items-center gap-1 text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            Add Employee
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setEditingEmp(null);
+                setEmpForm({ name: '', email: '', password: '', departmentId: undefined });
+                setShowEmpModal(true);
+              }}
+              className="flex items-center gap-1 text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Add Employee
+            </button>
+            <button
+              onClick={() => { resetCsvModal(); setShowCsvModal(true); }}
+              className="flex items-center gap-1 text-sm bg-gray-600 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700"
+            >
+              <Upload className="w-4 h-4" />
+              Import CSV
+            </button>
+          </div>
         </div>
 
         <div className="bg-gray-50 rounded-lg p-4">
@@ -585,6 +640,99 @@ export default function OrganizationTab() {
           </div>
         </div>
       )}
+
+      {showCsvModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">Import Employees from CSV</h3>
+              <button onClick={resetCsvModal} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+              {!importResult && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+                    <input
+                      type="file"
+                      accept=".csv,.txt"
+                      onChange={handleCsvFile}
+                      className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      CSV format: one email per line (or comma/semicolon separated). Name = email before '@', password defaults to 123456.
+                    </p>
+                  </div>
+                  {csvEmails.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-700">
+                          {csvEmails.length} email{csvEmails.length !== 1 ? 's' : ''} found
+                        </span>
+                        {csvFileName && <span className="text-xs text-gray-400">{csvFileName}</span>}
+                      </div>
+                      <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="sticky top-0 bg-gray-50">
+                            <tr className="text-left text-gray-500">
+                              <th className="px-2 py-1 font-medium">Email</th>
+                              <th className="px-2 py-1 font-medium">Name (auto)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {csvEmails.map(email => (
+                              <tr key={email} className="border-t border-gray-100">
+                                <td className="px-2 py-1 text-gray-700">{email}</td>
+                                <td className="px-2 py-1 text-gray-500">{email.substring(0, email.indexOf('@'))}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              {importResult && (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-3">{importResult.totalCreated > 0 ? '✅' : '⚠️'}</div>
+                  <p className="text-lg font-semibold text-gray-800">
+                    {importResult.totalCreated} of {importResult.totalRequested} accounts created
+                  </p>
+                  {importResult.skipped > 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      {importResult.skipped} skipped (email already exists)
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200">
+              {importResult ? (
+                <button onClick={resetCsvModal} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  Done
+                </button>
+              ) : (
+                <>
+                  <button onClick={resetCsvModal} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCsvImport}
+                    disabled={csvEmails.length === 0 || importing}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {importing ? 'Importing...' : `Import ${csvEmails.length || ''} Accounts`}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

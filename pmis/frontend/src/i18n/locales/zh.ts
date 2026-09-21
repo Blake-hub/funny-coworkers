@@ -41,6 +41,8 @@ export const zh: Dictionary = {
     folderAndVisibility: '文件夹与可见性…',
     unknownUser: '未知用户',
     unknownRole: '未知角色',
+    logout: '退出登录',
+    settings: '设置',
   },
   notifications: {
     title: '通知',

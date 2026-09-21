@@ -41,6 +41,8 @@ export const en: Dictionary = {
     folderAndVisibility: 'Folder & Visibility…',
     unknownUser: 'Unknown User',
     unknownRole: 'Unknown Role',
+    logout: 'Log out',
+    settings: 'Settings',
   },
   notifications: {
     title: 'Notifications',

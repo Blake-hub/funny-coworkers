@@ -140,62 +140,76 @@ function DroppableColumn({ id, disabled = false, children }: { id: string; disab
   );
 }
 
-// ---------- Card Edit Dialog ----------
+// ---------- Card Detail / Edit Dialog ----------
 interface CardEditDialogProps {
   card: CardDTO | null;
-  readOnly?: boolean;
+  canEdit?: boolean;
+  startEditing?: boolean;
   onSave: (id: number, title: string, description: string) => void;
   onClose: () => void;
 }
 
-function CardEditDialog({ card, readOnly = false, onSave, onClose }: CardEditDialogProps) {
+function CardEditDialog({ card, canEdit = false, startEditing = false, onSave, onClose }: CardEditDialogProps) {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 375);
+  const [viewportHeight, setViewportHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 667);
 
   useEffect(() => {
     if (card) {
       setTitle(card.title);
       setDescription(card.description || '');
+      setIsEditing(startEditing && canEdit);
     }
-  }, [card]);
+  }, [card, startEditing, canEdit]);
 
   useEffect(() => {
-    const handleResize = () => setViewportWidth(window.innerWidth);
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+      setViewportHeight(window.innerHeight);
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ESC 快速关闭（浏览/编辑均生效，与取消按钮行为一致，不校验未保存修改）
+  // ESC：编辑态先退回浏览（丢弃未保存修改），浏览态关闭弹窗
   useEffect(() => {
     if (!card) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        if (isEditing) {
+          setTitle(card.title);
+          setDescription(card.description || '');
+          setIsEditing(false);
+        } else {
+          onClose();
+        }
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [card, onClose]);
+  }, [card, isEditing, onClose]);
 
   if (!card) return null;
 
-  // Calculate dialog width: screen width minus 16px padding on each side, capped at 448px (md)
+  // 固定弹窗尺寸：宽 448px / 高 520px，小屏幕上不超过可视区域
   const dialogWidth = Math.min(viewportWidth - 32, 448);
+  const dialogHeight = Math.min(viewportHeight - 32, 520);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-3" onClick={onClose}>
       <div
-        className="bg-white rounded-lg shadow-xl flex flex-col max-h-[85dvh]"
-        style={{ width: `${dialogWidth}px`, maxWidth: 'calc(100vw - 16px)' }}
+        className="bg-white rounded-lg shadow-xl flex flex-col"
+        style={{ width: `${dialogWidth}px`, height: `${dialogHeight}px`, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100dvh - 16px)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header: dialog title + votes + close */}
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200">
           <div className="flex items-center gap-2 min-w-0">
-            <h3 className="text-xs font-semibold text-gray-700 shrink-0">{readOnly ? t('retro.detail.cardDetail') : t('retro.detail.editCard')}</h3>
+            <h3 className="text-xs font-semibold text-gray-700 shrink-0">{isEditing ? t('retro.detail.editCard') : t('retro.detail.cardDetail')}</h3>
             <div className="flex items-center gap-0.5 text-xs text-gray-400 shrink-0">
               <ThumbsUp className="w-3 h-3" />
               <span>{card.votes}</span>
@@ -208,9 +222,7 @@ function CardEditDialog({ card, readOnly = false, onSave, onClose }: CardEditDia
           {/* Title row: label + input/text on one line */}
           <div className="flex items-center gap-2 px-3 pt-2 pb-1">
             <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide shrink-0">{t('retro.detail.title')}</label>
-            {readOnly ? (
-              <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap break-words flex-1 min-w-0">{card.title}</p>
-            ) : (
+            {isEditing ? (
               <input
                 type="text"
                 value={title}
@@ -218,39 +230,58 @@ function CardEditDialog({ card, readOnly = false, onSave, onClose }: CardEditDia
                 className="flex-1 min-w-0 px-2 py-1.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-gray-300 focus:outline-none"
                 autoFocus
               />
+            ) : (
+              <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap break-words flex-1 min-w-0">{card.title}</p>
             )}
           </div>
           {/* Description: label + content, fills remaining space */}
           <div className="px-3 pt-1 pb-2 flex-1 min-h-0 flex flex-col">
             <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{t('common.description')}</label>
-            {readOnly ? (
-              card.description ? (
-                <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">{card.description}</p>
-              ) : (
-                <p className="text-sm text-gray-400">{t('retro.detail.noDescription')}</p>
-              )
-            ) : (
+            {isEditing ? (
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full flex-1 px-2 py-1.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-gray-300 focus:outline-none resize-none min-h-[120px]"
               />
+            ) : card.description ? (
+              <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">{card.description}</p>
+            ) : (
+              <p className="text-sm text-gray-400">{t('retro.detail.noDescription')}</p>
             )}
           </div>
         </div>
-        {/* Footer: cancel + save together on the right */}
+        {/* Footer: view → edit/close; edit → cancel/save */}
         <div className="flex items-center justify-end gap-2 px-3 py-1.5 border-t border-gray-200">
-          {readOnly ? (
-            <button onClick={onClose} className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800">{t('common.close')}</button>
-          ) : (
+          {isEditing ? (
             <>
-              <button onClick={onClose} className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800">{t('common.cancel')}</button>
+              <button
+                onClick={() => {
+                  setTitle(card.title);
+                  setDescription(card.description || '');
+                  setIsEditing(false);
+                }}
+                className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800"
+              >
+                {t('common.cancel')}
+              </button>
               <button
                 onClick={() => onSave(card.id, title, description)}
                 className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
               >
                 {t('common.save')}
               </button>
+            </>
+          ) : (
+            <>
+              {canEdit && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+                >
+                  {t('common.edit')}
+                </button>
+              )}
+              <button onClick={onClose} className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800">{t('common.close')}</button>
             </>
           )}
         </div>
@@ -374,6 +405,7 @@ export default function RetroDetailPage() {
 
   // Dialogs
   const [editingCard, setEditingCard] = useState<CardDTO | null>(null);
+  const [startInEditMode, setStartInEditMode] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
 
@@ -649,6 +681,12 @@ export default function RetroDetailPage() {
 
   const handleOpenCard = useCallback((card: CardDTO) => {
     if (Date.now() - lastDragEndRef.current < 200) return;
+    setStartInEditMode(false);
+    setEditingCard(card);
+  }, []);
+
+  const handleDirectEditCard = useCallback((card: CardDTO) => {
+    setStartInEditMode(true);
     setEditingCard(card);
   }, []);
 
@@ -1051,7 +1089,7 @@ export default function RetroDetailPage() {
                             canEdit={isOwner || (!!user && card.creatorId === Number(user.id))}
                             sortLocked={voteSorted}
                             onVote={handleVote}
-                            onEdit={setEditingCard}
+                            onEdit={handleDirectEditCard}
                             onDelete={handleDeleteCard}
                             onOpen={handleOpenCard}
                           />
@@ -1154,7 +1192,8 @@ export default function RetroDetailPage() {
       {/* Dialogs */}
       <CardEditDialog
         card={editingCard}
-        readOnly={isEnded || (!!editingCard && !!user && editingCard.creatorId !== Number(user.id) && !isOwner)}
+        canEdit={!isEnded && !!editingCard && !!user && (isOwner || editingCard.creatorId === Number(user.id))}
+        startEditing={startInEditMode}
         onSave={handleSaveCard}
         onClose={() => setEditingCard(null)}
       />

@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,26 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         User savedUser = userRepository.save(user);
         return convertToDTO(savedUser);
+    }
+
+    @Transactional
+    public List<UserDTO> batchCreateUsers(List<String> emails, Long organizationId) {
+        List<UserDTO> created = new ArrayList<>();
+        for (String email : emails) {
+            if (userRepository.existsByEmail(email)) {
+                continue; // 跳过已存在的邮箱
+            }
+            String name = email.contains("@") ? email.substring(0, email.indexOf("@")) : email;
+            User user = User.builder()
+                    .email(email)
+                    .name(name)
+                    .role(Role.TEAM_MEMBER)
+                    .organizationId(organizationId)
+                    .build();
+            user.setPassword(passwordEncoder.encode("123456"));
+            created.add(convertToDTO(userRepository.save(user)));
+        }
+        return created;
     }
 
     @Transactional

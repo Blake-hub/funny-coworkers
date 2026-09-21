@@ -24,14 +24,16 @@ import {
   Pencil,
   Trash2,
   CheckCheck,
-  MessageSquare
+  MessageSquare,
+  Check
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
-import { teamApi, type TeamResponse, wikiApi, type WikiFolderResponse, type WikiPageResponse, type CreateWikiFolderRequest, type UpdateWikiFolderRequest, type NotificationResponse } from '@/services/api';
+import { teamApi, issueApi, projectApi, type TeamResponse, wikiApi, type WikiFolderResponse, type WikiPageResponse, type CreateWikiFolderRequest, type UpdateWikiFolderRequest, type NotificationResponse } from '@/services/api';
 import { retroApi } from '@/services/retroApi';
-import { mockIssues, mockProjects } from '@/data/mockData';
+import { changeAppLanguage } from '@/i18n/useClientLanguage';
+import type { AppLang } from '@/i18n/types';
 
 interface SidebarProps {
   width: number;
@@ -49,7 +51,7 @@ interface MenuItem {
 
 export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { logout, user } = useAuth();
   const {
     notifications,
@@ -83,6 +85,11 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
   const [fvSaving, setFvSaving] = useState(false);
   const [fvError, setFvError] = useState<string | null>(null);
   const [activeRetroCount, setActiveRetroCount] = useState(0);
+  const [myIssuesCount, setMyIssuesCount] = useState(0);
+  const [myProjectsCount, setMyProjectsCount] = useState(0);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountLang = (i18n.language?.startsWith('zh') ? 'zh' : 'en') as AppLang;
 
   const forceReloadWikiTree = useCallback(() => setWikiReloadToken(t => t + 1), []);
   const hasLoadedPersistedStateRef = useRef(false);
@@ -139,8 +146,8 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
 
   const getMenuItems = () => [
     { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, href: '/' },
-    { id: 'issues', label: t('nav.issues'), icon: Bug, href: '/issues', badge: mockIssues.length },
-    { id: 'projects', label: t('nav.projects'), icon: FolderOpen, href: '/projects', badge: mockProjects.length },
+    { id: 'issues', label: t('nav.issues'), icon: Bug, href: '/issues', badge: myIssuesCount },
+    { id: 'projects', label: t('nav.projects'), icon: FolderOpen, href: '/projects', badge: myProjectsCount },
     { id: 'teams', label: t('nav.teams'), icon: Users, badge: teams.length },
     { id: 'wiki', label: t('nav.wiki'), icon: FileText, href: '/wiki' },
     { id: 'retro', label: t('nav.retro'), icon: MessageSquare, href: '/retro', badge: activeRetroCount },
@@ -249,6 +256,25 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
   }, [user?.id, router.asPath]);
 
   useEffect(() => {
+    const fetchMyCounts = async () => {
+      if (!user?.id) return;
+      try {
+        const [issues, projects] = await Promise.all([
+          issueApi.getIssuesForUser(Number(user.id)),
+          projectApi.getProjectsForUser(Number(user.id)),
+        ]);
+        setMyIssuesCount(issues.length);
+        setMyProjectsCount(projects.length);
+      } catch (error) {
+        console.error('Failed to fetch my issue/project counts:', error);
+      }
+    };
+    if (user?.id) {
+      fetchMyCounts();
+    }
+  }, [user?.id, router.asPath]);
+
+  useEffect(() => {
     const fetchFolders = async () => {
       if (!user?.id) return;
       try {
@@ -333,6 +359,32 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
     document.addEventListener('mousedown', handleOutsideMouseDown);
     return () => document.removeEventListener('mousedown', handleOutsideMouseDown);
   }, [showNotifications]);
+
+  useEffect(() => {
+    if (!showAccountMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
+        setShowAccountMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showAccountMenu]);
+
+  const handleSelectLang = (code: AppLang) => {
+    changeAppLanguage(code);
+    setShowAccountMenu(false);
+  };
+
+  const handleAccountSettings = () => {
+    setShowAccountMenu(false);
+    router.push('/settings/');
+  };
+
+  const handleAccountLogout = () => {
+    setShowAccountMenu(false);
+    handleLogout();
+  };
 
   const handleNotificationClick = async (item: NotificationResponse) => {
     if (!item.readStatus) {
@@ -804,15 +856,85 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
         {!isCreateTeamPage && (
           <div className={`p-3 border-b border-gray-200 ${isMobile ? 'p-3' : ''}`}>
             <div className="flex items-center justify-between">
-              {/* User Profile */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className={`${isMobile ? 'w-9 h-9 text-sm' : 'w-8 h-8 text-sm'} rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0`}>
-                  {user?.name ? user.name.charAt(0) : '?'}
-                </div>
-                {!isCollapsed && (
-                  <div className="min-w-0">
-                    <p className={`font-medium text-gray-800 truncate ${isMobile ? 'text-sm' : 'text-sm'}`}>{user?.name || t('nav.unknownUser')}</p>
-                    <p className="text-xs text-gray-500 truncate">{user?.role || t('nav.unknownRole')}</p>
+              {/* User Profile - 点击打开账户菜单 */}
+              <div className="relative flex-1 min-w-0" ref={accountMenuRef}>
+                <button
+                  onClick={() => setShowAccountMenu((v) => !v)}
+                  className={`flex items-center gap-2 w-full text-left rounded-lg hover:bg-gray-100 transition-colors ${isMobile ? '-mx-1 px-1 py-0.5' : '-mx-1 px-1 py-0.5'}`}
+                  aria-label={user?.name || t('nav.unknownUser')}
+                >
+                  <div className={`${isMobile ? 'w-9 h-9 text-sm' : 'w-8 h-8 text-sm'} rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0`}>
+                    {user?.name ? user.name.charAt(0) : '?'}
+                  </div>
+                  {!isCollapsed && (
+                    <div className="min-w-0 flex-1">
+                      <p className={`font-medium text-gray-800 truncate ${isMobile ? 'text-sm' : 'text-sm'}`}>{user?.name || t('nav.unknownUser')}</p>
+                      <p className="text-xs text-gray-500 truncate">{user?.role || t('nav.unknownRole')}</p>
+                    </div>
+                  )}
+                  {!isCollapsed && (
+                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${showAccountMenu ? 'rotate-180' : ''}`} />
+                  )}
+                </button>
+
+                {/* 账户下拉菜单 */}
+                {showAccountMenu && (
+                  <div className={`absolute z-50 mt-1 w-60 bg-white border border-gray-200 rounded-lg shadow-xl py-1 ${
+                    isCollapsed ? 'left-full ml-2 top-0' : 'left-0 top-full'
+                  }`}>
+                    {/* 菜单头部：用户信息 */}
+                    <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0">
+                        {user?.name ? user.name.charAt(0) : '?'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-800 truncate">{user?.name || t('nav.unknownUser')}</p>
+                        <p className="text-xs text-gray-500 truncate">{user?.email || ''}</p>
+                      </div>
+                    </div>
+
+                    {/* 语言切换区 */}
+                    <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                      {t('common.language')}
+                    </div>
+                    <button
+                      onClick={() => handleSelectLang('zh')}
+                      className={`w-full flex items-center justify-between px-3 py-1.5 text-sm transition-colors ${
+                        accountLang === 'zh' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>中文</span>
+                      {accountLang === 'zh' && <Check className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={() => handleSelectLang('en')}
+                      className={`w-full flex items-center justify-between px-3 py-1.5 text-sm transition-colors ${
+                        accountLang === 'en' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>English</span>
+                      {accountLang === 'en' && <Check className="w-4 h-4" />}
+                    </button>
+
+                    <div className="my-1 border-t border-gray-100" />
+
+                    {/* 设置 */}
+                    <button
+                      onClick={handleAccountSettings}
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Settings className="w-4 h-4 text-gray-500" />
+                      <span>{t('nav.settings')}</span>
+                    </button>
+
+                    {/* 退出登录 */}
+                    <button
+                      onClick={handleAccountLogout}
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>{t('nav.logout')}</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -1258,30 +1380,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
           )}
         </nav>
 
-        {/* Bottom Actions */}
-        {!isCreateTeamPage && (
-          <div className={`p-3 border-t border-gray-200 space-y-1 ${isMobile ? 'p-3 space-y-1' : ''}`}>
-            <button
-              onClick={() => router.push('/settings/')}
-              className={`w-full flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out ${
-                isCollapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-              } ${isMobile ? 'px-3 py-2 text-sm' : 'px-2 py-1.5'}`}
-              title="Settings"
-            >
-              <Settings className={`w-4 h-4`} />
-              {!isCollapsed && <span>Settings</span>}
-            </button>
-            <button
-              onClick={handleLogout}
-              className={`w-full flex items-center gap-2 rounded-lg text-sm transition-all duration-200 ease-in-out ${
-                isCollapsed ? 'justify-center text-gray-600 hover:bg-gray-100' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-800 hover:shadow-sm'
-              } ${isMobile ? 'px-3 py-2 text-sm' : 'px-2 py-1.5'}`}
-              title="Logout">
-              <LogOut className={`w-4 h-4`} />
-              {!isCollapsed && <span>Logout</span>}
-            </button>
-          </div>
-        )}
+        {/* Bottom Actions 已合并进顶部账户下拉菜单 */}
       </div>
 
       {showFolderVisibilityModal != null && (

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import ToastContainer from '../Toast/ToastContainer';
-import LanguageSwitcher from './LanguageSwitcher';
 import { Menu, X, GripVertical } from 'lucide-react';
 
 interface LayoutProps {
@@ -191,9 +190,6 @@ export default function Layout({ children }: LayoutProps) {
         )}
         
         <main className="p-2 sm:p-4 flex-1 overflow-hidden relative">
-          <div className="absolute top-2 right-2 sm:right-4 z-40">
-            <LanguageSwitcher />
-          </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-6 h-full overflow-y-auto">
             {children}
           </div>

@@ -219,6 +219,13 @@ export const userApi = {
     });
   },
 
+  batchImportUsers: async (emails: string[], organizationId?: number): Promise<{ created: UserResponse[]; totalRequested: number; totalCreated: number; skipped: number }> => {
+    return fetchApi('/users/batch', {
+      method: 'POST',
+      body: JSON.stringify({ emails, organizationId }),
+    });
+  },
+
   updateUser: async (id: number, userData: { 
     email?: string; 
     password?: string; 

@@ -46,6 +46,25 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(userDTO));
     }
 
+    @PostMapping("/batch")
+    @Operation(summary = "Batch create users from email list")
+    public ResponseEntity<Map<String, Object>> batchCreateUsers(@RequestBody Map<String, Object> request) {
+        @SuppressWarnings("unchecked")
+        List<String> emails = (List<String>) request.get("emails");
+        Integer orgId = (Integer) request.get("organizationId");
+        if (emails == null || emails.isEmpty()) {
+            throw new RuntimeException("Emails list is required");
+        }
+        Long organizationId = orgId != null ? orgId.longValue() : 1L;
+        List<UserDTO> created = userService.batchCreateUsers(emails, organizationId);
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("created", created);
+        response.put("totalRequested", emails.size());
+        response.put("totalCreated", created.size());
+        response.put("skipped", emails.size() - created.size());
+        return ResponseEntity.ok(response);
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Update a user")
     public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @Valid @RequestBody UserDTO userDTO) {
