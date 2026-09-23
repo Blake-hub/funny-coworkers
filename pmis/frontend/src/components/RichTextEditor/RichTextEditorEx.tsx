@@ -394,15 +394,18 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
 const lowlight = createLowlight(common);
 
 /**
- * 在 listItem 内部插入嵌套 codeBlock。
+ * Insert a nested codeBlock inside a listItem.
  *
- * 背景：listItem 的 content 表达式是 "paragraph block*"，第一个子节点必须是
- * paragraph。在列表项内直接 toggleCodeBlock 时，ProseMirror 的 setBlockType
- * 无法把唯一的首 paragraph 转成 codeBlock，Tiptap 的 setNode 会回退到
- * clearNodes() 把节点提升到列表外层，导致有序列表被拆成两段、序号重新从 1 开始。
+ * Background: the listItem content expression is "paragraph block*", so the first
+ * child node must be a paragraph. When toggling a codeBlock directly inside a list
+ * item, ProseMirror's setBlockType cannot turn the only leading paragraph into a
+ * codeBlock, and Tiptap's setNode falls back to clearNodes() which lifts the node
+ * out of the list, splitting the ordered list into two parts and restarting the
+ * numbering from 1.
  *
- * 这里改为在当前 textblock 之后、listItem 内部插入一个空 codeBlock 并把光标移入，
- * 保持列表结构完整、序号连续。
+ * Instead, this inserts an empty codeBlock after the current textblock but still
+ * inside the listItem, and moves the cursor into it, keeping the list structure
+ * intact and the numbering continuous.
  */
 function tryInsertNestedCodeBlock(props: CommandProps, attributes?: Record<string, unknown>): boolean {
   const { state, dispatch } = props;
@@ -412,10 +415,10 @@ function tryInsertNestedCodeBlock(props: CommandProps, attributes?: Record<strin
   if (!$from.parent.isTextblock) return false;
 
   const codeBlockType = state.schema.nodes.codeBlock;
-  // 已在 codeBlock 中（如切换语言），交给默认命令处理
+  // Already inside a codeBlock (e.g. switching language): delegate to the default command
   if ($from.parent.type === codeBlockType) return false;
 
-  // 向上查找最近的 listItem
+  // Walk up to find the nearest listItem
   let listItemDepth = 0;
   for (let d = $from.depth; d > 0; d--) {
     if ($from.node(d).type.name === 'listItem') {
@@ -425,10 +428,10 @@ function tryInsertNestedCodeBlock(props: CommandProps, attributes?: Record<strin
   }
   if (!listItemDepth) return false;
 
-  // 当前 textblock 之后的位置（仍是 listItem 内部）
+  // Position after the current textblock (still inside the listItem)
   const insertPos = $from.after($from.depth);
 
-  // 紧邻的下一个兄弟已经是 codeBlock 时，直接把光标移进去，避免重复插入
+  // When the immediately following sibling is already a codeBlock, just move the cursor in to avoid duplicate insertion
   if (insertPos < $from.end(listItemDepth)) {
     const nextNode = state.doc.nodeAt(insertPos);
     if (nextNode && nextNode.type === codeBlockType) {

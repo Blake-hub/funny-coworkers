@@ -1,4 +1,7 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+// Default to relative path /api, proxied to backend by Next.js rewrites (container-friendly)
+// For local dev, no need to set NEXT_PUBLIC_API_URL; rewrites proxy to http://localhost:8080
+// To connect directly to backend (e.g. SSR or special cases), set NEXT_PUBLIC_API_URL=http://host:8080/api
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 interface LoginData {
   email: string;
@@ -36,7 +39,7 @@ async function refreshToken(): Promise<string | null> {
   isRefreshing = true;
   refreshPromise = new Promise(async (resolve) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const response = await fetch(`${API_BASE_URL}/users/refresh`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -139,8 +142,9 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}, t
       return {} as T;
     }
 
-    const data = await response.json();
-    return data;
+    // Handle empty response body (e.g. ResponseEntity.ok().build() returns 200 with empty body)
+    const text = await response.text();
+    return text ? (JSON.parse(text) as T) : ({} as T);
   } catch (error) {
     console.error('API request failed:', error);
     if (error instanceof Error) {

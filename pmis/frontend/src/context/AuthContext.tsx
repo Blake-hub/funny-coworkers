@@ -171,6 +171,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role: response.user.role,
       };
 
+      // On account switch, clear stale data first to avoid user/token mismatch
+      localStorage.removeItem('pmis-user');
+      localStorage.removeItem('pmis-token');
+      deleteCookie('pmis-token');
+
       setUser(userData);
       setToken(response.token.token);
       localStorage.setItem('pmis-user', JSON.stringify(userData));

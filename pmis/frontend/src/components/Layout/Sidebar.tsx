@@ -856,7 +856,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
         {!isCreateTeamPage && (
           <div className={`p-3 border-b border-gray-200 ${isMobile ? 'p-3' : ''}`}>
             <div className="flex items-center justify-between">
-              {/* User Profile - 点击打开账户菜单 */}
+              {/* User Profile - click to open the account menu */}
               <div className="relative flex-1 min-w-0" ref={accountMenuRef}>
                 <button
                   onClick={() => setShowAccountMenu((v) => !v)}
@@ -877,12 +877,12 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                   )}
                 </button>
 
-                {/* 账户下拉菜单 */}
+                {/* Account dropdown menu */}
                 {showAccountMenu && (
                   <div className={`absolute z-50 mt-1 w-60 bg-white border border-gray-200 rounded-lg shadow-xl py-1 ${
                     isCollapsed ? 'left-full ml-2 top-0' : 'left-0 top-full'
                   }`}>
-                    {/* 菜单头部：用户信息 */}
+                    {/* Menu header: user info */}
                     <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2.5">
                       <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0">
                         {user?.name ? user.name.charAt(0) : '?'}
@@ -893,7 +893,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       </div>
                     </div>
 
-                    {/* 语言切换区 */}
+                    {/* Language switcher section */}
                     <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-gray-400 uppercase tracking-wide">
                       {t('common.language')}
                     </div>
@@ -918,7 +918,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
 
                     <div className="my-1 border-t border-gray-100" />
 
-                    {/* 设置 */}
+                    {/* Settings */}
                     <button
                       onClick={handleAccountSettings}
                       className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -927,7 +927,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                       <span>{t('nav.settings')}</span>
                     </button>
 
-                    {/* 退出登录 */}
+                    {/* Logout */}
                     <button
                       onClick={handleAccountLogout}
                       className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -1380,7 +1380,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
           )}
         </nav>
 
-        {/* Bottom Actions 已合并进顶部账户下拉菜单 */}
+        {/* Bottom Actions have been merged into the top account dropdown menu */}
       </div>
 
       {showFolderVisibilityModal != null && (

@@ -67,7 +67,7 @@ public class UserService {
         List<UserDTO> created = new ArrayList<>();
         for (String email : emails) {
             if (userRepository.existsByEmail(email)) {
-                continue; // 跳过已存在的邮箱
+                continue; // Skip already-existing emails
             }
             String name = email.contains("@") ? email.substring(0, email.indexOf("@")) : email;
             User user = User.builder()

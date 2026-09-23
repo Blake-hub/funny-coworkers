@@ -144,7 +144,7 @@ export default function Dashboard() {
           setLoading(false);
         }
 
-        // 最近回顾会：独立请求，失败不影响原有区块
+        // Recent retro boards: independent request; failure does not affect existing blocks
         try {
           const boards = await retroApi.listBoards('joined');
           setRetroBoards(boards);

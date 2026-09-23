@@ -147,16 +147,18 @@ export default function Login({ reason }: LoginProps) {
             </div>
           </div>
 
-          {/* Fake Credentials Hint */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 sm:p-3 mb-4 sm:mb-6">
-            <p className="text-xs sm:text-sm text-blue-700">
-              <span className="font-medium">{t('login.demoHint')}</span>
-              <br />
-              {t('login.email')}: <code className="bg-white px-1 rounded">admin@pmis.com</code>
-              <br />
-              {t('login.password')}: <code className="bg-white px-1 rounded">password</code>
-            </p>
-          </div>
+          {/* Demo Credentials Hint - only shown in dev; hidden at Docker build time via ENV override to false */}
+          {process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === 'true' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 sm:p-3 mb-4 sm:mb-6">
+              <p className="text-xs sm:text-sm text-blue-700">
+                <span className="font-medium">{t('login.demoHint')}</span>
+                <br />
+                {t('login.email')}: <code className="bg-white px-1 rounded">admin@pmis.com</code>
+                <br />
+                {t('login.password')}: <code className="bg-white px-1 rounded">password</code>
+              </p>
+            </div>
+          )}
 
           {/* Submit Button */}
           <button

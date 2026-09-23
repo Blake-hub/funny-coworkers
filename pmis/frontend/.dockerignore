@@ -1,0 +1,23 @@
+# 减小 frontend build context（多阶段 builder 会重新 npm ci + build）
+
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+.playwright/
+test-results/
+e2e-results/
+.git/
+.gitignore
+.idea/
+.vscode/
+*.log
+npm-debug.log*
+.DS_Store
+README*.md
+# 测试相关不进镜像
+e2e/
+playwright.config.ts
+jest.config.*

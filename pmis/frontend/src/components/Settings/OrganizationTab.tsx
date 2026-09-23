@@ -89,7 +89,18 @@ export default function OrganizationTab() {
   const handleSaveEmp = async () => {
     try {
       if (editingEmp) {
-        await userApi.updateUser(editingEmp.id, { ...empForm, organizationId: ORG_ID });
+        // Fix: keep original role on update (backend @NotNull); only send password when non-empty (backend @Size min=6)
+        const updateData: Parameters<typeof userApi.updateUser>[1] = {
+          name: empForm.name,
+          email: empForm.email,
+          role: editingEmp.role,
+          organizationId: ORG_ID,
+          departmentId: empForm.departmentId,
+        };
+        if (empForm.password) {
+          updateData.password = empForm.password;
+        }
+        await userApi.updateUser(editingEmp.id, updateData);
       } else {
         await userApi.createUser({ ...empForm, organizationId: ORG_ID, role: 'TEAM_MEMBER' });
       }
@@ -459,6 +470,7 @@ export default function OrganizationTab() {
                   <tr className="text-left text-sm text-gray-500 border-b border-gray-200">
                     <th className="pb-2 font-medium">Name</th>
                     <th className="pb-2 font-medium">Email</th>
+                    <th className="pb-2 font-medium">Department</th>
                     <th className="pb-2 font-medium">Role</th>
                     <th className="pb-2 font-medium">Actions</th>
                   </tr>
@@ -475,6 +487,11 @@ export default function OrganizationTab() {
                         </div>
                       </td>
                       <td className="py-2 text-gray-600">{emp.email}</td>
+                      <td className="py-2 text-gray-600">
+                        {emp.departmentId
+                          ? getAllDepartments(departments).find(d => d.id === emp.departmentId)?.name || '-'
+                          : '-'}
+                      </td>
                       <td className="py-2">
                         <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded-full text-xs">
                           {emp.role}

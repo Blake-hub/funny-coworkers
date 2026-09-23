@@ -1,0 +1,81 @@
+# PMIS offline deployment compose: db + backend + frontend
+# Usage: docker compose up -d
+# Upgrade: replace backend/frontend images then docker compose up -d (triggers rolling restart)
+
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: pmis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pmis_db
+      POSTGRES_USER: postgres
+      # Use a strong password in production; must match SPRING_DATASOURCE_PASSWORD below
+      POSTGRES_PASSWORD: PmisProdDb2026!Strong
+    volumes:
+      - pmis-db-data:/var/lib/postgresql/data
+    networks:
+      - pmis-net
+    # Health check: ensure the database is ready before backend starts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pmis_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: pmis-backend:1.0.0
+    container_name: pmis-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Override application.yml datasource, point to db container (service name resolves)
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/pmis_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      # Must match db POSTGRES_PASSWORD
+      SPRING_DATASOURCE_PASSWORD: PmisProdDb2026!Strong
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      # Absolute upload path, corresponds to the volume mount below
+      APP_UPLOAD_DIR: /app/uploads
+      # Override application.yml jwt.secret; replace with a 32+ char random string in production
+      JWT_SECRET: pmis-prod-jwt-secret-change-me-to-32plus-random-chars-2026
+      JWT_EXPIRATION: "86400000"
+      JWT_ISSUER: pmis-app
+      # CORS-allowed frontend origin (browser hits backend 8080 directly; cross-origin requires CORS)
+      CORS_ALLOWED_ORIGINS: http://10.0.18.81:3000
+    volumes:
+      - pmis-uploads:/app/uploads
+    # Port 8080 must be exposed to the browser: WebSocket cannot go through rewrites, needs direct connection
+    ports:
+      - "8080:8080"
+    networks:
+      - pmis-net
+
+  frontend:
+    image: pmis-frontend:1.0.0
+    container_name: pmis-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Client inlined direct backend 8080 connection at build time; rewrites proxy not needed
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    networks:
+      - pmis-net
+
+networks:
+  pmis-net:
+    driver: bridge
+
+volumes:
+  pmis-db-data:
+    name: pmis-db-data
+  pmis-uploads:
+    name: pmis-uploads

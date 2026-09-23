@@ -38,7 +38,11 @@ export function useRetroWebSocket({ boardId, token, onEvent }: UseRetroWebSocket
   useEffect(() => {
     if (!boardId || !token) return;
 
-    const wsBaseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || 'http://localhost:8080';
+    // WebSocket cannot go through Next rewrites (HTTP proxy does not support WS upgrade); the browser must connect directly to the backend.
+    // Derive the URL from window.location.hostname + backend port to avoid build-time inlining breaking after containerization.
+    const wsBaseUrl = typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:8080`
+      : 'http://localhost:8080';
     const wsUrl = `${wsBaseUrl}/ws`;
 
     const client = new Client({

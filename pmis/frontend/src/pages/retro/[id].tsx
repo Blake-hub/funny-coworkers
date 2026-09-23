@@ -174,7 +174,7 @@ function CardEditDialog({ card, canEdit = false, startEditing = false, onSave, o
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ESC：编辑态先退回浏览（丢弃未保存修改），浏览态关闭弹窗
+  // ESC: in edit mode, first revert to view mode (discarding unsaved changes); in view mode, close the dialog
   useEffect(() => {
     if (!card) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -195,7 +195,7 @@ function CardEditDialog({ card, canEdit = false, startEditing = false, onSave, o
 
   if (!card) return null;
 
-  // 固定弹窗尺寸：宽 448px / 高 520px，小屏幕上不超过可视区域
+  // Fixed dialog size: width 448px / height 520px, capped to the viewport on small screens
   const dialogWidth = Math.min(viewportWidth - 32, 448);
   const dialogHeight = Math.min(viewportHeight - 32, 520);
 
@@ -389,8 +389,8 @@ export default function RetroDetailPage() {
   const [newCardTitle, setNewCardTitle] = useState('');
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
-  // 按票数排序的列（纯视图偏好，仅当前客户端生效，不调后端）；激活时该列禁用拖拽
-  // 三态：undefined=不排序, 'desc'=降序, 'asc'=升序
+  // Column sorted by votes (pure view preference, only applies to the current client, no backend call); dragging is disabled for that column while active
+  // Three states: undefined=no sort, 'desc'=descending, 'asc'=ascending
   const [voteSortDirs, setVoteSortDirs] = useState<Map<number, 'desc' | 'asc'>>(new Map());
   const toggleVoteSort = useCallback((colId: number) => {
     setVoteSortDirs((prev) => {
@@ -676,7 +676,7 @@ export default function RetroDetailPage() {
   // ---------- DnD ----------
   const dragStartInfoRef = useRef<{ colId: number; index: number } | null>(null);
   const crossColMovedRef = useRef(false);
-  // 拖拽结束时间戳：dnd-kit 在 drag 后仍会派发 click，200ms 内的 click 视为拖拽误触，不打开详情
+  // Drag end timestamp: dnd-kit still dispatches a click after a drag, so a click within 200ms is treated as an accidental drag-trigger and does not open details
   const lastDragEndRef = useRef(0);
 
   const handleOpenCard = useCallback((card: CardDTO) => {
@@ -703,7 +703,7 @@ export default function RetroDetailPage() {
     }
   };
 
-  // 拖拽经过其他列时，把卡片实时"预插入"目标列：目标列卡片自动让位，显示插入位置指示
+  // When dragging over another column, "pre-insert" the card into the target column in real time: the target column's cards shift aside and an insertion indicator is shown
   const handleDragOver = (e: DragOverEvent) => {
     const { active, over } = e;
     if (!over) return;
@@ -740,7 +740,7 @@ export default function RetroDetailPage() {
       }
       if (destColId == null || destColId === sourceColId) return prev;
 
-      // 插入位置：悬停在卡片上时，按拖拽卡片中心与目标卡片中心的相对位置决定插前/插后
+      // Insertion position: when hovering over a card, decide insert-before/insert-after by the relative position of the dragged card's center vs the target card's center
       let insertIdx: number;
       if (destIndex >= 0) {
         const overRect = over.rect;
@@ -760,14 +760,14 @@ export default function RetroDetailPage() {
       crossColMovedRef.current = true;
       return {
         ...prev,
-        // 规范化 position，避免 WS card_updated 按 position 排序时因并列错序
+        // Normalize positions to avoid mis-ordering when WS card_updated sorts by position with ties
         [sourceColId]: src.map((c, i) => ({ ...c, position: i })),
         [destColId]: dest.map((c, i) => ({ ...c, position: i })),
       };
     });
   };
 
-  // 拖拽中断（取消/拖到容器外）：若已跨列预插入则还原为后端状态
+  // Drag interrupted (cancel / dragged out of the container): if a cross-column pre-insert happened, restore to the backend state
   const restoreAfterDragAbort = async () => {
     dragStartInfoRef.current = null;
     if (crossColMovedRef.current) {
@@ -790,7 +790,7 @@ export default function RetroDetailPage() {
     const activeCardId = Number(String(e.active.id).replace('card-', ''));
     const overId = String(e.over.id);
 
-    // 卡片当前所在列/位置（跨列拖拽时 handleDragOver 已将其预插入目标列）
+    // The card's current column/position (during a cross-column drag, handleDragOver has already pre-inserted it into the target column)
     let colId: number | null = null;
     let curIdx = -1;
     for (const [colIdStr, list] of Object.entries(cardsByColumn)) {
@@ -803,7 +803,7 @@ export default function RetroDetailPage() {
     }
     if (colId == null || curIdx < 0) return;
 
-    // 计算列内最终位置
+    // Compute the final position within the column
     let finalIdx = curIdx;
     if (overId.startsWith('card-')) {
       const overCardId = Number(overId.replace('card-', ''));
@@ -816,10 +816,10 @@ export default function RetroDetailPage() {
             ? activeRect.top + activeRect.height / 2 > overRect.top + overRect.height / 2
             : false;
           if (startInfo && startInfo.colId === colId) {
-            // 同列：与 dnd-kit sortable 预览语义一致，over 卡片即目标索引
+            // Same column: consistent with dnd-kit sortable preview semantics, the over card is the target index
             finalIdx = overIdx;
           } else if (curIdx < overIdx) {
-            // 跨列：dragOver 已预插入，按中心位置微调
+            // Cross-column: dragOver already pre-inserted, fine-tune by center position
             finalIdx = isBelow ? overIdx : overIdx - 1;
           } else if (curIdx > overIdx) {
             finalIdx = isBelow ? overIdx + 1 : overIdx;
@@ -829,19 +829,19 @@ export default function RetroDetailPage() {
     } else if (overId.startsWith('col-')) {
       const overColId = Number(overId.replace('col-', ''));
       if (overColId !== colId) {
-        // 未经 handleDragOver 直接落到另一列（边缘情况）：追加到末尾
+        // Dropped onto another column without going through handleDragOver (edge case): append to the end
         colId = overColId;
         finalIdx = (cardsByColumn[overColId] || []).length;
       }
     }
 
-    // 位置无变化（原位放下、或跨列预览后又拖回原位）：不调接口
+    // Position unchanged (dropped in place, or dragged back to the original spot after a cross-column preview): do not call the API
     if (startInfo && startInfo.colId === colId && startInfo.index === finalIdx) {
       crossColMovedRef.current = false;
       return;
     }
 
-    // 乐观更新（同步规范化 position，保持与后端一致）
+    // Optimistic update (synchronously normalize positions to stay consistent with the backend)
     setCardsByColumn((prev) => {
       const list = [...(prev[colId!] || [])];
       const from = list.findIndex((c) => c.id === activeCardId);
@@ -1018,7 +1018,7 @@ export default function RetroDetailPage() {
                 const colCards = cardsByColumn[col.id] || [];
                 const sortDir = voteSortDirs.get(col.id);
                 const voteSorted = !!sortDir;
-                // 按票数排序：desc=票数降序, asc=票数升序；同票按 position 升序保持稳定
+                // Sort by votes: desc=votes descending, asc=votes ascending; ties sorted by position ascending for stability
                 const displayCards = sortDir
                   ? [...colCards].sort((a, b) => {
                       const diff = sortDir === 'desc' ? b.votes - a.votes : a.votes - b.votes;

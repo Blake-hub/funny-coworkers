@@ -1,0 +1,19 @@
+# 减小 backend build context
+# 单阶段 Dockerfile 只需要 build/libs/*.jar，其余都可排除以加速上传
+
+.gradle/
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+bin/
+out/
+node_modules/
+.git/
+.gitignore
+README*.md
+build/reports/
+build/test-results/
+build/tmp/
+# 保留 build/libs/（fat jar 所在）

@@ -1,11 +1,11 @@
 export type AppLang = 'zh' | 'en';
 
-/** 字典叶子值：字符串，或嵌套的字典分区 */
+/** Dictionary leaf value: a string, or a nested dictionary section */
 export interface DictNode {
   [key: string]: string | DictNode;
 }
 
-/** 字典结构：与 zh.ts/en.ts 的对象保持一致 */
+/** Dictionary structure: kept in sync with the objects in zh.ts/en.ts */
 export type Dictionary = {
   nav: DictNode;
   notifications: DictNode;
