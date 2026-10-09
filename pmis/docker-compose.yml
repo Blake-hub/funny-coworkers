@@ -26,7 +26,7 @@ services:
       retries: 10
 
   backend:
-    image: pmis-backend:1.0.0
+    image: pmis-backend:1.1.0
     container_name: pmis-backend
     restart: unless-stopped
     depends_on:
@@ -57,7 +57,7 @@ services:
       - pmis-net
 
   frontend:
-    image: pmis-frontend:1.0.0
+    image: pmis-frontend:1.1.0
     container_name: pmis-frontend
     restart: unless-stopped
     depends_on:

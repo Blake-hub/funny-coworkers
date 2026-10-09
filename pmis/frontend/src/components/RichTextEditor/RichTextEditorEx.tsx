@@ -5,6 +5,7 @@ import { common, createLowlight } from 'lowlight';
 import { EditorContent, useEditor, ReactRenderer } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
 import type { CommandProps } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Table as TableExtension } from '@tiptap/extension-table';
@@ -479,56 +480,6 @@ const ListAwareCodeBlock = CodeBlockLowlight.extend({
   },
 });
 
-const SAMPLE_IMAGE =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#ec4899"/></linearGradient></defs><rect width="600" height="280" fill="url(#g)" rx="16"/><g fill="#fff" font-family="Segoe UI,Arial" font-weight="700" text-anchor="middle"><text x="300" y="140" font-size="40">Sample Image</text><text x="300" y="180" font-size="20" opacity="0.8">600 x 280</text></g></svg>`,
-  );
-
-const INITIAL_HTML = `
-<h1>欢迎使用 Tiptap 拖拽手柄 Demo（方案 A：Decoration）</h1>
-<p>鼠标<strong>移动到任意块级元素上方</strong>，左外侧就会出现 ⋮⋮ 拖拽手柄。请尝试如下操作：</p>
-<ul>
-  <li>移动鼠标到这段文字上方 → 出现 listItem 级手柄（每 li 一个，内部的 p 不会额外出现）</li>
-  <li>按住手柄上下拖动 → 拖动过程中显示蓝色插入指示线，松开后重排</li>
-  <li>鼠标在内容块和手柄之间来回移动 → 手柄不会闪烁（相邻兄弟 hover 驱动）</li>
-</ul>
-<h2>各类元素覆盖测试</h2>
-<h3>引用块</h3>
-<blockquote>
-  <p>这是一段引用。Hover 引用区域，整块只出现一个手柄。内部段落不会出现重复手柄。</p>
-</blockquote>
-<h3>代码块</h3>
-<pre><code class="language-typescript">function greet(name: string) {
-  return \`Hello, \${name}!\`;
-}
-console.log(greet('Tiptap'));</code></pre>
-<h3>有序列表</h3>
-<ol>
-  <li>第一步：想好要写什么</li>
-  <li>第二步：拿起手柄拖动</li>
-  <li>第三步：看到蓝色指示线就松手</li>
-</ol>
-<h3>表格</h3>
-<table>
-  <thead>
-    <tr><th>元素类型</th><th>应出现手柄数量</th><th>说明</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>table</td><td>1 个（整表）</td><td>td/th 不出现</td></tr>
-    <tr><td>listItem</td><td>每 li 1 个</td><td>li 内 p 不出现</td></tr>
-    <tr><td>img</td><td>1 个（图片顶部对齐）</td><td>不跟随 inline baseline</td></tr>
-  </tbody>
-</table>
-<h3>图片</h3>
-<p>下面是一张图片，hover 其上下左右任意位置都应显示手柄：</p>
-<img src="${SAMPLE_IMAGE}" alt="示例图片" />
-<p>图片上方和下方段落的手柄，分别对齐各自段落顶部。</p>
-<h3>水平分隔线</h3>
-<hr />
-<p>分隔线以上和以下各有一个段落，hover 时各自出现独立的手柄。</p>
-`;
-
 interface RichTextEditorExProps {
   value?: string;
   onChange?: (content: string, json: string) => void;
@@ -537,6 +488,64 @@ interface RichTextEditorExProps {
   dataTestid?: string;
   placeholder?: string;
 }
+
+// Extension to convert file:/// image srcs to base64 data URIs on paste.
+// When pasting mixed content (text+images) from Word/WPS, images reference
+// local temp files via file:/// URLs which browsers block from http:// origins.
+// This intercepts such pastes, fetches each image through a backend proxy
+// endpoint, converts to base64, and inserts the modified HTML.
+const FileImagePaste = Extension.create({
+  name: 'fileImagePaste',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('fileImagePaste'),
+        props: {
+          handlePaste: (view, event: ClipboardEvent) => {
+            const clipboardData = event.clipboardData;
+            if (!clipboardData) return false;
+            const html = clipboardData.getData('text/html');
+            if (!html || !html.includes('file://')) return false;
+
+            event.preventDefault();
+
+            (async () => {
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = html;
+              const fileImgs = tempDiv.querySelectorAll('img[src^="file://"]');
+
+              await Promise.all(Array.from(fileImgs).map(async (img) => {
+                const fileSrc = img.getAttribute('src') || '';
+                try {
+                  const response = await fetch(
+                    `/api/files/local-image?path=${encodeURIComponent(fileSrc)}`
+                  );
+                  if (!response.ok) return;
+                  const blob = await response.blob();
+                  const base64 = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                  });
+                  img.setAttribute('src', base64);
+                } catch (e) {
+                  console.warn('Failed to convert file:// image:', fileSrc, e);
+                }
+              }));
+
+              const parser = PMDOMParser.fromSchema(view.state.schema);
+              const slice = parser.parseSlice(tempDiv);
+              view.dispatch(view.state.tr.replaceSelection(slice));
+            })();
+
+            return true;
+          },
+        },
+      }),
+    ];
+  },
+});
 
 function RichTextEditorEx({
   value,
@@ -743,8 +752,11 @@ function RichTextEditorEx({
         },
         onClose: closeSlashMenu,
       }),
+      FileImagePaste,
     ],
-    content: typeof value === 'string' && value.trim() !== '' ? value : INITIAL_HTML,
+    // New documents always start empty (no sample/test content); an empty editor still
+    // renders one default paragraph, so drag-handle decorations are created as usual
+    content: typeof value === 'string' && value.trim() !== '' ? value : '',
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       if (onChange) onChange(editor.getHTML() as string, JSON.stringify(editor.getJSON()));
@@ -1083,92 +1095,38 @@ function RichTextEditorEx({
     setAlignDropdownOpen(true);
   };
 
-  const testSlashMenu = () => {
-    const view = editor.view;
-    const { state } = view;
-    const { selection } = state;
-    const $from = selection.$from;
-    const pos = $from.pos;
-    const coords = view.coordsAtPos(pos);
-
-    const menuWidth = 256;
-    const menuHeight = 400;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const safeMargin = 32;
-
-    let menuX = coords.left;
-    let menuY = coords.bottom;
-
-    if (menuX + menuWidth > viewportWidth - safeMargin) {
-      menuX = viewportWidth - menuWidth - safeMargin;
-    }
-    if (menuX < safeMargin) {
-      menuX = safeMargin;
-    }
-
-    const spaceBelow = viewportHeight - coords.bottom - safeMargin;
-    if (spaceBelow < menuHeight) {
-      const spaceAbove = coords.top - safeMargin;
-      if (spaceAbove > menuHeight) {
-        menuY = coords.top - menuHeight;
-      } else if (spaceAbove > 0) {
-        menuY = safeMargin;
-      } else {
-        menuY = Math.max(safeMargin, viewportHeight - menuHeight - safeMargin);
-      }
-    }
-
-    if (menuY < safeMargin) {
-      menuY = safeMargin;
-    }
-
-    setSlashMenuPosition({ left: menuX, top: menuY });
-    setSlashMenuItems(getAllSlashMenuItems());
-    setSlashQuery('');
-    setSelectedSlashIndex(0);
-    setShowSlashMenu(true);
-  };
-
   return (
     <div className="relative w-full">
       {showToolbar && (
         <div className="sticky top-0 z-20 flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center gap-1">
-            <button
-              onClick={testSlashMenu}
-              className="p-2 rounded hover:bg-gray-200 transition-colors"
-              title="Test Slash Menu"
-            >
-              /
-            </button>
           <button
             onClick={() => editor.chain().focus().toggleBold().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('bold') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('bold') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Bold"
           >
-            <Bold size={18} />
+            <Bold size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('italic') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('italic') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Italic"
           >
-            <Italic size={18} />
+            <Italic size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().toggleUnderline().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('underline') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('underline') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Underline"
           >
-            <Underline size={18} />
+            <Underline size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().toggleStrike().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('strike') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('strike') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Strikethrough"
           >
-            <Strikethrough size={18} />
+            <Strikethrough size={16} />
           </button>
         </div>
 
@@ -1211,24 +1169,24 @@ function RichTextEditorEx({
         <div className="flex items-center gap-1">
           <button
             onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('bulletList') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('bulletList') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Bullet List"
           >
-            <List size={18} />
+            <List size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('orderedList') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('orderedList') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Numbered List"
           >
-            <ListOrdered size={18} />
+            <ListOrdered size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('blockquote') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('blockquote') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Quote"
           >
-            <Quote size={18} />
+            <Quote size={16} />
           </button>
         </div>
 
@@ -1237,24 +1195,24 @@ function RichTextEditorEx({
         <div className="flex items-center gap-1">
           <button
             onClick={() => editor.chain().focus().toggleCode().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('code') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('code') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Code"
           >
-            <Code size={18} />
+            <Code size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('codeBlock') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('codeBlock') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Code Block"
           >
-            <Type size={18} />
+            <Type size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().toggleHighlight().run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('highlight') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('highlight') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Highlight"
           >
-            <Highlighter size={18} />
+            <Highlighter size={16} />
           </button>
         </div>
 
@@ -1302,31 +1260,31 @@ function RichTextEditorEx({
         <div className="flex items-center gap-1">
           <button
             onClick={() => editor.chain().focus().setLink({ href: '' }).run()}
-            className={`p-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('link') ? 'bg-gray-200 text-blue-600' : ''}`}
+            className={`py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ${editor.isActive('link') ? 'bg-gray-200 text-blue-600' : ''}`}
             title="Link"
           >
-            <Link2 size={18} />
+            <Link2 size={16} />
           </button>
           <button
             onClick={insertTable}
-            className="p-2 rounded hover:bg-gray-200 transition-colors"
+            className="py-1.5 px-2 rounded hover:bg-gray-200 transition-colors"
             title="Table"
           >
-            <TableIcon size={18} />
+            <TableIcon size={16} />
           </button>
           <button
             onClick={handleImageUpload}
-            className="p-2 rounded hover:bg-gray-200 transition-colors"
+            className="py-1.5 px-2 rounded hover:bg-gray-200 transition-colors"
             title="Image"
           >
-            <ImageIcon size={18} />
+            <ImageIcon size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().setHorizontalRule().run()}
-            className="p-2 rounded hover:bg-gray-200 transition-colors"
+            className="py-1.5 px-2 rounded hover:bg-gray-200 transition-colors"
             title="Horizontal Rule"
           >
-            <Minus size={18} />
+            <Minus size={16} />
           </button>
         </div>
 
@@ -1335,17 +1293,17 @@ function RichTextEditorEx({
         <div className="flex items-center gap-1">
           <button
             onClick={() => editor.chain().focus().undo().run()}
-            className="p-2 rounded hover:bg-gray-200 transition-colors"
+            className="py-1.5 px-2 rounded hover:bg-gray-200 transition-colors"
             title="Undo"
           >
-            <Undo size={18} />
+            <Undo size={16} />
           </button>
           <button
             onClick={() => editor.chain().focus().redo().run()}
-            className="p-2 rounded hover:bg-gray-200 transition-colors"
+            className="py-1.5 px-2 rounded hover:bg-gray-200 transition-colors"
             title="Redo"
           >
-            <Redo size={18} />
+            <Redo size={16} />
           </button>
         </div>
 
@@ -1353,10 +1311,10 @@ function RichTextEditorEx({
 
         <button
           onClick={() => setShowToolbar(!showToolbar)}
-          className="p-2 rounded hover:bg-gray-200 transition-colors ml-auto"
+          className="py-1.5 px-2 rounded hover:bg-gray-200 transition-colors ml-auto"
           title="Hide Toolbar"
         >
-          <EyeOff size={18} />
+          <EyeOff size={16} />
         </button>
       </div>
       )}
@@ -1364,10 +1322,10 @@ function RichTextEditorEx({
       {!showToolbar && (
         <button
           onClick={() => setShowToolbar(!showToolbar)}
-          className="absolute top-2 right-2 p-2 rounded hover:bg-gray-200 transition-colors z-10 bg-white border border-gray-200"
+          className="absolute top-2 right-2 py-1.5 px-2 rounded hover:bg-gray-200 transition-colors z-10 bg-white border border-gray-200"
           title="Show Toolbar"
         >
-          <Eye size={18} />
+          <Eye size={16} />
         </button>
       )}
 

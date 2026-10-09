@@ -67,6 +67,28 @@ function preprocessEditorContent(value: string | object): string | object {
   return unwrapImagesFromParagraphs(value);
 }
 
+// Check whether an incoming value already contains meaningful content (text
+// or a non-text node such as an image, table or code block). Used to initialize
+// the hasContent state so the placeholder overlay is never painted for a single
+// frame before the Tiptap editor finishes creating itself.
+export function valueHasContent(value: string | object | null | undefined): boolean {
+  if (value == null) return false;
+  if (typeof value === 'object') {
+    const walk = (node: any): boolean => {
+      if (!node) return false;
+      if (node.type === 'image' || node.type === 'codeBlock' || node.type === 'table') return true;
+      if (typeof node.text === 'string' && node.text.trim().length > 0) return true;
+      return Array.isArray(node.content) && node.content.some(walk);
+    };
+    return walk(value);
+  }
+  if (typeof value !== 'string' || typeof document === 'undefined') return false;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = value;
+  if ((tmp.textContent || '').trim().length > 0) return true;
+  return !!tmp.querySelector('img, pre, table');
+}
+
 function htmlHasDataUriImages(html: string): boolean {
   if (!html || typeof html !== 'string') return false;
   return /<img[\s][^>]*\bsrc\s*=\s*["']\s*data:image\//i.test(html);
@@ -495,7 +517,15 @@ const SlashMenuComponent = forwardRef<HTMLDivElement, SlashMenuProps>(({
             key={cmd.id}
             data-command-index={index}
             className={`slash-menu-item ${selectedIndex === index ? 'selected' : ''}`}
-            onClick={() => onSelectCommand(cmd.command, cmd.params)}
+            // Handle selection on mousedown and prevent the default focus
+            // shift. With onClick the button would steal focus from the
+            // editor on mousedown (triggering the blur-save-close cycle in
+            // inline edit mode), and unmounting the menu afterwards would
+            // blur the editor a second time with no refocus to cancel it.
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onSelectCommand(cmd.command, cmd.params);
+            }}
           >
             <div className="slash-menu-item-icon">
               <Icon className="w-4 h-4 text-gray-600" />
@@ -1754,7 +1784,7 @@ function RichTextEditorClient({
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [floatingToolbarPosition, setFloatingToolbarPosition] = useState({ x: 0, y: 0 });
   const [showLinkModal, setShowLinkModal] = useState(false);
-  const [hasContent, setHasContent] = useState(false);
+  const [hasContent, setHasContent] = useState(() => valueHasContent(value));
   const [isTableSelected, setIsTableSelected] = useState(false);
   const [hasCodeBlock, setHasCodeBlock] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -2049,10 +2079,23 @@ function RichTextEditorClient({
       }, 50);
     };
 
+    // If focus returns before the blur delay elapses (e.g. the user clicked an
+    // item in the slash menu, which blurs the editor and the click handler
+    // focuses it again), cancel the pending blur so the edit is not saved and
+    // closed prematurely.
+    const handleFocus = () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+        blurTimeoutRef.current = null;
+      }
+    };
+
     editor.on('blur', handleBlur);
+    editor.on('focus', handleFocus);
 
     return () => {
       editor.off('blur', handleBlur);
+      editor.off('focus', handleFocus);
       if (blurTimeoutRef.current) {
         clearTimeout(blurTimeoutRef.current);
       }
@@ -2455,6 +2498,12 @@ function RichTextEditorClient({
     if (!editor) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore key events that originate in another editor instance. The
+      // listener is attached at document level, and without this guard every
+      // RichTextEditor on the page (e.g. description and comment) would react
+      // to a single "/" and open its own slash menu.
+      if (!editor.view.dom.contains(e.target as Node)) return;
+
       if (e.key === '/') {
         const selection = editor.state.selection;
         const $from = selection.$from;
@@ -2706,14 +2755,16 @@ function RichTextEditorClient({
       className={`relative rounded-lg focus:outline-none focus:border-transparent focus:ring-0 ${className} ${showToolbar ? 'with-toolbar' : ''} ${enableDragHandle ? '' : 'inline-edit-mode'} flex flex-col h-full`}
       style={{ outline: 'none !important', boxShadow: 'none !important', border: 'none !important', cursor: 'text', ...style }}
       onMouseDown={(e) => {
-        if (!enableDragHandle && editor) {
-          const pm = (e.currentTarget as HTMLElement).querySelector('.ProseMirror');
-          if (pm && !pm.contains(e.target as Node)) {
-            e.preventDefault();
-            editor.commands.blur();
+          if (!enableDragHandle && editor) {
+            const pm = (e.currentTarget as HTMLElement).querySelector('.ProseMirror');
+            // The slash menu lives inside this container but outside the
+            // ProseMirror DOM; clicking it must not blur the editor.
+            if (pm && !pm.contains(e.target as Node) && !(e.target as HTMLElement).closest('.slash-menu')) {
+              e.preventDefault();
+              editor.commands.blur();
+            }
           }
-        }
-      }}
+        }}
     >
       <style>{`
         .toolbar {
@@ -2786,8 +2837,196 @@ function RichTextEditorClient({
           padding: 12px;
           position: relative;
         }
+        /* Read-only view containers carry the .rte-view class; inline edit mode
+           renders inside .inline-edit-mode .ProseMirror. Both scopes use the
+           exact same declarations below, so content geometry never changes
+           (no size change, no shift) when toggling edit state, for every block
+           type produced by the slash menu. */
+        .rte-view,
+        .inline-edit-mode .ProseMirror {
+          color: #374151;
+          font-size: 14px;
+          line-height: 20px;
+        }
         .inline-edit-mode .ProseMirror {
           padding: 0;
+        }
+        .rte-view p,
+        .inline-edit-mode .ProseMirror p {
+          font-size: 14px;
+          line-height: 20px;
+          margin: 0 0 8px 0;
+        }
+        .rte-view h1,
+        .inline-edit-mode .ProseMirror h1 {
+          font-size: 20px;
+          line-height: 28px;
+          font-weight: 700;
+          margin: 0 0 8px 0;
+        }
+        .rte-view h2,
+        .inline-edit-mode .ProseMirror h2 {
+          font-size: 18px;
+          line-height: 28px;
+          font-weight: 700;
+          margin: 0 0 8px 0;
+        }
+        .rte-view h3,
+        .inline-edit-mode .ProseMirror h3 {
+          font-size: 16px;
+          line-height: 24px;
+          font-weight: 600;
+          margin: 0 0 8px 0;
+        }
+        .rte-view ul,
+        .inline-edit-mode .ProseMirror ul,
+        .rte-view ol,
+        .inline-edit-mode .ProseMirror ol {
+          padding-left: 16px;
+          margin: 0 0 8px 0;
+        }
+        .rte-view ul,
+        .inline-edit-mode .ProseMirror ul {
+          list-style-type: disc;
+        }
+        .rte-view ol,
+        .inline-edit-mode .ProseMirror ol {
+          list-style-type: decimal;
+        }
+        .rte-view li,
+        .inline-edit-mode .ProseMirror li {
+          margin: 0 0 4px 0;
+        }
+        /* Paragraphs nested inside list items carry no margin in either mode.
+           Without this, view mode inherits the 8px paragraph margin while edit
+           mode gets 0 from .tiptap-editor li p / 0.4em from globals.css, so
+           lists change height when toggling modes. display:block keeps the
+           paragraph box identical as well (.tiptap-editor li p sets inline). */
+        .rte-view li p,
+        .inline-edit-mode .ProseMirror li p {
+          margin: 0;
+          display: block;
+        }
+        .rte-view blockquote,
+        .inline-edit-mode .ProseMirror blockquote {
+          margin: 0 0 8px 0;
+          padding: 0 0 0 12px;
+          border-left: 2px solid #d1d5db;
+          background: transparent;
+          color: #4b5563;
+          border-radius: 0;
+          font-style: italic;
+        }
+        .rte-view code,
+        .inline-edit-mode .ProseMirror code {
+          background: #f3f4f6;
+          padding: 2px 4px;
+          border-radius: 4px;
+          font-size: 14px;
+        }
+        .rte-view pre,
+        .inline-edit-mode .ProseMirror pre {
+          background: #0f172a;
+          color: #e2e8f0;
+          padding: 12px 16px;
+          border-radius: 8px;
+          overflow-x: auto;
+          font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+          font-size: 13px;
+          line-height: 20px;
+          margin: 12px 0;
+        }
+        .rte-view pre code,
+        .inline-edit-mode .ProseMirror pre code {
+          background: transparent;
+          padding: 0;
+          border-radius: 0;
+          font-size: 13px;
+        }
+        .rte-view hr,
+        .inline-edit-mode .ProseMirror hr {
+          border: none;
+          border-top: 2px dashed #e2e8f0;
+          margin: 20px 0;
+        }
+        .rte-view table,
+        .inline-edit-mode .ProseMirror table {
+          border-collapse: separate;
+          border-spacing: 0;
+          margin: 12px 0;
+          table-layout: fixed;
+          width: 100%;
+          /* .tiptap-editor table adds a 1px border on the table itself, which
+             would make edit-mode tables 2px taller than view-mode ones. */
+          border: none;
+        }
+        /* ProseMirror wraps tables in .tableWrapper with margin-left:24px to
+           make room for drag handles in full editors. Inline edit mode has no
+           handles, so reset the offset to match the view mode alignment. */
+        .inline-edit-mode .ProseMirror .tableWrapper {
+          margin-left: 0;
+        }
+        .rte-view th,
+        .inline-edit-mode .ProseMirror th,
+        .rte-view td,
+        .inline-edit-mode .ProseMirror td {
+          border: 1px solid #e2e8f0;
+          padding: 8px 12px;
+          vertical-align: top;
+          box-sizing: border-box;
+          /* .tiptap-editor th/td sets line-height:1.4; keep it identical to
+             the shared 20px rhythm so cells match in both modes. */
+          line-height: 20px;
+        }
+        .rte-view th,
+        .inline-edit-mode .ProseMirror th {
+          background: #f8fafc;
+          font-weight: 600;
+          text-align: left;
+        }
+        .rte-view td,
+        .inline-edit-mode .ProseMirror td {
+          min-width: 60px;
+        }
+        .rte-view img,
+        .inline-edit-mode .ProseMirror img {
+          max-width: 100%;
+          border-radius: 8px;
+          display: block;
+          margin: 8px 0;
+        }
+        .rte-view .image-align-center,
+        .inline-edit-mode .ProseMirror .image-align-center {
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .rte-view .image-align-left,
+        .inline-edit-mode .ProseMirror .image-align-left {
+          float: left;
+          margin-right: 16px;
+        }
+        .rte-view .image-align-right,
+        .inline-edit-mode .ProseMirror .image-align-right {
+          float: right;
+          margin-left: 16px;
+        }
+        .rte-view strong,
+        .inline-edit-mode .ProseMirror strong {
+          font-weight: 700;
+        }
+        .rte-view em,
+        .inline-edit-mode .ProseMirror em {
+          font-style: italic;
+        }
+        /* In inline edit mode the editor has no padding, therefore the
+           placeholder overlay must start at the same origin as the first
+           (empty) paragraph, with identical text metrics, so the caret sits
+           directly in front of the placeholder text with no gap or offset. */
+        .inline-edit-mode .editor-placeholder {
+          top: 0;
+          left: 0;
+          font-size: 14px;
+          line-height: 20px;
         }
         .editor-placeholder {
           position: absolute;
@@ -3529,7 +3768,7 @@ function RichTextEditorClient({
         )}
       </div>
 
-      {!hasContent && !isFocused && (
+      {!hasContent && (
         <div className="editor-placeholder">{placeholder || 'Start typing...'}</div>
       )}
 

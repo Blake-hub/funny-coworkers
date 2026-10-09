@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { useTranslation } from 'react-i18next';
 import Layout from '@/components/Layout/Layout';
-import RichTextEditor from '@/components/RichTextEditor';
+import RichTextEditor, { valueHasContent } from '@/components/RichTextEditor';
 import { issueApi, issueStatusApi, projectApi, userApi, type IssueResponse, type IssueStatusResponse, type ProjectResponse, type UserResponse } from '@/services/api';
 import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Calendar, User, Tag, Clock, AlertCircle, CheckCircle, AlertTriangle, Play, Pencil, Minus, Smile, Paperclip, Plus, Send } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
@@ -59,6 +59,8 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
   const [editValue, setEditValue] = useState('');
   const [initialValue, setInitialValue] = useState('');
   const [clickCoords, setClickCoords] = useState<{ x: number; y: number } | null>(null);
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+  const [assigneeSearch, setAssigneeSearch] = useState('');
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -74,6 +76,17 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
       fetchUsers();
     }
   }, [issueId, authLoading, isAuthenticated]);
+
+  // Close the assignee dropdown when clicking outside its wrapper.
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('.issue-assignee-dropdown')) return;
+      setShowAssigneeDropdown(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchIssue = async () => {
     try {
@@ -284,9 +297,9 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                     />
                   ) : (
                     <div
-                      className="text-gray-700 min-h-[60px] [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_p]:mb-2 [&_p]:text-sm [&_strong]:font-bold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_blockquote]:mb-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:bg-gray-100 [&_code]:rounded [&_code]:text-sm [&_hr]:my-4 [&_hr]:border-gray-200 cursor-pointer hover:text-gray-800"
+                      className="rte-view min-h-[60px] cursor-pointer hover:text-gray-800"
                       onClick={(e) => handleStartEdit('description', issue.description || '', e)}
-                      dangerouslySetInnerHTML={{ __html: issue.description || `<p class="text-gray-400 text-sm">${t('issues.descriptionPlaceholder')}</p>` }}
+                      dangerouslySetInnerHTML={{ __html: valueHasContent(issue.description) ? (issue.description ?? '') : `<p class="text-gray-400 text-sm">${t('issues.descriptionPlaceholder')}</p>` }}
                     />
                   )}
                 </div>
@@ -437,7 +450,7 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                         <span className="text-xs text-gray-500">{t('common.project')}</span>
                         <select
                           value={issue.projectId ?? ''}
-                          onChange={(e) => handleUpdateProperty('projectId', e.target.value ? parseInt(e.target.value) : null)}
+                          onChange={(e) => handleUpdateProperty('projectId', e.target.value ? parseInt(e.target.value) : 0)}
                           className="text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer"
                         >
                           <option value="">{t('common.none')}</option>
@@ -452,18 +465,64 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                       {/* Assignee */}
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-gray-500">{t('common.assignee')}</span>
-                        <select
-                          value={issue.assigneeId ?? ''}
-                          onChange={(e) => handleUpdateProperty('assigneeId', e.target.value ? parseInt(e.target.value) : null)}
-                          className="text-xs text-gray-700 bg-transparent border-none outline-none cursor-pointer"
-                        >
-                          <option value="">{t('common.unassigned')}</option>
-                          {users.map(user => (
-                            <option key={user.id} value={user.id}>
-                              {user.name}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative issue-assignee-dropdown">
+                          <button
+                            onClick={() => {
+                              setAssigneeSearch('');
+                              setShowAssigneeDropdown(!showAssigneeDropdown);
+                            }}
+                            className="text-xs text-gray-700 hover:text-gray-900 cursor-pointer flex items-center gap-1"
+                          >
+                            {assignee?.name || t('common.unassigned')}
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                          {showAssigneeDropdown && (
+                            <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                              <div className="p-1.5 border-b border-gray-100">
+                                <input
+                                  type="text"
+                                  placeholder={t('common.search')}
+                                  value={assigneeSearch}
+                                  onChange={(e) => setAssigneeSearch(e.target.value)}
+                                  className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="max-h-40 overflow-y-auto py-1">
+                                <button
+                                  onClick={() => {
+                                    handleUpdateProperty('assigneeId', null);
+                                    setShowAssigneeDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 ${
+                                    issue.assigneeId === null ? 'bg-gray-100' : ''
+                                  }`}
+                                >
+                                  {t('common.unassigned')}
+                                </button>
+                                {users
+                                  .filter((user) => user.name.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                                  .map((user) => (
+                                    <button
+                                      key={user.id}
+                                      onClick={() => {
+                                        handleUpdateProperty('assigneeId', user.id);
+                                        setShowAssigneeDropdown(false);
+                                      }}
+                                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 ${
+                                        issue.assigneeId === user.id ? 'bg-gray-100' : ''
+                                      }`}
+                                    >
+                                      {user.name}
+                                    </button>
+                                  ))}
+                                {users.filter((user) => user.name.toLowerCase().includes(assigneeSearch.toLowerCase())).length === 0 && (
+                                  <div className="px-3 py-1.5 text-xs text-gray-400">{t('common.none')}</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Reporter */}

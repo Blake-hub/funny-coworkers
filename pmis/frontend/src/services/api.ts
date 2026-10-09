@@ -586,6 +586,7 @@ export interface UpdateIssueRequest {
   statusId?: number;
   assigneeId?: number;
   priorityId?: number;
+  projectId?: number;
 }
 
 export const issueApi = {

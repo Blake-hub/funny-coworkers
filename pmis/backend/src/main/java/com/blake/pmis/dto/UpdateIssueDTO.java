@@ -15,4 +15,5 @@ public class UpdateIssueDTO {
     private Integer statusId;
     private Long assigneeId;
     private Integer priorityId;
+    private Long projectId;
 }

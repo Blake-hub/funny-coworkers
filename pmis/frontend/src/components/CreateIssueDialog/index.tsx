@@ -73,6 +73,7 @@ export default function CreateIssueDialog({
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showLabelsDropdown, setShowLabelsDropdown] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+  const [assigneeSearch, setAssigneeSearch] = useState('');
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -80,6 +81,25 @@ export default function CreateIssueDialog({
 
   const MIN_HEIGHT = 300;
   const MAX_HEIGHT = 0.8;
+
+  // Close dropdown menus when clicking outside any dropdown wrapper.
+  // Each menu trigger + panel is wrapped in a .cid-dropdown container; clicks inside
+  // them are ignored. The date picker uses a native <input type="date"> (also inside
+  // .cid-dropdown) and is left alone.
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('.cid-dropdown')) return;
+      setShowTeamDropdown(false);
+      setShowStatusDropdown(false);
+      setShowPriorityDropdown(false);
+      setShowAssigneeDropdown(false);
+      setShowProjectDropdown(false);
+      setShowLabelsDropdown(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (!show) {
@@ -160,7 +180,7 @@ export default function CreateIssueDialog({
       >
         <div className="flex items-center justify-between px-6 py-3">
           <div className="flex items-center gap-1">
-            <div className="relative">
+            <div className="relative cid-dropdown">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -232,7 +252,7 @@ export default function CreateIssueDialog({
         </div>
 
         <div className="px-4 py-1.5 flex flex-wrap gap-1.5 flex-shrink-0">
-          <div className="relative">
+          <div className="relative cid-dropdown">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -273,7 +293,7 @@ export default function CreateIssueDialog({
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative cid-dropdown">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -311,11 +331,12 @@ export default function CreateIssueDialog({
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative cid-dropdown">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setShowAssigneeDropdown(!showAssigneeDropdown);
+                setAssigneeSearch('');
                 setShowStatusDropdown(false);
                 setShowPriorityDropdown(false);
                 setShowProjectDropdown(false);
@@ -329,36 +350,54 @@ export default function CreateIssueDialog({
               <ChevronDown className="w-3 h-3 text-gray-400" />
             </button>
             {showAssigneeDropdown && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-64 overflow-y-auto">
-                <button
-                  onClick={() => {
-                    setNewIssue({ ...newIssue, assigneeId: null });
-                    setShowAssigneeDropdown(false);
-                  }}
-                  className={`w-full px-3 py-2 text-left hover:bg-gray-50 text-sm ${newIssue.assigneeId === null ? 'bg-gray-50' : ''}`}
-                >
-                  No assignee
-                </button>
-                {users.map((user) => (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48">
+                <div className="p-2 border-b border-gray-100">
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={assigneeSearch}
+                    onChange={(e) => setAssigneeSearch(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div className="max-h-56 overflow-y-auto">
                   <button
-                    key={user.id}
                     onClick={() => {
-                      setNewIssue({ ...newIssue, assigneeId: user.id });
+                      setNewIssue({ ...newIssue, assigneeId: null });
                       setShowAssigneeDropdown(false);
                     }}
-                    className={`w-full px-3 py-2 text-left hover:bg-gray-50 text-sm ${newIssue.assigneeId === user.id ? 'bg-gray-50' : ''}`}
+                    className={`w-full px-3 py-2 text-left hover:bg-gray-50 text-sm ${newIssue.assigneeId === null ? 'bg-gray-50' : ''}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-gray-400" />
-                      {user.name}
-                    </div>
+                    No assignee
                   </button>
-                ))}
+                  {users
+                    .filter((user) => user.name.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                    .map((user) => (
+                      <button
+                        key={user.id}
+                        onClick={() => {
+                          setNewIssue({ ...newIssue, assigneeId: user.id });
+                          setShowAssigneeDropdown(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left hover:bg-gray-50 text-sm ${newIssue.assigneeId === user.id ? 'bg-gray-50' : ''}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          {user.name}
+                        </div>
+                      </button>
+                    ))}
+                  {users.filter((user) => user.name.toLowerCase().includes(assigneeSearch.toLowerCase())).length === 0 && (
+                    <div className="px-3 py-2 text-xs text-gray-400">No match</div>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative cid-dropdown">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -405,7 +444,7 @@ export default function CreateIssueDialog({
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative cid-dropdown">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -449,7 +488,7 @@ export default function CreateIssueDialog({
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative cid-dropdown">
             <button
               onClick={(e) => {
                 e.stopPropagation();

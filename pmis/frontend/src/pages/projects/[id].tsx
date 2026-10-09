@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import Layout from '@/components/Layout/Layout';
-import RichTextEditor from '@/components/RichTextEditor';
+import RichTextEditor, { valueHasContent } from '@/components/RichTextEditor';
 import { projectApi, milestoneApi, userApi, type ProjectResponse, type MilestoneResponse, type UserResponse, type LabelResponse } from '@/services/api';
 import { ArrowLeft, Check, X, ChevronLeft, ChevronRight, Calendar, Users, Tag, Clock, Play, AlertCircle, Minus, ArrowUp, ArrowDown, AlertTriangle, Plus, ChevronDown, Save, Inbox, Pencil } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
@@ -50,6 +50,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [editingProperty, setEditingProperty] = useState<string | null>(null);
+  const [personSearch, setPersonSearch] = useState('');
   const [clickCoords, setClickCoords] = useState<{ x: number; y: number } | null>(null);
   
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
@@ -532,9 +533,9 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                     />
                   ) : (
                     <div
-                      className="text-gray-700 cursor-pointer hover:text-gray-800 transition-colors min-h-[40px] [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_p]:mb-2 [&_p]:text-sm [&_strong]:font-bold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-gray-600 [&_blockquote]:mb-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:bg-gray-100 [&_code]:rounded [&_code]:text-sm [&_hr]:my-4 [&_hr]:border-gray-200"
+                      className="rte-view cursor-pointer hover:text-gray-800 transition-colors min-h-[40px]"
                       onClick={(e) => handleStartEdit('description', project.description, e)}
-                      dangerouslySetInnerHTML={{ __html: project.description || '<p class="text-gray-400 text-sm">Write a project introduction, or other useful information....</p>' }}
+                      dangerouslySetInnerHTML={{ __html: valueHasContent(project.description) ? project.description : `<p class="text-gray-400 text-sm">${t('projects.introPlaceholder')}</p>` }}
                     />
                   )}
                 </div>
@@ -742,31 +743,48 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                       <span className="text-xs text-gray-500">{t('common.leaderLabel')}</span>
                       <div className="relative property-dropdown">
                         <button
-                          onClick={() => setEditingProperty('leaderId')}
+                          onClick={() => { setEditingProperty('leaderId'); setPersonSearch(''); }}
                           className="text-xs text-gray-700 cursor-pointer hover:text-gray-900 px-2 py-0.5 rounded hover:bg-gray-100 flex items-center gap-1"
                         >
                           {project.leaderName || t('common.notSet')}
                           <ChevronDown className="w-3 h-3" />
                         </button>
                         {editingProperty === 'leaderId' && (
-                          <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-150 rounded-lg shadow-sm z-50 overflow-y-auto max-h-48">
-                            <button
-                              onClick={() => handleUpdateProperty('leaderId', 0)}
-                              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
-                            >
-                              {t('projects.selectLeader')}
-                            </button>
-                            {users.map((user) => (
+                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-150 rounded-lg shadow-sm z-50">
+                            <div className="p-1.5 border-b border-gray-100">
+                              <input
+                                type="text"
+                                placeholder={t('common.search')}
+                                value={personSearch}
+                                onChange={(e) => setPersonSearch(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                              />
+                            </div>
+                            <div className="max-h-40 overflow-y-auto">
                               <button
-                                key={user.id}
-                                onClick={() => handleUpdateProperty('leaderId', user.id)}
-                                className={`w-full text-left px-3 py-1.5 text-xs ${
-                                  project.leaderId === user.id ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
-                                }`}
+                                onClick={() => handleUpdateProperty('leaderId', 0)}
+                                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
                               >
-                                {user.name}
+                                {t('projects.selectLeader')}
                               </button>
-                            ))}
+                              {users
+                                .filter((user) => user.name.toLowerCase().includes(personSearch.toLowerCase()))
+                                .map((user) => (
+                                  <button
+                                    key={user.id}
+                                    onClick={() => handleUpdateProperty('leaderId', user.id)}
+                                    className={`w-full text-left px-3 py-1.5 text-xs ${
+                                      project.leaderId === user.id ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    {user.name}
+                                  </button>
+                                ))}
+                              {users.filter((user) => user.name.toLowerCase().includes(personSearch.toLowerCase())).length === 0 && (
+                                <div className="px-3 py-1.5 text-xs text-gray-400">{t('common.none')}</div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

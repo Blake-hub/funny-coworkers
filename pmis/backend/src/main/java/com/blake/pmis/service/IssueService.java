@@ -168,6 +168,15 @@ public class IssueService {
         if (dto.getPriorityId() != null) {
             issue.setPriorityId(dto.getPriorityId());
         }
+        if (dto.getProjectId() != null) {
+            if (dto.getProjectId() == 0) {
+                issue.setProject(null);
+            } else {
+                Project project = projectRepository.findById(dto.getProjectId())
+                        .orElseThrow(() -> new RuntimeException("Project not found with id: " + dto.getProjectId()));
+                issue.setProject(project);
+            }
+        }
 
         Issue saved = issueRepository.save(issue);
         return convertToDTO(saved);

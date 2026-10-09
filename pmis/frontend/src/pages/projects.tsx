@@ -81,6 +81,8 @@ export default function Projects() {
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [showLeaderDropdown, setShowLeaderDropdown] = useState(false);
   const [showMembersDropdown, setShowMembersDropdown] = useState(false);
+  const [leaderSearch, setLeaderSearch] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -786,6 +788,7 @@ export default function Projects() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        setLeaderSearch('');
                         setShowLeaderDropdown(!showLeaderDropdown);
                         setShowStatusDropdown(false);
                         setShowPriorityDropdown(false);
@@ -799,20 +802,39 @@ export default function Projects() {
                     </button>
                     {showLeaderDropdown && (
                       <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                        {users.map((user) => (
-                          <button
-                            key={user.id}
-                            onClick={() => {
-                              setNewProject({ ...newProject, leaderId: user.id.toString() });
-                              setShowLeaderDropdown(false);
-                            }}
-                            className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 ${
-                              newProject.leaderId === user.id.toString() ? 'bg-gray-100' : ''
-                            }`}
-                          >
-                            {user.name}
-                          </button>
-                        ))}
+                        <div className="px-2 py-1.5 border-b border-gray-100">
+                          <input
+                            type="text"
+                            placeholder={t('common.search')}
+                            value={leaderSearch}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setLeaderSearch(e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="max-h-40 overflow-y-auto">
+                          {users
+                            .filter((user) => user.name.toLowerCase().includes(leaderSearch.toLowerCase()))
+                            .map((user) => (
+                              <button
+                                key={user.id}
+                                onClick={() => {
+                                  setNewProject({ ...newProject, leaderId: user.id.toString() });
+                                  setShowLeaderDropdown(false);
+                                  setLeaderSearch('');
+                                }}
+                                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 ${
+                                  newProject.leaderId === user.id.toString() ? 'bg-gray-100' : ''
+                                }`}
+                              >
+                                {user.name}
+                              </button>
+                            ))}
+                          {users.filter((user) => user.name.toLowerCase().includes(leaderSearch.toLowerCase())).length === 0 && (
+                            <div className="px-3 py-1.5 text-xs text-gray-400">{t('common.none')}</div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -822,6 +844,7 @@ export default function Projects() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        setMemberSearch('');
                         setShowMembersDropdown(!showMembersDropdown);
                         setShowStatusDropdown(false);
                         setShowPriorityDropdown(false);
@@ -835,17 +858,35 @@ export default function Projects() {
                     </button>
                     {showMembersDropdown && (
                       <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                        {users.map((user) => (
-                          <label key={user.id} className="flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-gray-100">
-                            <input
-                              type="checkbox"
-                              checked={newProject.memberIds.includes(user.id.toString())}
-                              onChange={() => toggleMember(user.id.toString())}
-                              className="w-4 h-4"
-                            />
-                            <span className="text-xs">{user.name}</span>
-                          </label>
-                        ))}
+                        <div className="px-2 py-1.5 border-b border-gray-100">
+                          <input
+                            type="text"
+                            placeholder={t('common.search')}
+                            value={memberSearch}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setMemberSearch(e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="max-h-40 overflow-y-auto">
+                          {users
+                            .filter((user) => user.name.toLowerCase().includes(memberSearch.toLowerCase()))
+                            .map((user) => (
+                              <label key={user.id} className="flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-gray-100">
+                                <input
+                                  type="checkbox"
+                                  checked={newProject.memberIds.includes(user.id.toString())}
+                                  onChange={() => toggleMember(user.id.toString())}
+                                  className="w-4 h-4"
+                                />
+                                <span className="text-xs">{user.name}</span>
+                              </label>
+                            ))}
+                          {users.filter((user) => user.name.toLowerCase().includes(memberSearch.toLowerCase())).length === 0 && (
+                            <div className="px-3 py-1.5 text-xs text-gray-400">{t('common.none')}</div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

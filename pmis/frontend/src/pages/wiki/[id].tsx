@@ -524,9 +524,9 @@ export default function WikiPageView() {
         .wiki-content h1 { font-size: 1.875rem; font-weight: 700; margin-bottom: 1rem; color: #1f2937; }
         .wiki-content h2 { font-size: 1.5rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #374151; }
         .wiki-content h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #4b5563; }
-        .wiki-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .wiki-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; white-space: pre-wrap; }
         .wiki-content ul, .wiki-content ol { margin-bottom: 1rem; padding-left: 1.5rem; }
-        .wiki-content li { margin-bottom: 0.25rem; line-height: 1.75; }
+        .wiki-content li { margin-bottom: 0.25rem; line-height: 1.75; white-space: pre-wrap; }
         .wiki-content ul li { list-style-type: disc; }
         .wiki-content ol li { list-style-type: decimal; }
         .wiki-content blockquote {
@@ -561,6 +561,19 @@ export default function WikiPageView() {
           height: auto;
           border-radius: 0.5rem;
           margin: 1rem 0;
+          display: block;
+        }
+        .wiki-content img.image-align-left {
+          float: left;
+          margin: 1rem 1rem 1rem 0;
+        }
+        .wiki-content img.image-align-center {
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .wiki-content img.image-align-right {
+          float: right;
+          margin: 1rem 0 1rem 1rem;
         }
         .wiki-content table {
           width: 100%;
