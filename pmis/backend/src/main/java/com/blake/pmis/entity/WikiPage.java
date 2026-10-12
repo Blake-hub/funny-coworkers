@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.blake.pmis.entity.enumeration.WikiVisibility;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -44,6 +46,12 @@ public class WikiPage {
 
     @Column(name = "team_id")
     private Long teamId;
+
+    // Document-level visibility; null means "inherit from the owning folder".
+    // An explicit value overrides the folder default.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility")
+    private WikiVisibility visibility;
 
     @Column(name = "created_by")
     private Long createdBy;

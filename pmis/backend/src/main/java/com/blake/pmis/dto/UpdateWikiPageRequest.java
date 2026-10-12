@@ -26,4 +26,7 @@ public class UpdateWikiPageRequest {
     private Boolean isPublished;
 
     private Long teamId;
+
+    // Document-level visibility; when present it overrides the folder default
+    private String visibility;
 }

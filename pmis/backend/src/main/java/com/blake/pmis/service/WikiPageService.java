@@ -200,6 +200,8 @@ public class WikiPageService {
                 .lastModifiedBy(currentUser.getId())
                 .build();
 
+        applyVisibility(wikiPage, request.getVisibility(), request.getTeamId(), currentUser);
+
         WikiPage savedWikiPage = wikiPageRepository.save(wikiPage);
         afterSaveProduceMentions(savedWikiPage, currentUser);
         return convertToDTO(savedWikiPage);
@@ -242,6 +244,8 @@ public class WikiPageService {
         if (request.getTeamId() != null) {
             wikiPage.setTeamId(request.getTeamId());
         }
+
+        applyVisibility(wikiPage, request.getVisibility(), request.getTeamId(), currentUser);
 
         wikiPage.setLastModifiedBy(currentUser.getId());
 
@@ -389,12 +393,70 @@ public class WikiPageService {
         return prefix + content.substring(start, end) + suffix;
     }
 
+    /**
+     * Applies a document-level visibility to the page. TEAM additionally
+     * requires a team id (explicit or inherited from the page/folder) and
+     * membership of the current user in that team, mirroring the folder rules.
+     */
+    private void applyVisibility(WikiPage page, String visibility, Long explicitTeamId, User currentUser) {
+        if (visibility == null) {
+            return;
+        }
+        WikiVisibility newVisibility = parseVisibility(visibility);
+        if (newVisibility == WikiVisibility.TEAM) {
+            Long teamId = explicitTeamId != null ? explicitTeamId : page.getTeamId();
+            if (teamId == null && page.getFolderId() != null) {
+                teamId = wikiFolderRepository.findById(page.getFolderId())
+                        .map(WikiFolder::getTeamId)
+                        .orElse(null);
+            }
+            if (teamId == null) {
+                throw new RuntimeException("Team ID is required for TEAM visibility");
+            }
+            if (!permissionService.isTeamMember(currentUser, teamId)
+                    && !permissionService.isTeamOwner(currentUser, teamId)
+                    && !permissionService.isAdmin(currentUser)) {
+                throw new RuntimeException("Current user must be a member of the team for TEAM visibility");
+            }
+            page.setTeamId(teamId);
+        }
+        page.setVisibility(newVisibility);
+    }
+
+    private WikiVisibility parseVisibility(String s) {
+        if (s == null || s.isEmpty()) {
+            return WikiVisibility.PRIVATE;
+        }
+        try {
+            return WikiVisibility.valueOf(s.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid visibility value: " + s);
+        }
+    }
+
     public boolean hasViewAccess(WikiPage page, User user) {
         if (page == null || user == null) {
             return false;
         }
         if (permissionService.isAdmin(user)) {
             return true;
+        }
+
+        // An explicitly set document visibility overrides the folder default.
+        if (page.getVisibility() != null) {
+            switch (page.getVisibility()) {
+                case PUBLIC:
+                    return true;
+                case PRIVATE:
+                    return Objects.equals(page.getCreatedBy(), user.getId());
+                case TEAM:
+                    if (page.getTeamId() == null) {
+                        return Objects.equals(page.getCreatedBy(), user.getId());
+                    }
+                    return permissionService.isTeamMember(user, page.getTeamId())
+                            || permissionService.isTeamOwner(user, page.getTeamId())
+                            || Objects.equals(page.getCreatedBy(), user.getId());
+            }
         }
 
         if (page.getFolderId() != null) {
@@ -481,6 +543,19 @@ public class WikiPageService {
         if (wikiPage.getCreatedBy() != null) {
             userRepository.findById(wikiPage.getCreatedBy())
                     .ifPresent(user -> builder.createdByName(user.getName()));
+        }
+
+        // Derive visibility for the wiki list filters: an explicitly set
+        // document visibility wins; otherwise pages inherit folder visibility.
+        if (wikiPage.getVisibility() != null) {
+            builder.visibility(wikiPage.getVisibility().name());
+        } else if (wikiPage.getFolderId() != null) {
+            wikiFolderRepository.findById(wikiPage.getFolderId())
+                    .ifPresent(folder -> builder.visibility(
+                            (folder.getVisibility() != null ? folder.getVisibility() : WikiVisibility.PRIVATE).name()));
+        } else {
+            // No folder: treat team pages as TEAM, personal pages as PRIVATE
+            builder.visibility(wikiPage.getTeamId() != null ? WikiVisibility.TEAM.name() : WikiVisibility.PRIVATE.name());
         }
 
         if (wikiPage.getLastModifiedBy() != null) {

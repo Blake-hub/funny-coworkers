@@ -483,8 +483,11 @@ export default function Wiki() {
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-medium text-gray-800 truncate">{page.title}</h3>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                        {page.createdByName && (
+                          <span>Created by {page.createdByName}</span>
+                        )}
                         {page.lastModifiedByName && (
-                          <span>Last modified by {page.lastModifiedByName}</span>
+                          <span>· Last modified by {page.lastModifiedByName}</span>
                         )}
                         <span>on {formatDate(page.lastModifiedAt)}</span>
                         {!page.isPublished && (

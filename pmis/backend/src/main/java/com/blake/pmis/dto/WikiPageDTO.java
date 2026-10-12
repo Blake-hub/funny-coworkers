@@ -20,6 +20,7 @@ public class WikiPageDTO {
     private Long folderId;
     private Boolean isPublished;
     private Long teamId;
+    private String visibility;
     private Long createdBy;
     private String createdByName;
     private Long lastModifiedBy;

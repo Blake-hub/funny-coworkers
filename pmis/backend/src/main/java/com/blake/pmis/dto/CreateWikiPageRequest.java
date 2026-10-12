@@ -29,4 +29,7 @@ public class CreateWikiPageRequest {
     private Boolean isPublished = false;
 
     private Long teamId;
+
+    // Document-level visibility; null falls back to the folder default
+    private String visibility;
 }
