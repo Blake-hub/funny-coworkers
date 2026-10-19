@@ -158,22 +158,22 @@ export default function Layout({ children }: LayoutProps) {
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Draggable Splitter - Hidden by default, visible on hover */}
         {!isMobile && (
-          <>
-            {/* Invisible hot zone for hover detection */}
+          // Single hover/drag target: the hot zone owns mouse events, the
+          // visible bar is a non-interactive child (pointer-events-none) so it
+          // never steals hover and causes a flicker loop.
+          <div
+            className="absolute top-0 bottom-0 cursor-col-resize z-10"
+            style={{ left: '8px', width: '20px' }}
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+            onMouseDown={handleMouseDown}
+          >
+            {/* Visible splitter line (non-interactive) */}
             <div
-              className="absolute top-0 bottom-0 z-10"
-              style={{ left: '8px', width: '20px' }}
-              onMouseEnter={() => setIsHovering(true)}
-              onMouseLeave={() => setIsHovering(false)}
-              onMouseDown={handleMouseDown}
-            />
-            {/* Visible splitter line */}
-            <div
-              className="absolute top-0 bottom-0 flex flex-col items-center justify-center cursor-col-resize z-10"
-              style={{ left: '16px', width: isDragging || isHovering ? '6px' : '0px' }}
-              onMouseDown={handleMouseDown}
+              className="absolute top-0 bottom-0 pointer-events-none"
+              style={{ left: '8px', width: isDragging || isHovering ? '6px' : '0px' }}
             >
-              <div 
+              <div
                 className={`w-full h-full transition-colors duration-200 ${
                   isDragging ? 'bg-gray-500' : 'bg-gray-300'
                 }`}
@@ -186,7 +186,7 @@ export default function Layout({ children }: LayoutProps) {
                 <GripVertical className={`w-4 h-6 ${isDragging ? 'text-gray-700' : 'text-gray-500'}`} />
               </div>
             </div>
-          </>
+          </div>
         )}
         
         <main className="p-2 sm:p-4 flex-1 overflow-hidden relative">

@@ -1228,7 +1228,14 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShowWikiMenu(false);
-                                    router.push('/wiki/new-document-ex');
+                                    // Keep the folder currently being browsed so the
+                                    // document lands inside it, not at the wiki root.
+                                    const folderId = router.query.folderId;
+                                    if (folderId != null && Number(folderId) > 0) {
+                                      router.push({ pathname: '/wiki/new-document-ex', query: { folderId: String(folderId) } });
+                                    } else {
+                                      router.push('/wiki/new-document-ex');
+                                    }
                                   }}
                                 >
                                   <FileText className="w-4 h-4" />
@@ -1239,10 +1246,11 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShowWikiMenu(false);
-                                    const { folderId: _ignore, ...rest } = router.query;
+                                    // Keep the folder currently being browsed so the
+                                    // new folder is created inside it, not at the root.
                                     router.push({
                                       pathname: '/wiki',
-                                      query: { ...rest, newFolderModal: '1' },
+                                      query: { ...router.query, newFolderModal: '1' },
                                     });
                                   }}
                                 >

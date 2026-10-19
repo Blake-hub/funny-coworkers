@@ -489,11 +489,148 @@ interface RichTextEditorExProps {
   placeholder?: string;
 }
 
-// Extension to convert file:/// image srcs to base64 data URIs on paste.
-// When pasting mixed content (text+images) from Word/WPS, images reference
-// local temp files via file:/// URLs which browsers block from http:// origins.
-// This intercepts such pastes, fetches each image through a backend proxy
-// endpoint, converts to base64, and inserts the modified HTML.
+// ---- Word/WPS mixed paste: extract embedded picture bytes from clipboard RTF ----
+//
+// When copying text together with images from Word/WPS, the clipboard HTML
+// references local temp files via file:/// URLs, which browsers refuse to load
+// from an http(s) origin. A server-side proxy cannot help in a deployed setup:
+// the referenced path (e.g. C:\Users\<user>\AppData\Local\Temp\ksohtml...) only
+// exists on the *client* machine, so the backend would always 404.
+//
+// The clipboard also carries a "Rich Text Format" flavour in which each picture
+// is embedded inline as a \pict group with hex-encoded bytes. Reading that data
+// on the client keeps the fix independent of where the backend is deployed.
+
+interface PictBlip {
+  mime: string;
+  base64: string;
+}
+
+// RTF blip destination keywords that map to a browser-renderable image type.
+const RENDERABLE_BLIPS: Record<string, string> = {
+  pngblip: 'image/png',
+  jpegblip: 'image/jpeg',
+  gifblip: 'image/gif',
+  wbitmap: 'image/bmp',
+  dibitmap: 'image/bmp',
+};
+
+// Vector metafile blips cannot be rendered directly by browsers; skip them.
+const SKIP_BLIPS = new Set(['emfblip']);
+
+function hexToBase64(hex: string): string {
+  const len = hex.length >> 1;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  }
+  return btoa(binary);
+}
+
+// Word emits each picture twice: a renderable copy inside {\*\shppict ...} and
+// a metafile fallback inside {\nonshppict ...}. Drop the fallback group so the
+// blip list stays in document order and maps 1:1 to the <img> elements.
+// Uses slice-based concatenation — clipboard RTF can be several MB.
+function stripNonshppictGroups(rtf: string): string {
+  const marker = '{\\nonshppict';
+  const parts: string[] = [];
+  let last = 0;
+  let i = rtf.indexOf(marker);
+  while (i !== -1) {
+    parts.push(rtf.slice(last, i));
+    let depth = 0;
+    let j = i;
+    for (; j < rtf.length; j++) {
+      if (rtf[j] === '{') depth++;
+      else if (rtf[j] === '}') {
+        depth--;
+        if (depth === 0) {
+          j++;
+          break;
+        }
+      }
+    }
+    last = j;
+    i = rtf.indexOf(marker, last);
+  }
+  parts.push(rtf.slice(last));
+  return parts.join('');
+}
+
+function extractPictBlips(rtf: string): PictBlip[] {
+  const source = stripNonshppictGroups(rtf);
+  const blips: PictBlip[] = [];
+  let searchFrom = 0;
+
+  while (true) {
+    const start = source.indexOf('{\\pict', searchFrom);
+    if (start === -1) break;
+
+    let i = start + '{\\pict'.length;
+    let mime: string | null = null;
+    let skip = false;
+
+    // Consume control words until the hex payload begins (control words start
+    // with a backslash; the payload starts with the first hex digit).
+    while (i < source.length) {
+      const ch = source[i];
+      if (ch === '\\') {
+        let j = i + 1;
+        while (j < source.length && /[a-zA-Z]/.test(source[j])) j++;
+        const word = source.slice(i + 1, j).toLowerCase();
+        while (j < source.length && /[0-9-]/.test(source[j])) j++;
+        if (RENDERABLE_BLIPS[word]) {
+          mime = RENDERABLE_BLIPS[word];
+        } else if (SKIP_BLIPS.has(word) || word.startsWith('wmetafile')) {
+          skip = true;
+        }
+        i = j;
+      } else if (/\s/.test(ch)) {
+        i++;
+      } else if (ch === '{') {
+        // Skip nested destination groups, e.g. {\*\blipuid ...} — otherwise
+        // their closing brace would be mistaken for the end of the payload.
+        let depth = 0;
+        for (; i < source.length; i++) {
+          if (source[i] === '{') depth++;
+          else if (source[i] === '}') {
+            depth--;
+            if (depth === 0) {
+              i++;
+              break;
+            }
+          }
+        }
+      } else {
+        break;
+      }
+    }
+
+    // Collect the hex payload up to the closing brace of this group. The
+    // payload itself only contains hex digits and whitespace, so the first
+    // '}' after the payload start always terminates the group.
+    const closeIdx = source.indexOf('}', i);
+    if (closeIdx === -1) break;
+    const hex = source.slice(i, closeIdx).replace(/[^0-9a-fA-F]/g, '');
+    searchFrom = closeIdx + 1;
+
+    if (!skip && mime && hex.length >= 2) {
+      try {
+        blips.push({ mime, base64: hexToBase64(hex) });
+      } catch (e) {
+        console.warn('Failed to decode RTF picture data:', e);
+      }
+    }
+  }
+
+  return blips;
+}
+
 const FileImagePaste = Extension.create({
   name: 'fileImagePaste',
   addProseMirrorPlugins() {
@@ -507,37 +644,62 @@ const FileImagePaste = Extension.create({
             const html = clipboardData.getData('text/html');
             if (!html || !html.includes('file://')) return false;
 
+            // getData is only valid while the paste event is alive — read the
+            // RTF flavour synchronously. Confirmed available on Chrome for
+            // Word/WPS copies (several MB with embedded picture data).
+            const rtf = clipboardData.getData('text/rtf') || '';
+
             event.preventDefault();
 
-            (async () => {
-              const tempDiv = document.createElement('div');
-              tempDiv.innerHTML = html;
-              const fileImgs = tempDiv.querySelectorAll('img[src^="file://"]');
+            // Strip file:// srcs BEFORE parsing the HTML, otherwise the
+            // browser immediately tries to load them and logs
+            // "Not allowed to load local resource" even though we replace the
+            // src right after. The original src is kept in a data attribute
+            // so it can be restored if the RTF carries no usable picture.
+            const sanitizedHtml = html.replace(
+              /(<img\b[^>]*?)\ssrc="(file:\/\/[^"]*)"/gi,
+              '$1 data-file-src="$2"'
+            );
 
-              await Promise.all(Array.from(fileImgs).map(async (img) => {
-                const fileSrc = img.getAttribute('src') || '';
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = sanitizedHtml;
+            const fileImgs = Array.from(
+              tempDiv.querySelectorAll('img[data-file-src]')
+            ) as HTMLImageElement[];
+
+            if (fileImgs.length > 0) {
+              let blips: PictBlip[] = [];
+              if (rtf) {
                 try {
-                  const response = await fetch(
-                    `/api/files/local-image?path=${encodeURIComponent(fileSrc)}`
-                  );
-                  if (!response.ok) return;
-                  const blob = await response.blob();
-                  const base64 = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                  });
-                  img.setAttribute('src', base64);
+                  blips = extractPictBlips(rtf);
                 } catch (e) {
-                  console.warn('Failed to convert file:// image:', fileSrc, e);
+                  console.warn('Failed to extract RTF pictures:', e);
                 }
-              }));
+              }
+              if (blips.length < fileImgs.length) {
+                const pictIdx = rtf.indexOf('{\\pict');
+                console.warn(
+                  `RTF pictures not fully resolved (${blips.length}/${fileImgs.length}). ` +
+                  'First \\pict context:',
+                  pictIdx !== -1 ? rtf.slice(pictIdx, pictIdx + 300) : '(no \\pict found)'
+                );
+              }
+              fileImgs.forEach((img, i) => {
+                if (blips[i]) {
+                  img.setAttribute('src', `data:${blips[i].mime};base64,${blips[i].base64}`);
+                } else {
+                  // Fall back to the original file:// src — broken on a remote
+                  // server but intact on localhost — instead of dropping the
+                  // image entirely (the schema requires img[src]).
+                  img.setAttribute('src', img.getAttribute('data-file-src') || '');
+                }
+                img.removeAttribute('data-file-src');
+              });
+            }
 
-              const parser = PMDOMParser.fromSchema(view.state.schema);
-              const slice = parser.parseSlice(tempDiv);
-              view.dispatch(view.state.tr.replaceSelection(slice));
-            })();
+            const parser = PMDOMParser.fromSchema(view.state.schema);
+            const slice = parser.parseSlice(tempDiv);
+            view.dispatch(view.state.tr.replaceSelection(slice));
 
             return true;
           },
@@ -757,6 +919,12 @@ function RichTextEditorEx({
     // New documents always start empty (no sample/test content); an empty editor still
     // renders one default paragraph, so drag-handle decorations are created as usual
     content: typeof value === 'string' && value.trim() !== '' ? value : '',
+    // Preserve leading/inner whitespace when parsing stored HTML back into the
+    // document. Without this ProseMirror collapses [ \t\r\n\u000c]+ and strips
+    // leading whitespace at the start of a block, so a paragraph indented with
+    // half-width spaces loses its indent on re-edit (the view renders the raw
+    // HTML with `white-space: pre-wrap`, so it only breaks when re-parsing).
+    parseOptions: { preserveWhitespace: true },
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       if (onChange) onChange(editor.getHTML() as string, JSON.stringify(editor.getJSON()));

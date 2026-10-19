@@ -27,7 +27,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function WikiPageView() {
   const router = useRouter();
-  const { isAuthenticated, user: authUser } = useAuth();
+  const { isAuthenticated, user: authUser, loading: authLoading } = useAuth();
   const { t } = useTranslation();
   const { id } = router.query;
   const [page, setPage] = useState<WikiPageResponse | null>(null);
@@ -43,10 +43,12 @@ export default function WikiPageView() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Guard must wait for AuthContext to finish reading cookies, otherwise a
+    // direct page load or refresh of this URL bounces to /login / /.
+    if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
     if (id) {

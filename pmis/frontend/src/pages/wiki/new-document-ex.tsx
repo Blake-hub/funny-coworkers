@@ -165,12 +165,6 @@ export default function NewDocumentEx() {
       const normalizedHtml = normalizeWikiMediaUrlsToRelative(html);
       const normalizedJson = normalizeJsonMediaUrls(json);
 
-      console.log('handleSave content:', {
-        htmlLength: normalizedHtml.length,
-        jsonLength: normalizedJson.length,
-        preview: normalizedHtml.substring(0, 100)
-      });
-
       if (savedPageId) {
         // Update existing page
         const updateData: UpdateWikiPageRequest = {
@@ -436,7 +430,7 @@ export default function NewDocumentEx() {
                   value={editorContent}
                   onChange={handleContentChange}
                   placeholder="Start writing your document... You can add text, create tables, insert images, and more."
-                  data-testid="wiki-document-editor-ex"
+                  dataTestid="wiki-document-editor-ex"
                   onReady={handleEditorReady}
                 />
               </div>

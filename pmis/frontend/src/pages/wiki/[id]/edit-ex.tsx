@@ -30,7 +30,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function WikiPageEditEx() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { addToast } = useToast();
   const { t } = useTranslation();
   const { id } = router.query;
@@ -59,10 +59,13 @@ export default function WikiPageEditEx() {
   const [fvError, setFvError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // AuthContext starts hydrated from cookies on the client, but `loading` is
+    // true until that read completes. Waiting for it prevents a direct visit or
+    // a refresh of this URL from being bounced to /login (and then to /).
+    if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
     if (id) {
@@ -192,12 +195,6 @@ export default function WikiPageEditEx() {
 
       const normalizedHtml = normalizeWikiMediaUrlsToRelative(html);
       const normalizedJson = normalizeJsonMediaUrls(json);
-
-      console.log('handleSave content:', {
-        htmlLength: normalizedHtml.length,
-        jsonLength: normalizedJson.length,
-        preview: normalizedHtml.substring(0, 100)
-      });
 
       const updateData: UpdateWikiPageRequest = {
         title: title.trim(),
@@ -458,7 +455,7 @@ export default function WikiPageEditEx() {
                   value={editorContent}
                   onChange={handleContentChange}
                   placeholder="Start writing your document... You can add text, create tables, insert images, and more."
-                  data-testid="wiki-document-editor-ex"
+                  dataTestid="wiki-document-editor-ex"
                   onReady={handleEditorReady}
                 />
               </div>

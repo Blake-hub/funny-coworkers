@@ -35,7 +35,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function Wiki() {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [wikiPages, setWikiPages] = useState<WikiPageResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,10 +63,12 @@ export default function Wiki() {
   });
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Wait for AuthContext to finish reading cookies before deciding, otherwise
+    // a direct visit or refresh bounces to /login and then to /.
+    if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   const loadFolders = async () => {
     try {
@@ -195,6 +197,13 @@ export default function Wiki() {
   };
 
   const handleNewPage = () => {
+    // Keep the folder currently being browsed so the new document is created
+    // inside it instead of at the wiki root.
+    const folderId = router.query.folderId;
+    if (folderId != null && Number(folderId) > 0) {
+      router.push({ pathname: '/wiki/new-document-ex', query: { folderId: String(folderId) } });
+      return;
+    }
     router.push('/wiki/new-document-ex');
   };
 
