@@ -767,8 +767,6 @@ const DocumentOutline = memo(({ editor }: { editor: any }) => {
         const targetHeading = headings.find((h: any) => h.pos === pos);
         if (!targetHeading) return;
         
-        const outerScrollContainer = document.querySelector('.flex-1.overflow-y-auto');
-        
         const createHighlightOverlay = (headingElement: HTMLElement) => {
           const existingOverlay = document.querySelector('.heading-highlight-overlay');
           if (existingOverlay) {
@@ -793,9 +791,6 @@ const DocumentOutline = memo(({ editor }: { editor: any }) => {
           document.body.appendChild(overlay);
           
           const updatePosition = () => {
-            const currentHeading = document.querySelector('h1, h2, h3, h4, h5, h6');
-            if (!currentHeading) return;
-            
             const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
             for (let i = 0; i < headings.length; i++) {
               const h = headings[i] as HTMLElement;
@@ -820,53 +815,46 @@ const DocumentOutline = memo(({ editor }: { editor: any }) => {
             overlay.remove();
           }, 2000);
         };
-        
-        if (outerScrollContainer) {
-          const container = outerScrollContainer as HTMLElement;
-          const allHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
-          let headingElement: HTMLElement | null = null;
-          
-          for (let i = 0; i < allHeadings.length; i++) {
-            const el = allHeadings[i] as HTMLElement;
-            if (el.textContent?.trim() === targetHeading.text.trim()) {
-              headingElement = el;
-              break;
-            }
+
+        // Find the heading in the DOM, then walk up to the nearest ancestor
+        // that actually scrolls. The previous `.flex-1.overflow-y-auto`
+        // selector picked an unrelated element inside the sidebar which never
+        // scrolls, so scrollTop assignments were silently dropped.
+        const allHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        let headingElement: HTMLElement | null = null;
+        for (let i = 0; i < allHeadings.length; i++) {
+          const el = allHeadings[i] as HTMLElement;
+          if (el.textContent?.trim() === targetHeading.text.trim()) {
+            headingElement = el;
+            break;
           }
-          
-          if (!headingElement) return;
-          
+        }
+        if (!headingElement) return;
+
+        const findScrollContainer = (el: HTMLElement): HTMLElement | null => {
+          let current: HTMLElement | null = el.parentElement;
+          while (current) {
+            const style = window.getComputedStyle(current);
+            const ovY = style.overflowY;
+            const isScrollable = (ovY === 'auto' || ovY === 'scroll' || ovY === 'overlay') &&
+              current.scrollHeight - current.clientHeight > 5;
+            if (isScrollable) return current;
+            current = current.parentElement;
+          }
+          return null;
+        };
+
+        const scrollContainer = findScrollContainer(headingElement);
+        if (scrollContainer) {
           const elementRect = headingElement.getBoundingClientRect();
-          const containerRect = container.getBoundingClientRect();
-          const targetScroll = container.scrollTop + (elementRect.top - containerRect.top) - 80;
-          container.scrollTop = Math.max(0, targetScroll);
-          
-          setTimeout(() => {
-            const updatedHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
-            for (let i = 0; i < updatedHeadings.length; i++) {
-              const el = updatedHeadings[i] as HTMLElement;
-              if (el.textContent?.trim() === targetHeading.text.trim()) {
-                createHighlightOverlay(el);
-                break;
-              }
-            }
-          }, 200);
+          const containerRect = scrollContainer.getBoundingClientRect();
+          const targetScroll = scrollContainer.scrollTop + (elementRect.top - containerRect.top) - 80;
+          scrollContainer.scrollTop = Math.max(0, targetScroll);
+
+          setTimeout(() => createHighlightOverlay(headingElement), 200);
         } else {
-          const allHeadings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
-          let headingElement: HTMLElement | null = null;
-          
-          for (let i = 0; i < allHeadings.length; i++) {
-            const el = allHeadings[i] as HTMLElement;
-            if (el.textContent?.trim() === targetHeading.text.trim()) {
-              headingElement = el;
-              break;
-            }
-          }
-          
-          if (headingElement) {
-            headingElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-            createHighlightOverlay(headingElement);
-          }
+          headingElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+          createHighlightOverlay(headingElement);
         }
       } catch (error) {
         console.error('scrollToHeading error:', error);
