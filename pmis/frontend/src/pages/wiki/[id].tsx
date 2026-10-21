@@ -353,13 +353,15 @@ export default function WikiPageView() {
               </button>
             )}
 
-            <button
-              onClick={() => router.push(`/wiki/${id}/edit-ex`)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              <Edit3 className="w-4 h-4" />
-              <span className="text-sm font-medium">{t('wiki.edit')}</span>
-            </button>
+            {page?.canEdit !== false && (
+              <button
+                onClick={() => router.push(`/wiki/${id}/edit-ex`)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span className="text-sm font-medium">{t('wiki.edit')}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -506,7 +508,7 @@ export default function WikiPageView() {
 
             {/* Document Outline Sidebar */}
             {headings.length > 0 && (
-              <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-[30%]'} transition-all duration-300 border-l border-gray-200 flex flex-col flex-shrink-0`}>
+              <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-56 lg:w-64'} transition-all duration-300 border-l border-gray-200 flex flex-col flex-shrink-0`}>
                 <div className="flex-1 overflow-y-auto p-4 bg-white">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4">Document Outline</h3>
                   <nav className="space-y-1">

@@ -28,5 +28,7 @@ public class WikiSearchResponse {
         private int score;
         private LocalDateTime updatedAt;
         private String updatedByName;
+        /** Whether the requesting user may edit this page; computed per request. */
+        private boolean canEdit;
     }
 }

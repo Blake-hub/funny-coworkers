@@ -64,7 +64,8 @@ public class WikiPageController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         String html = wikiPageService.getWikiPageHtml(id, currentUser);
-        return ResponseEntity.ok(Map.of("contentHtml", html));
+        // Map.of NPEs on null values; freshly created pages have no content yet.
+        return ResponseEntity.ok(Map.of("contentHtml", html != null ? html : ""));
     }
 
     @PostMapping

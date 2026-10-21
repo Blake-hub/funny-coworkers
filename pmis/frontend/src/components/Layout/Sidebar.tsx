@@ -25,6 +25,7 @@ import {
   Trash2,
   CheckCheck,
   MessageSquare,
+  Lightbulb,
   Check
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -151,6 +152,7 @@ export default function Sidebar({ width, isCollapsed, isMobile }: SidebarProps) 
     { id: 'teams', label: t('nav.teams'), icon: Users, badge: teams.length },
     { id: 'wiki', label: t('nav.wiki'), icon: FileText, href: '/wiki' },
     { id: 'retro', label: t('nav.retro'), icon: MessageSquare, href: '/retro', badge: activeRetroCount },
+    { id: 'patents', label: t('nav.patents'), icon: Lightbulb, href: '/patents' },
     { id: 'reports', label: t('nav.reports'), icon: BarChart3, href: '/reports' },
   ];
 

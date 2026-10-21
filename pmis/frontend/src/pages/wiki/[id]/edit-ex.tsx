@@ -91,6 +91,13 @@ export default function WikiPageEditEx() {
     try {
       setLoading(true);
       const pageData = await wikiApi.getPageById(Number(id));
+      // Guard against deep links: users without edit permission are bounced
+      // back to the read-only view with an explanatory toast.
+      if (pageData.canEdit === false) {
+        addToast('error', t('wiki.noEditPermission'));
+        router.push(`/wiki/${id}`);
+        return;
+      }
       setPage(pageData);
       setTitle(pageData.title);
       setSelectedFolderId(pageData.folderId ?? null);
@@ -221,6 +228,11 @@ export default function WikiPageEditEx() {
       console.error('Failed to save document:', err);
       if (!autoSave) {
         const msg = err instanceof Error ? err.message : t('wiki.saveFailed');
+        // Patent guide pages are locked to PUBLIC visibility (HTTP 409).
+        if (msg.includes('must stay PUBLIC')) {
+          addToast('error', t('wiki.guideVisibilityLocked'));
+          return;
+        }
         const lower = msg.toLowerCase();
         const isNameConflict =
           (lower.includes('already exists') || lower.includes('already in use')) &&
@@ -463,7 +475,7 @@ export default function WikiPageEditEx() {
           </div>
 
           {/* Right Panel - Document Outline */}
-          <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-[30%]'} transition-all duration-300 border-l border-gray-200 flex flex-col`}>
+          <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-56 lg:w-64'} transition-all duration-300 border-l border-gray-200 flex flex-col`}>
             <div className="flex-1 overflow-y-auto p-4">
               <DocumentOutlineEx editor={editorInstance} />
             </div>

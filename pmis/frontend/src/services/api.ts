@@ -757,6 +757,8 @@ export interface WikiPageResponse {
   lastModifiedBy: number | null;
   lastModifiedByName: string | null;
   lastModifiedAt: string;
+  /** Whether the requesting user may edit this page (computed server-side). */
+  canEdit?: boolean;
 }
 
 export interface CreateWikiPageRequest {
@@ -789,6 +791,8 @@ export interface WikiSearchResult {
   score: number;
   updatedAt: string;
   updatedByName: string;
+  /** Whether the requesting user may edit this page (computed server-side). */
+  canEdit?: boolean;
 }
 
 export interface WikiSearchResponse {
@@ -1081,6 +1085,277 @@ export const notificationApi = {
       '/notifications/mark-all-read',
       { method: 'PATCH' }
     ),
+};
+
+// ========== Patent module ==========
+
+export interface PatentListResponse {
+  id: number;
+  title: string;
+  /** Applicant's original draft title (differs from title only after admin edits). */
+  originalTitle?: string | null;
+  inventors: string[];
+  applicationType: string;
+  /** Statutory patent category: INVENTION | UTILITY_MODEL | DESIGN. */
+  patentCategory: string;
+  status: string;
+  applicationNumber?: string | null;
+  certificateNumber?: string | null;
+  creatorId: number;
+  creatorName?: string | null;
+  submitDate?: string | null;
+  receivedDate?: string | null;
+  paidDate?: string | null;
+  acceptedDate?: string | null;
+  preliminaryPassedDate?: string | null;
+  publishedDate?: string | null;
+  priorityGrantedDate?: string | null;
+  substantiveExamDate?: string | null;
+  oaNotificationDate?: string | null;
+  grantFeePaidDate?: string | null;
+  grantedDate?: string | null;
+}
+
+export interface AllowedTransitionResponse {
+  toStatus: string;
+  requiresAttachment: boolean;
+  requiresApplicationNumber: boolean;
+  requiresCertificateNumber: boolean;
+  requiresApplicationTypeConfirm: boolean;
+}
+
+export interface PatentAttachmentResponse {
+  id: number;
+  category: string;
+  fileName: string;
+  fileSize?: number | null;
+  contentType?: string | null;
+  uploadedBy: number;
+  uploadedByName?: string | null;
+  uploadedAt: string;
+  historyId?: number | null;
+}
+
+export interface PatentCommentResponse {
+  id: number;
+  isSystem: boolean;
+  authorId?: number | null;
+  authorName?: string | null;
+  content: string;
+  createdAt: string;
+}
+
+export interface PatentHistoryResponse {
+  id: number;
+  fromStatus: string;
+  toStatus: string;
+  eventDate: string;
+  operatorId: number;
+  operatorName?: string | null;
+  applicationNumber?: string | null;
+  certificateNumber?: string | null;
+  applicationType?: string | null;
+  undone: boolean;
+  undoneAt?: string | null;
+  createdAt: string;
+}
+
+export interface PatentDetailResponse extends PatentListResponse {
+  projectId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  viewerIsCreator: boolean;
+  viewerIsPatentAdmin: boolean;
+  allowedTransitions: AllowedTransitionResponse[];
+  attachments: PatentAttachmentResponse[];
+  comments: PatentCommentResponse[];
+  history: PatentHistoryResponse[];
+}
+
+export interface PatentAdminResponse {
+  userId: number;
+  userName?: string | null;
+  userEmail?: string | null;
+  grantedBy: number;
+  grantedByName?: string | null;
+  grantedAt: string;
+}
+
+/** Multipart helper: never sets Content-Type so the browser adds the multipart boundary. */
+async function fetchPatentForm<T>(endpoint: string, formData: FormData, method: string = 'POST'): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const token = typeof window !== 'undefined' ? getAuthToken() : null;
+
+  const response = await fetch(url, {
+    method,
+    body: formData,
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || `Request failed: ${response.status}`);
+  }
+  const text = await response.text();
+  return text ? (JSON.parse(text) as T) : ({} as T);
+}
+
+export interface PatentTransitionParams {
+  toStatus: string;
+  eventDate?: string;
+  applicationNumber?: string;
+  certificateNumber?: string;
+  applicationType?: string;
+}
+
+export const patentApi = {
+  list: (q?: string, scope: 'all' | 'mine' | 'granted' = 'all') => {
+    const params = new URLSearchParams({ scope });
+    if (q) params.set('q', q);
+    return fetchApi<{ items: PatentListResponse[]; total: number; viewerIsPatentAdmin: boolean }>(
+      `/patents?${params.toString()}`
+    );
+  },
+
+  getById: (id: number) => fetchApi<PatentDetailResponse>(`/patents/${id}`),
+
+  create: (title: string, inventors: string[], file: File, patentCategory?: string) => {
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('inventors', JSON.stringify(inventors));
+    if (patentCategory) formData.append('patentCategory', patentCategory);
+    formData.append('file', file);
+    return fetchPatentForm<PatentDetailResponse>('/patents', formData);
+  },
+
+  update: (id: number, title: string, inventors: string[], file?: File | null, patentCategory?: string) => {
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('inventors', JSON.stringify(inventors));
+    if (patentCategory) formData.append('patentCategory', patentCategory);
+    if (file) formData.append('file', file);
+    return fetchPatentForm<PatentDetailResponse>(`/patents/${id}`, formData, 'PUT');
+  },
+
+  transition: (id: number, params: PatentTransitionParams, file?: File | null) => {
+    const formData = new FormData();
+    formData.append('toStatus', params.toStatus);
+    if (params.eventDate) formData.append('eventDate', params.eventDate);
+    if (params.applicationNumber) formData.append('applicationNumber', params.applicationNumber);
+    if (params.certificateNumber) formData.append('certificateNumber', params.certificateNumber);
+    if (params.applicationType) formData.append('applicationType', params.applicationType);
+    if (file) formData.append('file', file);
+    return fetchPatentForm<PatentDetailResponse>(`/patents/${id}/transition`, formData);
+  },
+
+  undoTransition: (id: number) =>
+    fetchApi<PatentDetailResponse>(`/patents/${id}/transition/undo`, { method: 'POST' }),
+
+  addComment: (id: number, content: string) =>
+    fetchApi<PatentDetailResponse>(`/patents/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+
+  /** Fetch the file as a blob (Authorization header) and trigger a browser download. */
+  downloadAttachment: async (id: number, attachmentId: number, fileName: string) => {
+    const token = typeof window !== 'undefined' ? getAuthToken() : null;
+    const response = await fetch(
+      `${API_BASE_URL}/patents/${id}/attachments/${attachmentId}/download`,
+      {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        credentials: 'include',
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+};
+
+export const patentAdminApi = {
+  list: () => fetchApi<PatentAdminResponse[]>('/patent-admins'),
+  grant: (userId: number) =>
+    fetchApi<PatentAdminResponse>('/patent-admins', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    }),
+  revoke: (userId: number) =>
+    fetchApi<{ ok: boolean }>(`/patent-admins/${userId}`, { method: 'DELETE' }),
+};
+
+export interface PatentTemplateResponse {
+  id: number;
+  fileName: string;
+  fileSize: number;
+  contentType?: string | null;
+  uploadedByName?: string | null;
+  uploadedAt: string;
+}
+
+export interface PatentGuideResponse {
+  wikiPageId: number;
+  title: string;
+}
+
+export const patentSettingsApi = {
+  // ----- templates -----
+  listTemplates: () => fetchApi<PatentTemplateResponse[]>('/patents/templates'),
+
+  uploadTemplate: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetchPatentForm<PatentTemplateResponse>('/patents/admin/templates', formData);
+  },
+
+  deleteTemplate: (id: number) =>
+    fetchApi<{ ok: boolean }>(`/patents/admin/templates/${id}`, { method: 'DELETE' }),
+
+  /** Fetch the template as a blob (Authorization header) and trigger a browser download. */
+  downloadTemplate: async (id: number, fileName: string) => {
+    const token = typeof window !== 'undefined' ? getAuthToken() : null;
+    const response = await fetch(`${API_BASE_URL}/patents/templates/${id}/download`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+
+  // ----- guide doc -----
+  getGuide: () => fetchApi<PatentGuideResponse | null>('/patents/guide'),
+  linkGuide: (wikiPageId: number) =>
+    fetchApi<PatentGuideResponse>('/patents/admin/guide', {
+      method: 'POST',
+      body: JSON.stringify({ wikiPageId }),
+    }),
+  createGuide: (title?: string) =>
+    fetchApi<PatentGuideResponse>('/patents/admin/guide/create', {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    }),
+  unlinkGuide: () =>
+    fetchApi<{ ok: boolean }>('/patents/admin/guide', { method: 'DELETE' }),
 };
 
 export { API_BASE_URL };

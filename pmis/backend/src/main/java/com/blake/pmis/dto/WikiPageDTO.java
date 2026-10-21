@@ -26,4 +26,6 @@ public class WikiPageDTO {
     private Long lastModifiedBy;
     private String lastModifiedByName;
     private LocalDateTime lastModifiedAt;
+    /** Whether the requesting user may edit this page; computed per request. */
+    private Boolean canEdit;
 }

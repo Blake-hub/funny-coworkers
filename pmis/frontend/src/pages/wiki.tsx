@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
+import { useTranslation } from 'react-i18next';
 import { wikiApi, WikiPageResponse, WikiFolderResponse, WikiSearchResult } from '@/services/api';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
@@ -35,6 +36,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
 
 export default function Wiki() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isAuthenticated, user, loading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [wikiPages, setWikiPages] = useState<WikiPageResponse[]>([]);
@@ -134,7 +136,12 @@ export default function Wiki() {
       setWikiPages(pages => pages.filter(p => p.id !== id));
     } catch (err) {
       console.error('Failed to delete wiki page:', err);
-      alert(err instanceof Error ? err.message : 'Failed to delete page');
+      const msg = err instanceof Error ? err.message : 'Failed to delete page';
+      // Patent guide pages must be unlinked before deletion (HTTP 409).
+      const friendly = msg.includes('patent writing guide') && msg.includes('unlink')
+        ? t('wiki.guideDeleteBlocked')
+        : msg;
+      alert(friendly);
     }
   };
 
@@ -390,9 +397,10 @@ export default function Wiki() {
                 {searchResults.map((result) => (
                   <div
                     key={result.id}
-                    className="p-3 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    className="p-3 hover:bg-gray-50 transition-colors flex items-center justify-between cursor-pointer"
+                    onClick={() => router.push(`/wiki/${result.id}?q=${encodeURIComponent(searchQuery)}`)}
                   >
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="flex items-start gap-3 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
                       <FileText className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -429,20 +437,21 @@ export default function Wiki() {
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={() => router.push(`/wiki/${result.id}/edit-ex`)}
-                        className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="Edit"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
+                      {result.canEdit !== false && (
+                        <button
+                          onClick={() => router.push(`/wiki/${result.id}/edit-ex`)}
+                          className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="Edit"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             </>
           )}
-
           {/* No Search Results */}
           {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
             <div className="text-center py-8 text-gray-500">
@@ -485,9 +494,10 @@ export default function Wiki() {
               {filteredPages.map((page) => (
                 <div
                   key={page.id}
-                  className="p-3 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                  className="p-3 hover:bg-gray-50 transition-colors flex items-center justify-between cursor-pointer"
+                  onClick={() => router.push(`/wiki/${page.id}`)}
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="flex items-center gap-3 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
                     <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-medium text-gray-800 truncate">{page.title}</h3>
@@ -528,20 +538,24 @@ export default function Wiki() {
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={() => router.push(`/wiki/${page.id}/edit-ex`)}
-                      className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                      title="Edit"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeletePage(page.id)}
-                      className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {page.canEdit !== false && (
+                      <button
+                        onClick={() => router.push(`/wiki/${page.id}/edit-ex`)}
+                        className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Edit"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {page.canEdit !== false && (
+                      <button
+                        onClick={() => handleDeletePage(page.id)}
+                        className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

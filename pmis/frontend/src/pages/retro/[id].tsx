@@ -34,7 +34,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  Plus, X, Users, MessageSquare, ChevronDown, ThumbsUp, Trash2, Pencil, Check, ArrowLeft, ArrowUpDown,
+  Plus, X, Users, MessageSquare, ChevronDown, ThumbsUp, Trash2, Pencil, Check, ArrowLeft, ArrowUpDown, Search,
 } from 'lucide-react';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
@@ -303,9 +303,16 @@ function InviteDialog({ boardId, currentParticipantIds, users, onInvited, onClos
   const { t } = useTranslation();
   const [selected, setSelected] = useState<number[]>([]);
   const [inviting, setInviting] = useState(false);
+  const [search, setSearch] = useState('');
   const { addToast } = useToast();
 
   const availableUsers = users.filter((u) => !currentParticipantIds.includes(u.id));
+  const filteredUsers = search.trim()
+    ? availableUsers.filter((u) => {
+        const needle = search.trim().toLowerCase();
+        return u.name.toLowerCase().includes(needle) || (u.email?.toLowerCase().includes(needle) ?? false);
+      })
+    : availableUsers;
 
   const toggle = (uid: number) => {
     setSelected((prev) => prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]);
@@ -337,18 +344,38 @@ function InviteDialog({ boardId, currentParticipantIds, users, onInvited, onClos
           {availableUsers.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-4">{t('retro.detail.noUsersToInvite')}</p>
           ) : (
-            <div className="max-h-60 overflow-y-auto space-y-1">
-              {availableUsers.map((u) => (
-                <label key={u.id} className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-gray-50 rounded">
-                  <input type="checkbox" checked={selected.includes(u.id)} onChange={() => toggle(u.id)} className="w-4 h-4" />
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${getAvatarColor(u.id)}`}>
-                    {getInitials(u.name)}
+            <>
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={t('retro.detail.inviteSearchPlaceholder')}
+                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="h-60 overflow-y-auto">
+                {filteredUsers.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">{t('retro.detail.inviteNoMatch')}</p>
+                ) : (
+                  <div className="space-y-1">
+                    {filteredUsers.map((u) => (
+                      <label key={u.id} className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-gray-50 rounded">
+                        <input type="checkbox" checked={selected.includes(u.id)} onChange={() => toggle(u.id)} className="w-4 h-4" />
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${getAvatarColor(u.id)}`}>
+                          {getInitials(u.name)}
+                        </div>
+                        <span className="text-sm text-gray-700">{u.name}</span>
+                        <span className="text-xs text-gray-400 ml-auto">{u.email}</span>
+                      </label>
+                    ))}
                   </div>
-                  <span className="text-sm text-gray-700">{u.name}</span>
-                  <span className="text-xs text-gray-400 ml-auto">{u.email}</span>
-                </label>
-              ))}
-            </div>
+                )}
+              </div>
+            </>
           )}
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-200">

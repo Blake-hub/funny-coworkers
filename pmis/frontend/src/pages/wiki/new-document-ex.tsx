@@ -437,7 +437,7 @@ export default function NewDocumentEx() {
             </div>
           </div>
 
-          <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-[30%]'} transition-all duration-300 border-l border-gray-200 flex flex-col`}>
+          <div className={`${isRightPanelCollapsed ? 'w-0 overflow-hidden' : 'w-56 lg:w-64'} transition-all duration-300 border-l border-gray-200 flex flex-col`}>
             <div className="flex-1 overflow-y-auto p-4">
               <DocumentOutlineEx editor={editorInstance} />
             </div>

@@ -9,6 +9,7 @@ import com.blake.pmis.entity.User;
 import com.blake.pmis.entity.WikiFolder;
 import com.blake.pmis.entity.WikiPage;
 import com.blake.pmis.entity.enumeration.WikiVisibility;
+import com.blake.pmis.patent.repository.PatentSettingRepository;
 import com.blake.pmis.repository.UserRepository;
 import com.blake.pmis.repository.WikiFolderRepository;
 import com.blake.pmis.repository.WikiPageRepository;
@@ -37,6 +38,8 @@ public class WikiPageService {
     private final WikiFolderRepository wikiFolderRepository;
     private final PermissionService permissionService;
     private final NotificationService notificationService;
+    private final PatentSettingRepository patentSettingRepository;
+    private final com.blake.pmis.patent.service.PatentAdminService patentAdminService;
 
     private static final Pattern MENTION_LIKE_MARKER = Pattern.compile(
             "(?i)@|class\\s*=\\s*([\"'])[^\"']*\\bmention\\b|data-type\\s*=\\s*([\"'])mention"
@@ -136,7 +139,7 @@ public class WikiPageService {
                     .collect(Collectors.toList());
         }
         return pages.stream()
-                .map(this::convertToDTO)
+                .map(p -> convertToDTO(p, currentUser))
                 .collect(Collectors.toList());
     }
 
@@ -147,7 +150,7 @@ public class WikiPageService {
         if (!hasViewAccess(wikiPage, currentUser)) {
             throw new RuntimeException("Access denied to wiki page with id: " + id);
         }
-        return convertToDTO(wikiPage);
+        return convertToDTO(wikiPage, currentUser);
     }
 
     @Transactional(readOnly = true)
@@ -204,7 +207,7 @@ public class WikiPageService {
 
         WikiPage savedWikiPage = wikiPageRepository.save(wikiPage);
         afterSaveProduceMentions(savedWikiPage, currentUser);
-        return convertToDTO(savedWikiPage);
+        return convertToDTO(savedWikiPage, currentUser);
     }
 
     @Transactional
@@ -214,6 +217,14 @@ public class WikiPageService {
 
         if (!hasEditAccess(wikiPage, currentUser)) {
             throw new RuntimeException("No edit access to wiki page with id: " + id);
+        }
+
+        // Patent special case: the linked guide page must stay PUBLIC
+        // (HTTP 409 via GlobalExceptionHandler).
+        if (isLinkedGuidePage(id) && request.getVisibility() != null
+                && parseVisibility(request.getVisibility()) != WikiVisibility.PUBLIC) {
+            throw new IllegalStateException(
+                    "The patent writing guide must stay PUBLIC; visibility changes are not allowed");
         }
 
         if (request.getTitle() != null) {
@@ -255,7 +266,7 @@ public class WikiPageService {
 
         WikiPage savedWikiPage = wikiPageRepository.save(wikiPage);
         afterSaveProduceMentions(savedWikiPage, currentUser);
-        return convertToDTO(savedWikiPage);
+        return convertToDTO(savedWikiPage, currentUser);
     }
 
     @Transactional
@@ -291,7 +302,7 @@ public class WikiPageService {
                     id);
         }
 
-        return convertToDTO(savedWikiPage);
+        return convertToDTO(savedWikiPage, currentUser);
     }
 
     @Transactional
@@ -300,6 +311,11 @@ public class WikiPageService {
                 .orElseThrow(() -> new RuntimeException("Wiki page not found with id: " + id));
         if (!hasEditAccess(wikiPage, currentUser)) {
             throw new RuntimeException("No edit access to wiki page with id: " + id);
+        }
+        if (isLinkedGuidePage(id)) {
+            // HTTP 409 via GlobalExceptionHandler.
+            throw new IllegalStateException(
+                    "This page is linked as the patent writing guide; unlink it in Patent Settings before deleting");
         }
         wikiPageRepository.deleteById(id);
     }
@@ -363,6 +379,7 @@ public class WikiPageService {
                     .score(score)
                     .updatedAt(page.getLastModifiedAt())
                     .updatedByName(updatedByName)
+                    .canEdit(hasEditAccess(page, currentUser))
                     .build());
         }
 
@@ -501,6 +518,12 @@ public class WikiPageService {
             return true;
         }
 
+        // Patent special case: the linked "patent writing guide" page is
+        // editable by any patent admin (module-level), not just its creator.
+        if (isLinkedGuidePage(page.getId()) && patentAdminService.isPatentAdmin(user)) {
+            return true;
+        }
+
         if (page.getFolderId() != null) {
             Optional<WikiFolder> folderOpt = wikiFolderRepository.findById(page.getFolderId());
             if (folderOpt.isPresent()) {
@@ -526,7 +549,20 @@ public class WikiPageService {
         return false;
     }
 
-    private WikiPageDTO convertToDTO(WikiPage wikiPage) {
+    /**
+     * Patent special case: the linked "patent writing guide" page cannot be
+     * deleted; unlink it in Patent Settings first (HTTP 409).
+     */
+    private boolean isLinkedGuidePage(Long pageId) {
+        if (pageId == null) {
+            return false;
+        }
+        return patentSettingRepository.findById(1L)
+                .map(setting -> pageId.equals(setting.getGuidePageId()))
+                .orElse(false);
+    }
+
+    private WikiPageDTO convertToDTO(WikiPage wikiPage, User currentUser) {
         WikiPageDTO.WikiPageDTOBuilder builder = WikiPageDTO.builder()
                 .id(wikiPage.getId())
                 .title(wikiPage.getTitle())
@@ -562,6 +598,9 @@ public class WikiPageService {
             userRepository.findById(wikiPage.getLastModifiedBy())
                     .ifPresent(user -> builder.lastModifiedByName(user.getName()));
         }
+
+        // Per-request edit permission flag so the UI can hide edit entries.
+        builder.canEdit(hasEditAccess(wikiPage, currentUser));
 
         return builder.build();
     }

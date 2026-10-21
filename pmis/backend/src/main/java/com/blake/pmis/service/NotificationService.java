@@ -4,6 +4,9 @@ import com.blake.pmis.dto.NotificationDTO;
 import com.blake.pmis.entity.Notification;
 import com.blake.pmis.entity.User;
 import com.blake.pmis.entity.WikiPage;
+import com.blake.pmis.patent.entity.PatentApplication;
+import com.blake.pmis.patent.repository.PatentApplicationRepository;
+import com.blake.pmis.patent.service.PatentNotificationService;
 import com.blake.pmis.repository.NotificationRepository;
 import com.blake.pmis.repository.UserRepository;
 import com.blake.pmis.repository.WikiPageRepository;
@@ -44,6 +47,7 @@ public class NotificationService {
     private final WikiPageRepository wikiPageRepository;
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
+    private final PatentApplicationRepository patentApplicationRepository;
 
     @Transactional
     public List<Notification> notifyWikiMentions(WikiPage savedPage, Set<Long> mentionedUserIds, User actor) {
@@ -118,6 +122,7 @@ public class NotificationService {
 
         final Set<Long> pageIds = new LinkedHashSet<>();
         final Set<Long> retroBoardIds = new LinkedHashSet<>();
+        final Set<Long> patentIds = new LinkedHashSet<>();
         final Set<Long> actorIds = new LinkedHashSet<>();
         for (Notification r : rows) {
             if (TYPE_WIKI_MENTION.equals(r.getType())
@@ -130,6 +135,10 @@ public class NotificationService {
                     && r.getTargetId() != null) {
                 retroBoardIds.add(r.getTargetId());
             }
+            if (PatentNotificationService.TARGET_TYPE_PATENT.equals(r.getTargetType())
+                    && r.getTargetId() != null) {
+                patentIds.add(r.getTargetId());
+            }
             if (r.getActorUserId() != null) actorIds.add(r.getActorUserId());
         }
 
@@ -141,6 +150,10 @@ public class NotificationService {
                 ? Collections.emptyMap()
                 : boardRepository.findAllById(retroBoardIds).stream()
                         .collect(Collectors.toMap(Board::getId, Function.identity()));
+        final Map<Long, PatentApplication> patentMap = patentIds.isEmpty()
+                ? Collections.emptyMap()
+                : patentApplicationRepository.findAllById(patentIds).stream()
+                        .collect(Collectors.toMap(PatentApplication::getId, Function.identity()));
         final Map<Long, User> actorMap = actorIds.isEmpty()
                 ? Collections.emptyMap()
                 : userRepository.findAllById(actorIds).stream()
@@ -168,6 +181,25 @@ public class NotificationService {
                         ? a.getName() : "A user";
                 title = actorName + " invited you to retrospective \"" + boardTitle + "\"";
                 actionUrl = b != null ? ("/retro/" + b.getId()) : "/retro";
+            } else if (PatentNotificationService.TARGET_TYPE_PATENT.equals(r.getTargetType())) {
+                final PatentApplication p = r.getTargetId() != null ? patentMap.get(r.getTargetId()) : null;
+                final User a = r.getActorUserId() != null ? actorMap.get(r.getActorUserId()) : null;
+                final String patentTitle = p != null && p.getTitle() != null && !p.getTitle().isBlank()
+                        ? p.getTitle() : "a deleted patent application";
+                final String actorName = a != null && a.getName() != null && !a.getName().isBlank()
+                        ? a.getName() : "A user";
+                title = switch (r.getType()) {
+                    case PatentNotificationService.TYPE_PATENT_SUBMITTED ->
+                            actorName + " submitted a new patent application \"" + patentTitle + "\"";
+                    case PatentNotificationService.TYPE_PATENT_STATUS_CHANGED ->
+                            "Patent \"" + patentTitle + "\" has a status update";
+                    case PatentNotificationService.TYPE_PATENT_COMMENT ->
+                            actorName + " commented on patent \"" + patentTitle + "\"";
+                    case PatentNotificationService.TYPE_PATENT_UPDATED ->
+                            actorName + " updated patent \"" + patentTitle + "\"";
+                    default -> "New patent notification";
+                };
+                actionUrl = p != null ? ("/patents/" + p.getId()) : "/patents";
             } else {
                 // Fallback for any notification types added later in the UI
                 title = "New notification (type: " + r.getType() + ")";

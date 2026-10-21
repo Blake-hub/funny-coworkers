@@ -20,6 +20,7 @@ export type Dictionary = {
   issues: DictNode;
   projects: DictNode;
   teams: DictNode;
+  patents: DictNode;
   wiki: DictNode;
   search: DictNode;
   reports: DictNode;

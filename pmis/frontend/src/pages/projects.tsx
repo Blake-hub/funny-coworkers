@@ -8,6 +8,13 @@ import RichTextEditor from '@/components/RichTextEditor';
 import { mockUsers } from '@/data/mockData';
 import { projectApi, milestoneApi, userApi, teamApi, type ProjectResponse, type UserResponse, type TeamResponse } from '@/services/api';
 import { Plus, Filter, ChevronDown, ChevronRight, Settings, Check, X, Calendar, User, Users, Tag, Inbox, Clock, Play, AlertCircle, Minus, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
+
+/** Strip HTML tags and collapse whitespace for list-view previews. */
+function stripHtml(html?: string | null): string {
+  if (!html) return '';
+  const plain = html.replace(/<[^>]+>/g, '');
+  return plain.replace(/\s+/g, ' ').trim();
+}
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 
 export async function getServerSideProps(context: GetServerSidePropsContext): Promise<GetServerSidePropsResult<{}>> {
@@ -567,7 +574,7 @@ export default function Projects() {
                     )}
                     {enabledColumns.description && (
                       <td className="px-3 py-2">
-                        <span className="text-sm text-gray-500">{project.summary || project.description || t('common.noDescription')}</span>
+                        <span className="text-sm text-gray-500">{stripHtml(project.summary) || stripHtml(project.description) || t('common.noDescription')}</span>
                       </td>
                     )}
                     {enabledColumns.progress && (
