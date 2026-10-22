@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Upload } from 'lucide-react';
+import { X, Upload, FileText } from 'lucide-react';
 import {
   patentApi,
   type AllowedTransitionResponse,
@@ -172,13 +172,28 @@ export default function PatentTransitionModal({
             </div>
           )}
 
+          {transition.toStatus !== 'WITHDRAWN' && transition.toStatus !== 'SUBMITTED' && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
               {t('patents.transition.attachment')}
               {transition.requiresAttachment && <span className="text-red-500"> *</span>}
             </label>
+            {file ? (
+              <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded bg-gray-50">
+                <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className="flex-1 text-sm text-gray-700 truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => { setFile(null); setFileError(null); }}
+                  className="shrink-0 text-gray-400 hover:text-red-500 transition-colors"
+                  aria-label={t('patents.new.removeFile')}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
             <label
-              className={`flex items-center gap-2 px-2 py-1.5 border border-dashed rounded cursor-pointer transition-colors ${
+              className={`flex items-center justify-center gap-2 px-3 py-4 border border-dashed rounded cursor-pointer transition-colors ${
                 dragActive
                   ? 'border-gray-600 bg-gray-100'
                   : 'border-gray-300 hover:border-gray-400'
@@ -198,9 +213,7 @@ export default function PatentTransitionModal({
             >
               <Upload className="w-3.5 h-3.5 text-gray-400" />
               <span className="text-sm text-gray-600 truncate">
-                {file
-                  ? file.name
-                  : `${t('patents.new.dragHere')} ${t('patents.new.clickToBrowse')}`}
+                {`${t('patents.new.dragHere')} ${t('patents.new.clickToBrowse')}`}
               </span>
               <input
                 type="file"
@@ -213,11 +226,13 @@ export default function PatentTransitionModal({
                 }}
               />
             </label>
+            )}
             {transition.requiresAttachment && (
               <p className="mt-1 text-xs text-red-500">{t('patents.transition.attachmentRequired')}</p>
             )}
             {fileError && <p className="mt-1 text-xs text-red-500">{fileError}</p>}
           </div>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">

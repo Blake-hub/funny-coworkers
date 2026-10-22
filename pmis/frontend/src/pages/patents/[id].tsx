@@ -11,6 +11,7 @@ import {
   Send,
   Undo2,
   FileBadge,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -66,6 +67,7 @@ export default function PatentDetail() {
   const [comment, setComment] = useState('');
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (Number.isNaN(id)) return;
@@ -105,6 +107,24 @@ export default function PatentDetail() {
       addToast('error', err instanceof Error ? err.message : t('patents.error.updateFailed'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Two-step delete: first click arms the button, second click executes.
+  const handleDelete = async () => {
+    if (!detail) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await patentApi.delete(detail.id);
+      router.push('/patents');
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : t('patents.error.updateFailed'));
+      setBusy(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -174,13 +194,23 @@ export default function PatentDetail() {
               <span className="text-xs text-gray-600">{t('patents.detail.edit')}</span>
             </button>
           )}
-          {detail?.viewerIsCreator && detail.status === 'SUBMITTED' && !detail?.viewerIsPatentAdmin && (
+          {detail?.viewerIsCreator && detail.status === 'WITHDRAWN' && !detail?.viewerIsPatentAdmin && (
             <button
               onClick={() => router.push(`/patents/new?id=${detail.id}`)}
               className="flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
             >
               <Pencil className="w-3 h-3 text-gray-500" />
               <span className="text-xs text-gray-600">{t('patents.detail.edit')}</span>
+            </button>
+          )}
+          {detail && (detail.viewerIsCreator || detail.viewerIsPatentAdmin) && detail.status === 'WITHDRAWN' && (
+            <button
+              onClick={handleDelete}
+              disabled={busy}
+              className="flex items-center gap-1 px-2 py-1 text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span className="text-xs">{confirmDelete ? t('patents.detail.deleteConfirm') : t('patents.detail.delete')}</span>
             </button>
           )}
         </div>
@@ -255,7 +285,9 @@ export default function PatentDetail() {
                             : 'text-gray-700 border-gray-200 bg-gray-100 hover:bg-gray-200'
                         }`}
                       >
-                        {t(`patents.status.${tr.toStatus}`)}
+                        {detail.status === 'WITHDRAWN' && tr.toStatus === 'SUBMITTED'
+                          ? t('patents.detail.resubmit')
+                          : t(`patents.status.${tr.toStatus}`)}
                       </button>
                     ))}
                     {canUndo && (
@@ -334,7 +366,7 @@ export default function PatentDetail() {
                       >
                         <span className="text-xs text-gray-400">{fmtDateTime(h.createdAt)}</span>
                         <span>
-                          {h.operatorName || h.operatorId}: {t(`patents.status.${h.fromStatus}`)}
+                          {h.operatorName || h.operatorId}: {t(`patents.status.${h.fromStatus ?? 'INITIAL'}`)}
                           {' → '}
                           {t(`patents.status.${h.toStatus}`)}
                         </span>

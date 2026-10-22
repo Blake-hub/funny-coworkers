@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Upload, Download, ChevronDown, BookOpen } from 'lucide-react';
+import { ArrowLeft, Upload, Download, ChevronDown, BookOpen, FileText, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import Layout from '@/components/Layout/Layout';
@@ -17,7 +17,7 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
   return { props: {} };
 }
 
-/** Create page; doubles as the creator edit page via /patents/new?id={id} (SUBMITTED only). */
+/** Create page; doubles as the creator edit page via /patents/new?id={id} (WITHDRAWN only). */
 export default function PatentNew() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -109,6 +109,9 @@ export default function PatentNew() {
   const validateFile = (f: File | null): string | null => {
     if (!f) {
       return isEdit ? null : t('patents.new.disclosureRequired');
+    }
+    if (f.size === 0) {
+      return t('patents.error.fileEmpty');
     }
     const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
     if (ext !== '.doc' && ext !== '.docx') {
@@ -259,41 +262,54 @@ export default function PatentNew() {
                   {t('patents.new.currentFile')}: {currentFileName}
                 </p>
               )}
-              <label
-                className={`flex items-center gap-2 px-2 py-1.5 border border-dashed rounded cursor-pointer transition-colors ${
-                  dragActive
-                    ? 'border-gray-600 bg-gray-100'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragLeave={() => setDragActive(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                  const dropped = e.dataTransfer.files?.[0] || null;
-                  acceptFile(dropped);
-                }}
-              >
-                <Upload className="w-3.5 h-3.5 text-gray-400" />
-                <span className="text-sm text-gray-600 truncate">
-                  {file
-                    ? file.name
-                    : isEdit
+              {file ? (
+                <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded bg-gray-50">
+                  <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span className="flex-1 text-sm text-gray-700 truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setFile(null); setFileError(null); }}
+                    className="shrink-0 text-gray-400 hover:text-red-500 transition-colors"
+                    aria-label={t('patents.new.removeFile')}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <label
+                  className={`flex items-center justify-center gap-2 px-3 py-5 border border-dashed rounded cursor-pointer transition-colors ${
+                    dragActive
+                      ? 'border-gray-600 bg-gray-100'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragActive(true);
+                  }}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragActive(false);
+                    const dropped = e.dataTransfer.files?.[0] || null;
+                    acceptFile(dropped);
+                  }}
+                >
+                  <Upload className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-sm text-gray-600 truncate">
+                    {isEdit
                       ? t('patents.new.replace')
                       : `${t('patents.new.dragHere')} ${t('patents.new.clickToBrowse')}`}
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".doc,.docx"
-                  onChange={(e) => {
-                    acceptFile(e.target.files?.[0] || null);
-                  }}
-                />
-              </label>
+                  </span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".doc,.docx"
+                    onChange={(e) => {
+                      acceptFile(e.target.files?.[0] || null);
+                    }}
+                  />
+                </label>
+              )}
               <p className="mt-1 text-xs text-gray-500">{t('patents.new.disclosureHint')}</p>
               {fileError && <p className="mt-1 text-xs text-red-500">{fileError}</p>}
             </div>

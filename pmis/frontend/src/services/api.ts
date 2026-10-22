@@ -1220,12 +1220,12 @@ export const patentApi = {
 
   getById: (id: number) => fetchApi<PatentDetailResponse>(`/patents/${id}`),
 
-  create: (title: string, inventors: string[], file: File, patentCategory?: string) => {
+  create: (title: string, inventors: string[], file?: File | null, patentCategory?: string) => {
     const formData = new FormData();
     formData.append('title', title);
     formData.append('inventors', JSON.stringify(inventors));
     if (patentCategory) formData.append('patentCategory', patentCategory);
-    formData.append('file', file);
+    if (file) formData.append('file', file);
     return fetchPatentForm<PatentDetailResponse>('/patents', formData);
   },
 
@@ -1251,6 +1251,9 @@ export const patentApi = {
 
   undoTransition: (id: number) =>
     fetchApi<PatentDetailResponse>(`/patents/${id}/transition/undo`, { method: 'POST' }),
+
+  delete: (id: number) =>
+    fetchApi<void>(`/patents/${id}`, { method: 'DELETE' }),
 
   addComment: (id: number, content: string) =>
     fetchApi<PatentDetailResponse>(`/patents/${id}/comments`, {

@@ -40,6 +40,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -157,6 +158,15 @@ public class PatentService {
 
         storeAttachment(patent.getId(), disclosure, PatentAttachmentCategory.DISCLOSURE, null, creator);
 
+        // Record the initial SUBMITTED state so the status timeline is complete.
+        historyRepository.save(PatentStatusHistory.builder()
+                .patentId(patent.getId())
+                .fromStatus(null)
+                .toStatus(PatentStatus.SUBMITTED)
+                .eventDate(patent.getSubmitDate())
+                .operatorId(creator.getId())
+                .build());
+
         notificationService.notifySubmitted(patent, creator, patentAdminService.patentAdminUserIds());
         return buildDetail(patent, creator, true, patentAdminService.isPatentAdmin(creator));
     }
@@ -169,14 +179,15 @@ public class PatentService {
         final PatentApplication patent = findPatent(id);
         final boolean actorIsAdmin = patentAdminService.isPatentAdmin(actor);
 
-        // Category + inventors: creator while SUBMITTED, admin before ACCEPTED.
+        // Category + inventors: creator only while WITHDRAWN (withdraw = pull back to edit;
+        // SUBMITTED is locked to avoid racing the admin's reception), admin before ACCEPTED.
         final PatentStatus currentStatus = patent.getStatus();
-        final boolean categoryWindow = currentStatus == PatentStatus.SUBMITTED
-                || (actorIsAdmin && currentStatus.ordinal() < PatentStatus.ACCEPTED.ordinal());
         final boolean creatorWindow = actor.getId().equals(patent.getCreatorId())
-                && currentStatus == PatentStatus.SUBMITTED;
+                && currentStatus == PatentStatus.WITHDRAWN;
+        final boolean categoryWindow = creatorWindow
+                || (actorIsAdmin && currentStatus.ordinal() < PatentStatus.ACCEPTED.ordinal());
 
-        // Title: creator while SUBMITTED, admin in ANY status (agency rewrites).
+        // Title: creator while WITHDRAWN, admin in ANY status (agency rewrites).
         final boolean titleAllowed = creatorWindow || actorIsAdmin;
 
         if (!titleAllowed) {
@@ -234,6 +245,32 @@ public class PatentService {
         return buildDetail(patent, actor, actor.getId().equals(patent.getCreatorId()), actorIsAdmin);
     }
 
+    // ---------------------------------------------------------------- delete (creator/admin, WITHDRAWN only)
+
+    @Transactional
+    public void delete(User actor, Long id) {
+        final PatentApplication patent = findPatent(id);
+        final boolean actorIsAdmin = patentAdminService.isPatentAdmin(actor);
+        if (!actor.getId().equals(patent.getCreatorId()) && !actorIsAdmin) {
+            throw new AccessDeniedException("Only the creator or a patent admin can delete this application");
+        }
+        if (patent.getStatus() != PatentStatus.WITHDRAWN) {
+            throw new IllegalStateException("Only withdrawn applications can be deleted");
+        }
+        // Best-effort removal of uploaded files on disk; DB rows cascade.
+        final Path dir = patentsRoot.resolve(String.valueOf(id));
+        try {
+            if (Files.exists(dir)) {
+                try (var stream = Files.walk(dir)) {
+                    stream.sorted(Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+                }
+            }
+        } catch (IOException ignored) {
+            // Disk cleanup failure must not block the delete.
+        }
+        patentRepository.delete(patent);
+    }
+
     private static String labelOf(PatentCategory c) {
         if (c == null) return "";
         return switch (c) {
@@ -253,17 +290,22 @@ public class PatentService {
         final boolean actorIsAdmin = patentAdminService.isPatentAdmin(actor);
         final PatentStatus from = patent.getStatus();
 
-        // Creator may only withdraw while the application is still SUBMITTED.
+        // Creator may withdraw while SUBMITTED, or resubmit after a withdrawal.
+        // Admin transitions go through the state machine table.
+        final boolean creatorResubmit = !actorIsAdmin
+                && PatentStatus.SUBMITTED == toStatus
+                && PatentStatus.WITHDRAWN == from
+                && actor.getId().equals(patent.getCreatorId());
         if (!actorIsAdmin) {
             final boolean creatorWithdraw = PatentStatus.WITHDRAWN == toStatus
                     && PatentStatus.SUBMITTED == from
                     && actor.getId().equals(patent.getCreatorId());
-            if (!creatorWithdraw) {
+            if (!creatorWithdraw && !creatorResubmit) {
                 throw new AccessDeniedException("Only patent admins can change the status");
             }
         }
 
-        if (!PatentStateMachine.canTransition(patent.getApplicationType(), from, toStatus)) {
+        if (!creatorResubmit && !PatentStateMachine.canTransition(patent.getApplicationType(), from, toStatus)) {
             throw new RuntimeException("Illegal status transition: " + from + " -> " + toStatus);
         }
         if (PatentStateMachine.requiresApplicationNumber(toStatus)
@@ -288,6 +330,10 @@ public class PatentService {
         final LocalDate date = eventDate != null ? eventDate : LocalDate.now();
         patent.setStatus(toStatus);
         applyStageDate(patent, toStatus, date);
+        if (creatorResubmit) {
+            // Resubmission refreshes the submission date.
+            patent.setSubmitDate(date);
+        }
         if (applicationNumber != null && !applicationNumber.isBlank()) {
             patent.setApplicationNumber(applicationNumber.trim());
         }
@@ -345,6 +391,10 @@ public class PatentService {
         final PatentStatusHistory history = historyRepository
                 .findFirstByPatentIdAndUndoneFalseOrderByCreatedAtDescIdDesc(id)
                 .orElseThrow(() -> new RuntimeException("No transition to undo"));
+
+        if (history.getFromStatus() == null) {
+            throw new IllegalStateException("Cannot undo the initial submission");
+        }
 
         final PatentStatus revertedTo = history.getFromStatus();
         patent.setStatus(revertedTo);
@@ -486,8 +536,11 @@ public class PatentService {
     }
 
     private void validateFile(MultipartFile file, String[] allowedExtensions, String errorMessage) {
-        if (file == null || file.isEmpty()) {
-            throw new RuntimeException("File is required");
+        if (file == null) {
+            throw new RuntimeException(errorMessage);
+        }
+        if (file.isEmpty()) {
+            throw new RuntimeException("File is empty");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new RuntimeException("File size exceeds the maximum limit of 100MB");
@@ -599,7 +652,7 @@ public class PatentService {
         final List<PatentHistoryDTO> historyDTOs = history.stream()
                 .map(h -> PatentHistoryDTO.builder()
                         .id(h.getId())
-                        .fromStatus(h.getFromStatus().name())
+                        .fromStatus(h.getFromStatus() != null ? h.getFromStatus().name() : null)
                         .toStatus(h.getToStatus().name())
                         .eventDate(h.getEventDate())
                         .operatorId(h.getOperatorId())
@@ -656,6 +709,8 @@ public class PatentService {
             targets = PatentStateMachine.allowedTargets(patent.getApplicationType(), patent.getStatus());
         } else if (viewerIsCreator && patent.getStatus() == PatentStatus.SUBMITTED) {
             targets = Set.of(PatentStatus.WITHDRAWN);
+        } else if (viewerIsCreator && patent.getStatus() == PatentStatus.WITHDRAWN) {
+            targets = Set.of(PatentStatus.SUBMITTED);
         } else {
             targets = Set.of();
         }
@@ -717,6 +772,7 @@ public class PatentService {
                                           PatentApplication patent, String attachmentName) {
         final StringBuilder sb = new StringBuilder(formatChineseDate(date)).append("，");
         switch (to) {
+            case SUBMITTED -> sb.append("申请人重新提交了本申请");
             case RECEIVED -> sb.append("专利管理员已接收交底书并转交代理商");
             case CANCELLED -> sb.append("经代理商初审，本专利不具备申请价值，予以取消");
             case PAID -> sb.append("公司已支付代理费与官费，申请类型确认为")

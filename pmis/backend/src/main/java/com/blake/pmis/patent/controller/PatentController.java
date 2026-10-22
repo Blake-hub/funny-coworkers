@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -145,6 +146,17 @@ public class PatentController {
         }
         return ResponseEntity.ok(patentService.addComment(user, id,
                 body != null ? body.get("content") : null));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a withdrawn application (creator or patent admin); hidden from list afterwards")
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        final User user = getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        patentService.delete(user, id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/attachments/{attachmentId}/download")

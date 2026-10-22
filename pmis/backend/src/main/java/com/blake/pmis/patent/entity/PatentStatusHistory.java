@@ -27,7 +27,7 @@ public class PatentStatusHistory {
     private Long patentId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "from_status", nullable = false, length = 30)
+    @Column(name = "from_status", length = 30)
     private PatentStatus fromStatus;
 
     @Enumerated(EnumType.STRING)
