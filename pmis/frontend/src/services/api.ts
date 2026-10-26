@@ -1095,7 +1095,7 @@ export interface PatentListResponse {
   /** Applicant's original draft title (differs from title only after admin edits). */
   originalTitle?: string | null;
   inventors: string[];
-  applicationType: string;
+  applicationType?: string | null;
   /** Statutory patent category: INVENTION | UTILITY_MODEL | DESIGN. */
   patentCategory: string;
   status: string;

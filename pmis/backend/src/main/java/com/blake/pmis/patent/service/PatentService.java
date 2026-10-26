@@ -148,7 +148,7 @@ public class PatentService {
         final PatentApplication patent = patentRepository.save(PatentApplication.builder()
                 .title(cleanTitle)
                 .originalTitle(cleanTitle)
-                .applicationType(PatentType.STANDARD)
+                // applicationType is intentionally left null until admin confirms at RECEIVED.
                 .patentCategory(category)
                 .status(PatentStatus.SUBMITTED)
                 .inventors(toJson(names))
@@ -406,8 +406,8 @@ public class PatentService {
             patent.setCertificateNumber(null);
         }
         if (history.getToStatus() == PatentStatus.PAID) {
-            // Application type is always the STANDARD default before the PAID transition.
-            patent.setApplicationType(PatentType.STANDARD);
+            // PAID snapshot captured applicationType; if the admin undoes back to RECEIVED the
+            // value must be retained (confirmed at RECEIVED step) — do NOT reset to STANDARD.
         }
         patentRepository.save(patent);
 
@@ -671,7 +671,7 @@ public class PatentService {
                 .title(patent.getTitle())
                 .originalTitle(patent.getOriginalTitle())
                 .inventors(fromJson(patent.getInventors()))
-                .applicationType(patent.getApplicationType().name())
+                .applicationType(patent.getApplicationType() != null ? patent.getApplicationType().name() : null)
                 .patentCategory(patent.getPatentCategory().name())
                 .status(patent.getStatus().name())
                 .applicationNumber(patent.getApplicationNumber())
@@ -733,7 +733,7 @@ public class PatentService {
                 .title(p.getTitle())
                 .originalTitle(p.getOriginalTitle())
                 .inventors(fromJson(p.getInventors()))
-                .applicationType(p.getApplicationType().name())
+                .applicationType(p.getApplicationType() != null ? p.getApplicationType().name() : null)
                 .patentCategory(p.getPatentCategory().name())
                 .status(p.getStatus().name())
                 .applicationNumber(p.getApplicationNumber())

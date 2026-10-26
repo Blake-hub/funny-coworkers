@@ -367,7 +367,7 @@ export default function Patents() {
                       </span>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      <span className="text-sm text-gray-500">{t(`patents.type.${p.applicationType}`)}</span>
+                      <span className="text-sm text-gray-500">{p.applicationType ? t(`patents.type.${p.applicationType}`) : '—'}</span>
                     </td>
                     {visibleColumns.acceptedDate && (
                       <td className="px-3 py-2 whitespace-nowrap">

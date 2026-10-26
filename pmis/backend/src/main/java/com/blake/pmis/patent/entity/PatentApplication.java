@@ -32,7 +32,7 @@ public class PatentApplication {
     private String originalTitle;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "application_type", nullable = false, length = 20)
+    @Column(name = "application_type", nullable = true, length = 20)
     private PatentType applicationType;
 
     /** Statutory patent category: INVENTION / UTILITY_MODEL / DESIGN. */

@@ -4,7 +4,7 @@ import type { PatentDetailResponse } from '@/services/api';
 
 interface PatentProgressDiagramProps {
   status: string;
-  applicationType: string;
+  applicationType?: string | null;
 }
 
 const ABNORMAL = new Set(['CANCELLED', 'REJECTED', 'DEEMED_WITHDRAWN', 'WITHDRAWN']);

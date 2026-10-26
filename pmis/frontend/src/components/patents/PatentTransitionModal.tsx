@@ -33,13 +33,13 @@ export default function PatentTransitionModal({
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [typeError, setTypeError] = useState<string | null>(null);
   // Drag & drop highlight state for the attachment upload zone.
   const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
-    if (transition.requiresApplicationTypeConfirm) {
-      setApplicationType('STANDARD');
-    }
+    setApplicationType('');
+    setTypeError(null);
   }, [transition.requiresApplicationTypeConfirm]);
 
   const validateFile = (f: File | null): string | null => {
@@ -58,6 +58,10 @@ export default function PatentTransitionModal({
   };
 
   const handleSubmit = async () => {
+    if (transition.requiresApplicationTypeConfirm && !applicationType) {
+      setTypeError(t('patents.transition.typeRequired'));
+      return;
+    }
     if (transition.requiresApplicationNumber && !applicationNumber.trim()) {
       addToast('error', t('patents.transition.applicationNumberRequired'));
       return;
@@ -161,14 +165,16 @@ export default function PatentTransitionModal({
               </label>
               <select
                 value={applicationType}
-                onChange={(e) => setApplicationType(e.target.value)}
+                onChange={(e) => { setApplicationType(e.target.value); setTypeError(null); }}
                 className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:border-gray-400"
               >
+                <option value="">{t('patents.transition.typePlaceholder')}</option>
                 <option value="STANDARD">{t('patents.type.STANDARD')}</option>
                 <option value="PRIORITY">{t('patents.type.PRIORITY')}</option>
                 <option value="PREEMPTIVE">{t('patents.type.PREEMPTIVE')}</option>
               </select>
-              <p className="mt-1 text-xs text-gray-500">{t('patents.transition.confirmTypeHint')}</p>
+              {typeError && <p className="mt-1 text-xs text-red-500">{typeError}</p>}
+              {!typeError && <p className="mt-1 text-xs text-gray-500">{t('patents.transition.confirmTypeHint')}</p>}
             </div>
           )}
 

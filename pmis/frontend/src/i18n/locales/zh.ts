@@ -637,6 +637,8 @@ export const zh: Dictionary = {
       certificateNumberRequired: '状态变更为"已获证"时必填证书号',
       confirmType: '确认申请类型',
       confirmTypeHint: '请按代理商初审结论确认申请类型',
+      typePlaceholder: '请选择申请类型',
+      typeRequired: '请选择申请类型',
       confirm: '确认变更',
       cancel: '取消',
       submitting: '提交中…',

@@ -230,7 +230,7 @@ export default function PatentDetail() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3 text-sm">
                   <div>
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('patents.col.applicationType')}</div>
-                    <div className="text-gray-800">{t(`patents.type.${detail.applicationType}`)}</div>
+                    <div className="text-gray-800">{detail.applicationType ? t(`patents.type.${detail.applicationType}`) : '—'}</div>
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('patents.detail.category')}</div>

@@ -14,6 +14,11 @@ services:
       POSTGRES_USER: postgres
       # Use a strong password in production; must match SPRING_DATASOURCE_PASSWORD below
       POSTGRES_PASSWORD: PmisProdDb2026!Strong
+      TZ: Asia/Shanghai
+    command: >-
+      postgres
+      -c timezone=Asia/Shanghai
+      -c log_timezone=Asia/Shanghai
     volumes:
       - pmis-db-data:/var/lib/postgresql/data
     networks:
@@ -26,7 +31,7 @@ services:
       retries: 10
 
   backend:
-    image: pmis-backend:1.1.0
+    image: pmis-backend:1.1.1
     container_name: pmis-backend
     restart: unless-stopped
     depends_on:
@@ -57,7 +62,7 @@ services:
       - pmis-net
 
   frontend:
-    image: pmis-frontend:1.1.0
+    image: pmis-frontend:1.1.1
     container_name: pmis-frontend
     restart: unless-stopped
     depends_on:

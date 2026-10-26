@@ -637,6 +637,8 @@ export const en: Dictionary = {
       certificateNumberRequired: 'Certificate number is required when granting',
       confirmType: 'Confirm Application Type',
       confirmTypeHint: 'Confirm the application type based on the agency pre-review',
+      typePlaceholder: 'Select an application type',
+      typeRequired: 'Application type is required',
       confirm: 'Confirm',
       cancel: 'Cancel',
       submitting: 'Submitting…',

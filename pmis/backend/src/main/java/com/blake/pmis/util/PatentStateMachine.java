@@ -61,13 +61,18 @@ public final class PatentStateMachine {
     /**
      * All legal target statuses from {@code from} for the given application type,
      * used by the admin transition dialog.
+     *
+     * {@code type} may be null before RECEIVED — the admin has not confirmed it yet.
+     * In that case we fall back to the STANDARD table (PREEMPTIVE shares it in
+     * Phase 1/2, and PRIORITY only diverges after PAID).
      */
     public static Set<PatentStatus> allowedTargets(PatentType type, PatentStatus from) {
-        if (type == null || from == null || TERMINAL.contains(from)) {
+        if (from == null || TERMINAL.contains(from)) {
             return Set.of();
         }
+        final PatentType effectiveType = type != null ? type : PatentType.STANDARD;
         if (from == PatentStatus.PUBLISHED) {
-            return type == PatentType.PRIORITY
+            return effectiveType == PatentType.PRIORITY
                     ? EnumSet.of(PatentStatus.PRIORITY_GRANTED, PatentStatus.WITHDRAWN)
                     : EnumSet.of(PatentStatus.SUBSTANTIVE_EXAM, PatentStatus.WITHDRAWN);
         }
@@ -76,7 +81,7 @@ public final class PatentStateMachine {
     }
 
     public static boolean canTransition(PatentType type, PatentStatus from, PatentStatus to) {
-        if (type == null || from == null || to == null) {
+        if (from == null || to == null) {
             return false;
         }
         return allowedTargets(type, from).contains(to);
