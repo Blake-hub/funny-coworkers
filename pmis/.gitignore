@@ -8,3 +8,6 @@ debug-segment-drag-drop-fail.md
 /frontend/test-results/
 /frontend/*.log
 .dbg/
+*.md
+*.tar
+*.csv

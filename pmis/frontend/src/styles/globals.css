@@ -629,3 +629,225 @@ mark.search-highlight-first {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ---------------------------------------------------------------------------
+   Shared read-only / inline-edit typography.
+   These rules used to live inside the RichTextEditor component's <style>
+   block, so they only existed while an editor instance was mounted. On pages
+   where no editor stays mounted (e.g. the project detail page) the read-only
+   description then fell back to browser defaults (16px text, no list markers,
+   no paragraph margins), so toggling view/edit changed font size, list
+   styling and block heights, which shifted the components below.
+   Keeping the rules in the global stylesheet makes read-only (.rte-view)
+   and inline edit (.inline-edit-mode .ProseMirror) render identically,
+   independent of whether an editor is mounted.
+   --------------------------------------------------------------------------- */
+.rte-view,
+.inline-edit-mode .ProseMirror {
+  color: #374151;
+  font-size: 14px;
+  line-height: 20px;
+}
+.inline-edit-mode .ProseMirror {
+  padding: 0;
+}
+.rte-view p,
+.inline-edit-mode .ProseMirror p {
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0 0 8px 0;
+}
+/* An empty paragraph in the stored HTML is a bare <p></p>, which collapses to
+   zero height in read-only mode, while the editor renders it as a full line.
+   The zero-width space keeps the blank line's height identical in both modes. */
+.rte-view p:empty::after {
+  content: "\200B";
+}
+.rte-view h1,
+.inline-edit-mode .ProseMirror h1 {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+.rte-view h2,
+.inline-edit-mode .ProseMirror h2 {
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+.rte-view h3,
+.inline-edit-mode .ProseMirror h3 {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+.rte-view h4,
+.inline-edit-mode .ProseMirror h4 {
+  font-size: 16px;
+  line-height: 19px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+.rte-view h5,
+.inline-edit-mode .ProseMirror h5 {
+  font-size: 14px;
+  line-height: 17px;
+  font-weight: 700;
+  margin: 7px 0;
+}
+.rte-view h6,
+.inline-edit-mode .ProseMirror h6 {
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 700;
+  margin: 6px 0;
+  color: #6b7280;
+}
+.rte-view ul,
+.inline-edit-mode .ProseMirror ul,
+.rte-view ol,
+.inline-edit-mode .ProseMirror ol {
+  padding-left: 16px;
+  margin: 0 0 8px 0;
+}
+.rte-view ul,
+.inline-edit-mode .ProseMirror ul {
+  list-style-type: disc;
+}
+.rte-view ol,
+.inline-edit-mode .ProseMirror ol {
+  list-style-type: decimal;
+}
+.rte-view li,
+.inline-edit-mode .ProseMirror li {
+  margin: 0 0 4px 0;
+}
+.rte-view li p,
+.inline-edit-mode .ProseMirror li p {
+  margin: 0;
+  display: block;
+}
+.rte-view blockquote,
+.inline-edit-mode .ProseMirror blockquote {
+  margin: 0 0 8px 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid #d1d5db;
+  background: transparent;
+  color: #4b5563;
+  border-radius: 0;
+  font-style: italic;
+}
+.rte-view code,
+.inline-edit-mode .ProseMirror code {
+  background: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.rte-view pre,
+.inline-edit-mode .ProseMirror pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-size: 13px;
+  line-height: 20px;
+  margin: 12px 0;
+}
+.rte-view pre code,
+.inline-edit-mode .ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 13px;
+}
+.rte-view hr,
+.inline-edit-mode .ProseMirror hr {
+  border: none;
+  border-top: 2px dashed #e2e8f0;
+  margin: 20px 0;
+}
+.rte-view table,
+.inline-edit-mode .ProseMirror table {
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 12px 0;
+  table-layout: fixed;
+  width: 100%;
+  border: none;
+}
+.inline-edit-mode .ProseMirror .tableWrapper {
+  margin-left: 0;
+}
+/* .tiptap-editor .tableWrapper table sets a 1em (14px) margin that would
+   override the shared 12px table margin in edit mode only. */
+.inline-edit-mode .ProseMirror .tableWrapper table {
+  margin: 12px 0;
+}
+.rte-view th,
+.inline-edit-mode .ProseMirror th,
+.rte-view td,
+.inline-edit-mode .ProseMirror td {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  vertical-align: top;
+  box-sizing: border-box;
+  line-height: 20px;
+}
+.rte-view th,
+.inline-edit-mode .ProseMirror th {
+  background: #f8fafc;
+  font-weight: 600;
+  text-align: left;
+  color: inherit;
+}
+.rte-view td,
+.inline-edit-mode .ProseMirror td {
+  min-width: 60px;
+}
+.rte-view img,
+.inline-edit-mode .ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+  display: block;
+  margin: 8px 0;
+}
+.rte-view .image-align-center,
+.inline-edit-mode .ProseMirror .image-align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+.rte-view .image-align-left,
+.inline-edit-mode .ProseMirror .image-align-left {
+  float: left;
+  margin-right: 16px;
+}
+.rte-view .image-align-right,
+.inline-edit-mode .ProseMirror .image-align-right {
+  float: right;
+  margin-left: 16px;
+}
+.rte-view strong,
+.inline-edit-mode .ProseMirror strong {
+  font-weight: 700;
+}
+.rte-view em,
+.inline-edit-mode .ProseMirror em {
+  font-style: italic;
+}
+.rte-view a,
+.inline-edit-mode .ProseMirror a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+.rte-view mark,
+.inline-edit-mode .ProseMirror mark {
+  background-color: #fef08a;
+  border-radius: 2px;
+  padding: 0 2px;
+}

@@ -28,6 +28,14 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
   };
 }
 
+// The editor appends an empty paragraph after a trailing table so the caret can be
+// placed below it. The stored HTML does not contain that paragraph, so the read-only
+// view needs the same trailing line to keep the container height identical.
+function htmlForReadOnlyView(html: string | null | undefined) {
+  const content = html ?? '';
+  return /<\/table>\s*$/i.test(content) ? `${content}<p></p>` : content;
+}
+
 export default function IssueDetail({ issueId }: { issueId: string }) {
   const router = useRouter();
   const { t, i18n } = useTranslation();
@@ -299,7 +307,7 @@ export default function IssueDetail({ issueId }: { issueId: string }) {
                     <div
                       className="rte-view min-h-[60px] cursor-pointer hover:text-gray-800"
                       onClick={(e) => handleStartEdit('description', issue.description || '', e)}
-                      dangerouslySetInnerHTML={{ __html: valueHasContent(issue.description) ? (issue.description ?? '') : `<p class="text-gray-400 text-sm">${t('issues.descriptionPlaceholder')}</p>` }}
+                      dangerouslySetInnerHTML={{ __html: valueHasContent(issue.description) ? htmlForReadOnlyView(issue.description) : `<p class="text-gray-400 text-sm">${t('issues.descriptionPlaceholder')}</p>` }}
                     />
                   )}
                 </div>

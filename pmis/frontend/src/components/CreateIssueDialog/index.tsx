@@ -248,6 +248,7 @@ export default function CreateIssueDialog({
             onChange={(content) => setNewIssue({ ...newIssue, description: content })}
             placeholder="Description..."
             className="w-full"
+            showToolbar={false}
           />
         </div>
 

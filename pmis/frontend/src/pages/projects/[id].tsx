@@ -28,6 +28,13 @@ export async function getServerSideProps(context: GetServerSidePropsContext): Pr
   };
 }
 
+// The editor appends an empty paragraph after a trailing table so the caret can be
+// placed below it. The stored HTML does not contain that paragraph, so the read-only
+// view needs the same trailing line to keep the container height identical.
+function htmlForReadOnlyView(html: string) {
+  return /<\/table>\s*$/i.test(html) ? `${html}<p></p>` : html;
+}
+
 export default function ProjectDetail({ projectId }: { projectId: string }) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -502,7 +509,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
                     onBlur={handleSaveEdit}
-                    className="w-full border-0 px-0 py-0 text-sm focus:ring-0 focus:outline-none bg-transparent"
+                    className="w-full block border-0 px-0 py-0 text-sm leading-5 text-gray-600 focus:ring-0 focus:outline-none bg-transparent"
                     placeholder={t('projects.summaryPlaceholder')}
                     autoFocus
                   />
@@ -535,7 +542,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                     <div
                       className="rte-view cursor-pointer hover:text-gray-800 transition-colors min-h-[40px]"
                       onClick={(e) => handleStartEdit('description', project.description, e)}
-                      dangerouslySetInnerHTML={{ __html: valueHasContent(project.description) ? project.description : `<p class="text-gray-400 text-sm">${t('projects.introPlaceholder')}</p>` }}
+                      dangerouslySetInnerHTML={{ __html: valueHasContent(project.description) ? htmlForReadOnlyView(project.description) : `<p class="text-gray-400 text-sm">${t('projects.introPlaceholder')}</p>` }}
                     />
                   )}
                 </div>

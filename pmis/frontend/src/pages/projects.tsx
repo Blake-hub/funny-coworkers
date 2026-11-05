@@ -946,6 +946,7 @@ export default function Projects() {
                     onChange={(content) => setNewProject({ ...newProject, description: content })}
                     placeholder={t('projects.introPlaceholder')}
                     className="border-0"
+                    showToolbar={false}
                   />
                 </div>
               </div>
